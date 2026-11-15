@@ -22,7 +22,7 @@ import {
   fetchVersionManifest,
   getBuiltInFallbackManifest,
 } from './utils/githubUpdater';
-import { createInitialSeedState } from './utils/seedData';
+import { createFreshInitialState } from './utils/seedData';
 import { QuickEntryTab } from './components/QuickEntryTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { BracketsTab } from './components/BracketsTab';
@@ -58,7 +58,7 @@ function makeId(): string {
 }
 
 function syncActiveLeagueInRegistry(state: AppState): AppState {
-  const activeId = state.activeLeagueId || state.settings.leagueId || 'thursday-night-rollers';
+  const activeId = state.activeLeagueId || state.settings.leagueId || 'my-bowling-league';
   const { allLeaguesRegistry, ...leagueSnapshot } = state;
   const nextRegistry = {
     ...(allLeaguesRegistry || {}),
@@ -100,15 +100,15 @@ export default function App() {
             weekArchived: Boolean(parsed.weekArchived),
             weekNotes: typeof parsed.weekNotes === 'string' ? parsed.weekNotes : '',
             weekArchiveId: parsed.weekArchiveId || null,
-            activeLeagueId: parsed.activeLeagueId || parsed.settings?.leagueId || 'thursday-night-rollers',
+            activeLeagueId: parsed.activeLeagueId || parsed.settings?.leagueId || 'my-bowling-league',
             allLeaguesRegistry: parsed.allLeaguesRegistry || undefined,
           });
         }
       }
     } catch (e) {
-      console.warn('Could not load saved bowling state, using initial seed data.', e);
+      console.warn('Could not load saved bowling state, starting with a clean league.', e);
     }
-    return createInitialSeedState();
+    return createFreshInitialState();
   });
 
   const [undoStack, setUndoStack] = useState<AppState[]>([]);
@@ -185,6 +185,7 @@ export default function App() {
     };
 
     refreshDesktopSaveStatus();
+    bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
     const statusPoll = setInterval(refreshDesktopSaveStatus, 4000);
     window.addEventListener('focus', refreshDesktopSaveStatus);
 
@@ -843,6 +844,21 @@ export default function App() {
     showToast(`Deleted league "${targetName}".`, false, true);
   };
 
+  const handleStartFreshResetAll = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('bowling_league_helper_state_v4');
+      localStorage.removeItem('tnr_bowling_tracker_v3');
+    } catch {
+      // Ignore storage removal errors
+    }
+    const fresh = createFreshInitialState();
+    setUndoStack([]);
+    setAppState(fresh);
+    setActiveTab('entry');
+    showToast('Started fresh! Cleared all sample & prior data into a clean Week 1 league.');
+  };
+
   const handleRecordBackupTimestamp = (kind: 'local' | 'auto', locationLabel?: string) => {
     if (kind === 'local' && locationLabel) {
       desktopLastSaveExistsRef.current = true;
@@ -1153,6 +1169,7 @@ export default function App() {
             onDeleteLeague={handleDeleteLeague}
             onImportBackupFile={handleImportBackupJson}
             onRecordBackupTimestamp={handleRecordBackupTimestamp}
+            onStartFreshResetAll={handleStartFreshResetAll}
             onShowToast={showToast}
           />
         )}
@@ -1177,14 +1194,14 @@ export default function App() {
               </button>
             ))}
             <span className="px-2.5 py-1 rounded-md bg-emerald-700 text-white font-bold">
-              Week {appState.settings.weekNumber || '4'} (Active)
+              Week {appState.settings.weekNumber || '1'} (Active)
             </span>
             <button
               type="button"
               onClick={handleStartNewWeek}
               className="px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 font-semibold cursor-pointer transition-colors"
             >
-              Advance to Week {(Number(appState.settings.weekNumber) || 4) + 1} →
+              Advance to Week {(Number(appState.settings.weekNumber) || 1) + 1} →
             </button>
           </div>
         </div>
@@ -1192,14 +1209,12 @@ export default function App() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-0.5">
             <div>
-              Bowling League Helper · {appState.settings.leagueName || 'Thursday Night Rollers'} · Version {appState.version}
+              Bowling League Helper · {appState.settings.leagueName || 'My Bowling League'} · Version {appState.version}
               {getDesktopBridge() ? ` · Desktop Program (${desktopInstallDir})` : ' · Auto-saved locally'}
             </div>
-            {appState.settings.autoBackupDirectoryLabel && (
-              <div className="text-[11px] text-slate-500 font-mono">
-                Auto-Save Target: {appState.settings.autoBackupDirectoryLabel}
-              </div>
-            )}
+            <div className="text-[11px] text-slate-500 font-mono">
+              Auto-Save File: {appState.settings.autoBackupDirectoryLabel || 'Not set yet (will prompt on close)'}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button

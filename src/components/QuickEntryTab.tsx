@@ -451,13 +451,13 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
             </label>
             <select
               id="quick-league-switcher"
-              value={appState.activeLeagueId || settings.leagueId || 'thursday-night-rollers'}
+              value={appState.activeLeagueId || settings.leagueId || 'my-bowling-league'}
               onChange={(e) => onSwitchLeague(e.target.value)}
               className="px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-lg cursor-pointer"
             >
               {Object.entries(
                 appState.allLeaguesRegistry || {
-                  [settings.leagueId || 'thursday-night-rollers']: appState,
+                  [settings.leagueId || 'my-bowling-league']: appState,
                 }
               ).map(([id, lg]) => (
                 <option key={id} value={id}>
@@ -878,8 +878,10 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                     </div>
                     <div className="h-80 overflow-y-auto divide-y divide-slate-200 p-2 bg-white">
                       {missingPlayers.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-emerald-700 font-semibold text-center p-4">
-                          All roster players are accounted for!
+                        <div className="h-full flex items-center justify-center text-xs text-slate-500 font-medium text-center p-4">
+                          {roster.length === 0
+                            ? 'No roster bowlers yet. Enter a bowler on the left (or add bowlers in 1C Master Roster).'
+                            : 'All roster players are accounted for!'}
                         </div>
                       ) : (
                         missingPlayers.map((p) => (

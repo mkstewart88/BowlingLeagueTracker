@@ -722,6 +722,10 @@ static void HandleHttpClient(SOCKET client) {
   if (method == "POST" && path == "/api/desktop/close-attempt") {
     std::string jsonText;
     ExtractJsonStringField(body, "jsonText", jsonText);
+    if (jsonText.empty()) {
+      AutoCsLock lock(&g_stagedCs);
+      jsonText = g_stagedSavePayload;
+    }
 
     DesktopConfig cfg = ReadDesktopConfig();
     std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
@@ -942,8 +946,11 @@ static DWORD WINAPI FallbackProcessWaitThread(LPVOID param) {
     WaitForSingleObject(hProc, INFINITE);
     CloseHandle(hProc);
   }
-  // If browser delegated to another process, wait until UI SSE stream disconnects before exiting
-  Sleep(800);
+  // If browser delegated to another process (e.g. Edge Startup Boost), wait up to 10s for UI connection
+  for (int i = 0; i < 25 && g_serverRunning.load() && !g_uiConnected.load(); ++i) {
+    Sleep(400);
+  }
+  Sleep(500);
   while (g_serverRunning.load()) {
     bool hasClients = false;
     {
@@ -953,7 +960,7 @@ static DWORD WINAPI FallbackProcessWaitThread(LPVOID param) {
     if (!hasClients) break;
     Sleep(500);
   }
-  Sleep(250);
+  Sleep(300);
   if (g_hwnd) {
     PostMessageW(g_hwnd, WM_APP_EXIT_NOW, 0, 0);
   }
@@ -1163,7 +1170,54 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
       if (wParam == IDT_CLOSE_ACK_TIMEOUT) {
         KillTimer(hwnd, IDT_CLOSE_ACK_TIMEOUT);
         if (!g_closeAcked.load() && !g_allowClose.load()) {
-          // UI did not acknowledge close prompt in time: never trap user with an unclosable window
+          // Fallback if WebView2 UI didn't ack close prompt in time: auto-save or prompt natively
+          DesktopConfig cfg = ReadDesktopConfig();
+          std::string staged;
+          {
+            AutoCsLock lock(&g_stagedCs);
+            staged = g_stagedSavePayload;
+          }
+          std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
+          if (!cfg.lastSaveFilePath.empty() && FileExistsW(targetWide) && !staged.empty() &&
+              AtomicWriteFileUtf8(targetWide, staged)) {
+            WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+            g_allowClose.store(true);
+            DestroyWindow(hwnd);
+            return 0;
+          }
+
+          if (g_uiConnected.load() || g_webviewReady.load()) {
+            int choice = MessageBoxW(
+              hwnd,
+              L"No save file location has been selected yet (or your last save file cannot be found).\n\n"
+              L"Yes = Pick Save Location & Close\n"
+              L"No = Don't Save (Close Anyway)\n"
+              L"Cancel = Stay Open",
+              L"Save Before Closing — Bowling League Helper",
+              MB_YESNOCANCEL | MB_ICONWARNING | MB_DEFBUTTON1);
+            if (choice == IDYES) {
+              std::wstring chosenPath;
+              if (ShowSaveFileDialogOnUiThread(L"Pick Save File Location Before Closing",
+                                               GetDocumentsDirW(),
+                                               L"BowlingLeagueTrackerSave.json", chosenPath)) {
+                if (!staged.empty() && AtomicWriteFileUtf8(chosenPath, staged)) {
+                  WriteDesktopConfig({WideToUtf8(chosenPath), CurrentIsoTimestamp()});
+                  g_allowClose.store(true);
+                  DestroyWindow(hwnd);
+                }
+              }
+              g_pendingClose.store(false);
+              return 0;
+            } else if (choice == IDNO) {
+              g_allowClose.store(true);
+              DestroyWindow(hwnd);
+              return 0;
+            } else {
+              g_pendingClose.store(false);
+              return 0;
+            }
+          }
+
           g_allowClose.store(true);
           DestroyWindow(hwnd);
         }
@@ -1172,7 +1226,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     case WM_CLOSE: {
-      if (!g_allowClose.load() && g_webviewReady.load()) {
+      if (!g_allowClose.load() && (g_webviewReady.load() || g_uiConnected.load())) {
         // Intercept native [X] close button: notify live UI to auto-save to last save file first
         g_closeAcked.store(false);
         BroadcastCloseRequestEvent();

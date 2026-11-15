@@ -16,7 +16,7 @@ import {
   LATEST_AVAILABLE_VERSION,
   DEFAULT_SETTINGS,
 } from './bowlingLogic';
-import { createInitialSeedState } from './seedData';
+import { createFreshInitialState, createInitialSeedState } from './seedData';
 import { generateStandaloneSingleHtmlBundle, getCurrentOpenedHtmlFilename } from './fileExport';
 import {
   injectBootFromCacheFlag,
@@ -37,6 +37,18 @@ import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 test('version is set to 1.0.14 as the latest release', () => {
   assert.equal(CURRENT_APP_VERSION, '1.0.14');
   assert.equal(LATEST_AVAILABLE_VERSION, '1.0.14');
+});
+
+test('createFreshInitialState returns a clean empty Week 1 league with zero sample data', () => {
+  const fresh = createFreshInitialState();
+  assert.equal(fresh.settings.leagueName, 'My Bowling League');
+  assert.equal(fresh.settings.weekNumber, '1');
+  assert.equal(fresh.bowlers.length, 0);
+  assert.equal(fresh.roster.length, 0);
+  assert.equal(fresh.history.length, 0);
+  assert.equal(fresh.schedule.length, 0);
+  assert.equal(fresh.weekNotes, '');
+  assert.equal(Object.keys(fresh.allLeaguesRegistry || {}).length, 1);
 });
 
 test('getCurrentOpenedHtmlFilename defaults to BowlingLeagueHelper.html and preserves opened filenames', () => {

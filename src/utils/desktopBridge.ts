@@ -149,7 +149,7 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
         } catch {
           // Ignore transient poll errors while closing
         }
-      }, 450);
+      }, 200);
 
       return () => {
         active = false;

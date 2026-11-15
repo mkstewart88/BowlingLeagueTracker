@@ -114,6 +114,7 @@ export function createInitialSeedState(): AppState {
       leagueId: 'thursday-night-rollers',
       leagueStatus: 'active',
       leagueName: 'Thursday Night Rollers',
+      weekNumber: '4',
     },
     bowlers: CURRENT_WEEK_4_BOWLERS,
     roster: SEED_ROSTER,
@@ -220,6 +221,45 @@ export function createInitialSeedState(): AppState {
       'thursday-night-rollers': thursdayLeague,
       'tuesday-mixed-2026': tuesdayLeague,
       'sunday-scratch-trios': sundayLeague,
+    },
+  };
+}
+
+/**
+ * Clean blank starting state for new installations and "Start Fresh / Clear All Data".
+ * Starts with a single empty Week 1 league with zero sample bowlers, scores, or archives.
+ */
+export function createFreshInitialState(): AppState {
+  const cleanLeague: Omit<AppState, 'allLeaguesRegistry'> = {
+    version: CURRENT_APP_VERSION,
+    settings: {
+      ...DEFAULT_SETTINGS,
+      leagueId: 'my-bowling-league',
+      leagueStatus: 'active',
+      leagueName: 'My Bowling League',
+      seasonName: '2026-2027 Season',
+      weekNumber: '1',
+      topNote: '',
+      bottomNote: '',
+      autoBackupDirectoryLabel: '',
+    },
+    bowlers: [],
+    roster: [],
+    history: [],
+    currentDues: {},
+    schedule: [],
+    bracketEntrantIds: [],
+    weekNotes: '',
+    weekArchived: false,
+    weekArchiveId: null,
+    activeLeagueId: 'my-bowling-league',
+  };
+
+  return {
+    ...cleanLeague,
+    activeLeagueId: 'my-bowling-league',
+    allLeaguesRegistry: {
+      'my-bowling-league': cleanLeague,
     },
   };
 }

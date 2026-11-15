@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   Trash2,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 
 interface ScheduleTabProps {
@@ -39,6 +40,7 @@ interface ScheduleTabProps {
   onDeleteLeague: (leagueId: string) => void;
   onImportBackupFile: (file: File) => void;
   onRecordBackupTimestamp: (kind: 'local' | 'auto', locationLabel?: string) => void;
+  onStartFreshResetAll: () => void;
   onShowToast: (msg: string, isError?: boolean) => void;
 }
 
@@ -54,17 +56,19 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
   onDeleteLeague,
   onImportBackupFile,
   onRecordBackupTimestamp,
+  onStartFreshResetAll,
   onShowToast,
 }) => {
   const { settings, roster, bowlers, schedule } = appState;
   const [subTab, setSubTab] = useState<HubSubTab>('leagues');
   const [weeksToGenerate, setWeeksToGenerate] = useState(12);
   const [newLeagueName, setNewLeagueName] = useState('');
-  const [newSeasonName, setNewSeasonName] = useState('Fall / Winter 2026-2027');
+  const [newSeasonName, setNewSeasonName] = useState('2026-2027 Season');
   const [newScoringType, setNewScoringType] = useState<'handicap' | 'scratch'>('handicap');
 
-  // Confirmation Popup State for Deleting a League
+  // Confirmation Popup States
   const [leagueIdPendingDelete, setLeagueIdPendingDelete] = useState<string | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -72,7 +76,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
     appState.allLeaguesRegistry && Object.keys(appState.allLeaguesRegistry).length > 0
       ? appState.allLeaguesRegistry
       : {
-          [settings.leagueId || 'thursday-night-rollers']: appState,
+          [settings.leagueId || 'my-bowling-league']: appState,
         };
 
   const dbMetrics = computeMasterDatabaseMetrics(
@@ -96,7 +100,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
   const teamStandings = buildTeamStandings(bowlers);
   const positionRoundPairs = generatePositionRoundMatchups(
     teamStandings,
-    Number(settings.weekNumber || 4) + 1,
+    Number(settings.weekNumber || 1) + 1,
     settings.startingLane || 1
   );
 
@@ -270,6 +274,14 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 Manage multiple bowling leagues inside this single program and switch between them with 1 click.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsResetConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-red-50 text-red-700 border border-red-300 text-xs font-bold rounded-lg transition-colors shrink-0 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Start Fresh (Clear All Data)...
+            </button>
           </div>
 
           <div className="p-6 space-y-6">
@@ -357,7 +369,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               <div className="divide-y divide-slate-200 border-2 border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs">
                 {Object.entries(leaguesMap).map(([id, lg]) => {
                   const isCurrent =
-                    id === (appState.activeLeagueId || settings.leagueId || 'thursday-night-rollers');
+                    id === (appState.activeLeagueId || settings.leagueId || 'my-bowling-league');
                   const isInactive = lg.settings?.leagueStatus === 'inactive';
                   return (
                     <div
@@ -680,6 +692,14 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 <HardDrive className="w-4 h-4" />
                 Save New File (.json)...
               </button>
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 text-xs font-bold rounded-lg cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Start Fresh...
+              </button>
             </div>
           </div>
 
@@ -846,6 +866,57 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 className="px-4 py-2 text-xs font-bold text-white bg-red-700 hover:bg-red-800 rounded-lg cursor-pointer"
               >
                 Yes, I'm Sure — Delete League
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* "START FRESH / CLEAR ALL DATA?" CONFIRMATION POPUP MODAL              */}
+      {/* ===================================================================== */}
+      {isResetConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-all-modal-title"
+        >
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-red-100 text-red-700 rounded-xl shrink-0">
+                <RotateCcw className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 id="reset-all-modal-title" className="text-base font-bold text-slate-900">
+                  Start Fresh &amp; Clear All App Data?
+                </h3>
+                <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                  This clears all current leagues, rosters, scores, Week Notes, dues, brackets, and season history inside the program and gives you a blank Week 1 league (<strong>My Bowling League</strong>).
+                </p>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Any <code className="font-mono">.json</code> save files already stored on your computer will not be deleted.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsResetConfirmOpen(false);
+                  onStartFreshResetAll();
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-red-700 hover:bg-red-800 rounded-lg cursor-pointer"
+              >
+                Yes, Start Fresh
               </button>
             </div>
           </div>

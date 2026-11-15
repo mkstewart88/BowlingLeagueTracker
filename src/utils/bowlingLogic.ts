@@ -15,11 +15,11 @@ export const CURRENT_APP_VERSION = '1.0.14';
 export const LATEST_AVAILABLE_VERSION = '1.0.14';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
-  leagueId: 'thursday-night-rollers',
+  leagueId: 'my-bowling-league',
   leagueStatus: 'active',
-  leagueName: 'Thursday Night Rollers',
-  seasonName: 'Fall / Winter 2026-2027',
-  weekNumber: '4',
+  leagueName: 'My Bowling League',
+  seasonName: '2026-2027 Season',
+  weekNumber: '1',
   totalWeeks: 31,
   bowlersPerTeam: 4,
   customCsvName: '',
@@ -35,8 +35,8 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   showAbsent: 'yes',
   highlightFirst: 'yes',
   showTeamSummary: 'yes',
-  topNote: 'Position Round Next Week - Arrive 15 Minutes Early',
-  bottomNote: 'Please turn in weekly envelopes and dues to the League Secretary.',
+  topNote: '',
+  bottomNote: '',
   handicapBasis: 220,
   handicapPercent: 90,
   maxHandicapPerGame: 0,
@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   autoBackupEnabled: true,
   autoBackupInterval: 'on_finish_week',
   autoBackupFormat: 'json',
-  autoBackupDirectoryLabel: 'Downloads / Chosen PC Folder',
+  autoBackupDirectoryLabel: '',
   lastLocalBackupAt: null,
   lastAutoBackupAt: null,
   githubRepo: 'mkstewart88/BowlingLeagueTracker',
@@ -1391,7 +1391,7 @@ export function parseUniversalBackupPayload(
       parsed.activeLeagueId ||
       parsed.settings?.leagueId ||
       fallbackState.activeLeagueId ||
-      'thursday-night-rollers',
+      'my-bowling-league',
     allLeaguesRegistry:
       parsed.allLeaguesRegistry && typeof parsed.allLeaguesRegistry === 'object'
         ? parsed.allLeaguesRegistry

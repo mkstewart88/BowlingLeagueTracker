@@ -88,9 +88,9 @@ Customize every league calculation without hardcoding assumptions:
 
 ## 6. Multi-League Hub, Lane Schedule & Backups (Tab 5)
 
-- **`5A` Multi-League Manager:** Create and switch between multiple leagues (active or archived seasons) without overwriting one another.
+- **`5A` Multi-League Manager:** Create and switch between multiple leagues (active or archived seasons) without overwriting one another, or click **Start Fresh (Clear All Data)...** to wipe all in-app leagues/scores and reset to a blank Week 1 league.
 - **`5B` Round-Robin Lane Schedule:** Generates balanced week-by-week lane assignments starting on any odd/even lane pair and supports **Position Round** weeks.
-- **`5C` Backups & Restore:** Import or export universal `.json` backups (all leagues included), `.csv` rosters, or portable standalone `.html` copies.
+- **`5C` Backups & Restore:** Import or export universal `.json` backups (all leagues included), `.csv` rosters, or reset all app data cleanly via **Start Fresh...** (previously saved `.json` files on your PC remain untouched).
 
 ---
 
