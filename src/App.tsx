@@ -17,6 +17,7 @@ import {
   parseUniversalBackupPayload,
 } from './utils/bowlingLogic';
 import {
+  OFFICIAL_GITHUB_URL,
   compareSemverVersions,
   fetchVersionManifest,
   getBuiltInFallbackManifest,
@@ -31,9 +32,7 @@ import { UpdateModal } from './components/UpdateModal';
 import { CloseSaveModal } from './components/CloseSaveModal';
 import { PrintStandingSheet } from './components/PrintStandingSheet';
 import {
-  DEFAULT_PROGRAM_HTML_FILENAME,
   cancelPendingClose,
-  downloadDesktopProgramHtmlFile,
   executeAutoBackupWrite,
   forceCloseProgramWithoutSaving,
   hasConnectedAutoBackupHandle,
@@ -99,6 +98,7 @@ export default function App() {
               ? parsed.bracketEntrantIds
               : parsed.bowlers.filter((b: BowlerEntry) => !b.isAbsent).map((b: BowlerEntry) => b.id),
             weekArchived: Boolean(parsed.weekArchived),
+            weekNotes: typeof parsed.weekNotes === 'string' ? parsed.weekNotes : '',
             weekArchiveId: parsed.weekArchiveId || null,
             activeLeagueId: parsed.activeLeagueId || parsed.settings?.leagueId || 'thursday-night-rollers',
             allLeaguesRegistry: parsed.allLeaguesRegistry || undefined,
@@ -151,32 +151,55 @@ export default function App() {
 
   const closeInFlightRef = React.useRef(false);
   const closeHandledCleanlyRef = React.useRef(false);
+  const desktopLastSaveExistsRef = React.useRef(false);
+  const desktopLastSavePathRef = React.useRef<string | null>(null);
   const [desktopInstallDir, setDesktopInstallDir] = useState<string>('C:\\BowlingLeagueHelper');
 
-  // Register native desktop close interception + load last remembered disk save path
+  // Register native desktop close interception + keep save-file status synced
   useEffect(() => {
     const bridge = getDesktopBridge();
     if (!bridge) return;
 
-    bridge
-      .getDesktopInfo()
-      .then((info) => {
-        if (info.installDir) {
-          setDesktopInstallDir(info.installDir);
-        }
-        if (info.lastSaveFilePath) {
-          setAppState((prev) =>
-            syncActiveLeagueInRegistry({
-              ...prev,
-              settings: {
-                ...prev.settings,
-                autoBackupDirectoryLabel: info.lastSaveFilePath,
-              },
-            })
-          );
-        }
-      })
-      .catch(() => {});
+    const refreshDesktopSaveStatus = () => {
+      bridge
+        .getDesktopInfo()
+        .then((info) => {
+          if (info.installDir) {
+            setDesktopInstallDir(info.installDir);
+          }
+          desktopLastSaveExistsRef.current = Boolean(info.lastSaveExists);
+          desktopLastSavePathRef.current = info.lastSaveFilePath || null;
+          if (info.lastSaveFilePath && appStateRef.current.settings.autoBackupDirectoryLabel !== info.lastSaveFilePath) {
+            setAppState((prev) =>
+              syncActiveLeagueInRegistry({
+                ...prev,
+                settings: {
+                  ...prev.settings,
+                  autoBackupDirectoryLabel: info.lastSaveFilePath,
+                },
+              })
+            );
+          }
+        })
+        .catch(() => {});
+    };
+
+    refreshDesktopSaveStatus();
+    const statusPoll = setInterval(refreshDesktopSaveStatus, 4000);
+    window.addEventListener('focus', refreshDesktopSaveStatus);
+
+    const openMissingSavePrompt = (missingPath: string | null, reason?: string) => {
+      setCloseModalState({
+        isOpen: true,
+        missingPath,
+        reason:
+          reason ||
+          (missingPath
+            ? `Cannot find your last save file at "${missingPath}".`
+            : 'No save file location has been selected yet.'),
+        isBusy: false,
+      });
+    };
 
     const unsubscribe = bridge.onRequestCloseSave(async () => {
       bridge.ackCloseRequest?.().catch(() => {});
@@ -186,15 +209,10 @@ export default function App() {
         const result = await verifyAndSaveBeforeClose(appStateRef.current);
         if (result.ok) {
           closeHandledCleanlyRef.current = true;
+          desktopLastSaveExistsRef.current = true;
         } else if (result.missing) {
-          setCloseModalState({
-            isOpen: true,
-            missingPath: result.missingPath || null,
-            reason:
-              result.reason ||
-              'Cannot find your last save file. Pick a new save location or choose Don\'t Save.',
-            isBusy: false,
-          });
+          desktopLastSaveExistsRef.current = false;
+          openMissingSavePrompt(result.missingPath || null, result.reason);
         } else {
           closeInFlightRef.current = false;
         }
@@ -203,27 +221,49 @@ export default function App() {
       }
     });
 
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (closeHandledCleanlyRef.current) return;
+      if (!desktopLastSaveExistsRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+        openMissingSavePrompt(desktopLastSavePathRef.current);
+      }
+    };
+
     const onPageHide = () => {
       if (closeHandledCleanlyRef.current) return;
-      if (typeof bridge.sendAutoSaveBeacon === 'function') {
+      if (desktopLastSaveExistsRef.current && typeof bridge.sendAutoSaveBeacon === 'function') {
         bridge.sendAutoSaveBeacon(serializeMasterSavePayload(appStateRef.current));
       }
     };
+
+    window.addEventListener('beforeunload', onBeforeUnload);
     window.addEventListener('pagehide', onPageHide);
 
     return () => {
+      clearInterval(statusPoll);
+      window.removeEventListener('focus', refreshDesktopSaveStatus);
       unsubscribe();
+      window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('pagehide', onPageHide);
     };
   }, []);
 
-  // Sync to localStorage and legacy keys on every state change
+  // Sync to localStorage and stage latest desktop save payload on every state change
   useEffect(() => {
     try {
       const synced = syncActiveLeagueInRegistry(appState);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
       localStorage.setItem('bowling_league_helper_state_v4', JSON.stringify(synced));
       localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(synced));
+
+      const bridge = getDesktopBridge();
+      if (bridge?.stageSavePayload) {
+        const stageTimer = setTimeout(() => {
+          bridge.stageSavePayload?.(serializeMasterSavePayload(synced)).catch(() => {});
+        }, 600);
+        return () => clearTimeout(stageTimer);
+      }
     } catch (e) {
       console.error('Failed to persist state to localStorage:', e);
     }
@@ -311,6 +351,22 @@ export default function App() {
         weekArchived: false,
       })
     );
+  };
+
+  const handleUpdateWeekNotes = (notes: string) => {
+    setAppState((prev) => {
+      let nextHistory = prev.history;
+      if (prev.weekArchived && prev.weekArchiveId) {
+        nextHistory = prev.history.map((h) =>
+          h.id === prev.weekArchiveId ? { ...h, weekNotes: notes } : h
+        );
+      }
+      return syncActiveLeagueInRegistry({
+        ...prev,
+        weekNotes: notes,
+        history: nextHistory,
+      });
+    });
   };
 
   const handleAddOrUpdateBowler = (
@@ -485,6 +541,7 @@ export default function App() {
         league: prev.settings.leagueName,
         week: prev.settings.weekNumber,
         date: new Date().toISOString(),
+        weekNotes: prev.weekNotes || '',
         settings: { ...prev.settings },
         bowlers: JSON.parse(JSON.stringify(prev.bowlers)),
       };
@@ -532,6 +589,7 @@ export default function App() {
           league: prev.settings.leagueName,
           week: prev.settings.weekNumber,
           date: new Date().toISOString(),
+          weekNotes: prev.weekNotes || '',
           settings: { ...prev.settings },
           bowlers: JSON.parse(JSON.stringify(prev.bowlers)),
         });
@@ -548,12 +606,13 @@ export default function App() {
           topNote: '',
           bottomNote: '',
         },
+        weekNotes: '',
         weekArchived: false,
         weekArchiveId: null,
       });
     });
     showToast(
-      'Started new week! Previous scores were archived to Season History, and Master Roster was kept.',
+      'Started new week! Previous scores and Week Notes were archived to Season History, and Master Roster was kept.',
       false,
       true
     );
@@ -593,6 +652,7 @@ export default function App() {
         leagueName: target.league || prev.settings.leagueName,
         weekNumber: target.week || prev.settings.weekNumber,
       },
+      weekNotes: typeof target.weekNotes === 'string' ? target.weekNotes : '',
       weekArchived: true,
       weekArchiveId: target.id,
     }));
@@ -710,6 +770,7 @@ export default function App() {
       currentDues: {},
       schedule: generateRoundRobinSchedule(['Team 1', 'Team 2', 'Team 3', 'Team 4'], 1, 12),
       bracketEntrantIds: [],
+      weekNotes: '',
       weekArchived: false,
       weekArchiveId: null,
       activeLeagueId: slug,
@@ -783,6 +844,10 @@ export default function App() {
   };
 
   const handleRecordBackupTimestamp = (kind: 'local' | 'auto', locationLabel?: string) => {
+    if (kind === 'local' && locationLabel) {
+      desktopLastSaveExistsRef.current = true;
+      desktopLastSavePathRef.current = locationLabel;
+    }
     const nowIso = new Date().toISOString();
     setAppState((prev) =>
       syncActiveLeagueInRegistry({
@@ -808,6 +873,7 @@ export default function App() {
     const result = await verifyAndSaveBeforeClose(appStateRef.current);
     if (result.ok) {
       closeHandledCleanlyRef.current = true;
+      desktopLastSaveExistsRef.current = true;
       if (result.savedPath) {
         handleRecordBackupTimestamp('local', result.savedPath);
       }
@@ -815,10 +881,13 @@ export default function App() {
         showToast(
           `Auto-saved directly to "${result.savedPath || 'last save file'}". Ready to close safely.`
         );
+      } else {
+        window.close();
       }
       return;
     }
 
+    desktopLastSaveExistsRef.current = false;
     setCloseModalState({
       isOpen: true,
       missingPath: result.missingPath || null,
@@ -835,6 +904,7 @@ export default function App() {
     if (res.closed) {
       closeHandledCleanlyRef.current = true;
       closeInFlightRef.current = false;
+      desktopLastSaveExistsRef.current = true;
       if (res.filePath) {
         handleRecordBackupTimestamp('local', res.filePath);
       }
@@ -843,6 +913,8 @@ export default function App() {
         showToast(
           `Saved to "${res.filePath || 'new save file'}". Ready to close safely.`
         );
+      } else {
+        window.close();
       }
       return;
     }
@@ -860,6 +932,8 @@ export default function App() {
     setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
     if (!getDesktopBridge()) {
       showToast('Closed without saving to a backup file.');
+    } else {
+      window.close();
     }
   };
 
@@ -1025,6 +1099,7 @@ export default function App() {
             appState={appState}
             canUndo={undoStack.length > 0}
             onUpdateSettings={handleUpdateSettings}
+            onUpdateWeekNotes={handleUpdateWeekNotes}
             onAddOrUpdateBowler={handleAddOrUpdateBowler}
             onDeleteBowler={handleDeleteBowler}
             onMarkAbsent={handleMarkAbsent}
@@ -1156,29 +1231,20 @@ export default function App() {
             <span>·</span>
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  const res = await downloadDesktopProgramHtmlFile(
-                    appState,
-                    appState.version || LATEST_AVAILABLE_VERSION
-                  );
-                  showToast(`Downloaded ${res.filename} with all saved league data.`);
-                } catch {
-                  // Ignore
-                }
-              }}
-              className="font-semibold text-blue-700 hover:underline cursor-pointer"
-            >
-              Download {DEFAULT_PROGRAM_HTML_FILENAME}
-            </button>
-            <span>·</span>
-            <button
-              type="button"
               onClick={() => setIsUpdateModalOpen(true)}
               className="font-semibold text-blue-700 hover:underline cursor-pointer"
             >
               Check for Updates &amp; Patch Notes
             </button>
+            <span>·</span>
+            <a
+              href={OFFICIAL_GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-slate-700 hover:text-slate-950 hover:underline"
+            >
+              GitHub Repository
+            </a>
           </div>
         </div>
       </footer>

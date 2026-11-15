@@ -9,9 +9,7 @@ import {
 } from '../utils/bowlingLogic';
 import {
   chooseAutoBackupLocation,
-  DEFAULT_PROGRAM_HTML_FILENAME,
   downloadBlob,
-  downloadDesktopProgramHtmlFile,
   executeAutoBackupWrite,
   getConnectedAutoBackupHandleName,
   saveLeagueFileToComputer,
@@ -649,10 +647,10 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <HardDrive className="w-5 h-5 text-blue-700" />
-                Full Backup, New-PC Import & Automatic Backup Scheduler
+                Full Backup, New-PC Import &amp; Automatic Backup Scheduler
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Protects 100% of all {dbMetrics.totalLeagues} leagues, rosters, scores, brackets, and histories if browser history is cleared or a new computer is needed.
+              <p className="text-xs text-slate-600 mt-0.5">
+                Protects 100% of all {dbMetrics.totalLeagues} leagues, rosters, scores, Week Notes, brackets, and season histories inside <code className="font-mono">BowlingLeagueTrackerSave.json</code> — clearing browser cache or switching computers never loses your data.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -662,7 +660,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
-                Import & Restore Full Backup (.json or .html)
+                Import &amp; Restore Backup (.json or .html)
               </button>
               <button
                 type="button"
@@ -681,25 +679,6 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               >
                 <HardDrive className="w-4 h-4" />
                 Save New File (.json)...
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await downloadDesktopProgramHtmlFile(
-                      appState,
-                      LATEST_AVAILABLE_VERSION
-                    );
-                    onRecordBackupTimestamp('local', res.filename);
-                    onShowToast(`Downloaded ${res.filename}! Double-click this file on any PC to run.`);
-                  } catch {
-                    // Ignore
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                Download {DEFAULT_PROGRAM_HTML_FILENAME}
               </button>
             </div>
           </div>

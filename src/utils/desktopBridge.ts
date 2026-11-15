@@ -64,6 +64,7 @@ export interface BowlingDesktopBridge {
   }) => Promise<DesktopInstallUpdateResult>;
   onRequestCloseSave: (callback: () => void) => () => void;
   ackCloseRequest?: () => Promise<void>;
+  stageSavePayload?: (jsonText: string) => Promise<void>;
   sendAutoSaveBeacon?: (jsonText: string) => void;
 }
 
@@ -173,10 +174,26 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
         // Ignore network errors during close
       }
     },
+    stageSavePayload: async (jsonText) => {
+      try {
+        await fetch(api('/api/desktop/stage-state'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: jsonText,
+          cache: 'no-store',
+        });
+      } catch {
+        // Ignore transient staging errors
+      }
+    },
     sendAutoSaveBeacon: (jsonText) => {
       if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         const blob = new Blob([jsonText], { type: 'application/json' });
-        navigator.sendBeacon(api('/api/desktop/autosave-beacon'), blob);
+        const queued = navigator.sendBeacon(api('/api/desktop/autosave-beacon'), blob);
+        if (!queued) {
+          const smallRef = new Blob(['{"useStaged":true}'], { type: 'application/json' });
+          navigator.sendBeacon(api('/api/desktop/autosave-beacon'), smallRef);
+        }
       }
     },
   };

@@ -12,6 +12,8 @@ import {
 } from '../utils/fileExport';
 import {
   Printer,
+  FileDown,
+  FileText,
   Download,
   Undo2,
   RotateCcw,
@@ -28,6 +30,7 @@ interface QuickEntryTabProps {
   appState: AppState;
   canUndo: boolean;
   onUpdateSettings: (partial: Partial<LeagueSettings>) => void;
+  onUpdateWeekNotes: (notes: string) => void;
   onAddOrUpdateBowler: (entry: Omit<BowlerEntry, 'id' | 'createdAt'>, editingId: string | null) => void;
   onDeleteBowler: (id: string) => void;
   onMarkAbsent: (rosterPlayer: RosterPlayer) => void;
@@ -46,6 +49,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
   appState,
   canUndo,
   onUpdateSettings,
+  onUpdateWeekNotes,
   onAddOrUpdateBowler,
   onDeleteBowler,
   onMarkAbsent,
@@ -279,6 +283,34 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
     }, 30);
   };
 
+  const triggerStandingSheetPrint = (forPdfExport = false) => {
+    if (bowlers.length === 0) {
+      onShowToast('Please enter at least one bowler score first.', true);
+      return;
+    }
+    const cleanLeague = (settings.leagueName || 'Bowling_League').replace(/[^a-zA-Z0-9]+/g, '_');
+    const cleanWeek = (settings.weekNumber || 'Current').replace(/[^a-zA-Z0-9]+/g, '_');
+    const previousTitle = document.title;
+    document.title = `${cleanLeague}_Week_${cleanWeek}_Standing_Sheet`;
+
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      window.removeEventListener('afterprint', restoreTitle);
+    };
+    window.addEventListener('afterprint', restoreTitle);
+
+    if (forPdfExport) {
+      onShowToast(
+        `Prepared Week ${settings.weekNumber || 'Current'} Standing Sheet — select "Save as PDF" or "Microsoft Print to PDF" in the print dialog.`
+      );
+    }
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(restoreTitle, 1500);
+    }, 60);
+  };
+
   const handleFinishAndGenerate = () => {
     if (bowlers.length === 0) {
       onShowToast('Please enter at least one bowler score before generating results.', true);
@@ -288,8 +320,8 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
     const csvName = exportWeeklyResultsCsv(appState);
     onShowToast(`Archived Week ${settings.weekNumber || ''}, exported ${csvName}, and prepared print view.`);
     setTimeout(() => {
-      window.print();
-    }, 250);
+      triggerStandingSheetPrint(false);
+    }, 220);
   };
 
   // Filtered & sorted entered list
@@ -912,19 +944,22 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                   <span>FINISH WEEK & GENERATE CSV + PRINTOUT</span>
                 </button>
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (bowlers.length === 0) {
-                        onShowToast('Enter at least one bowler score first.', true);
-                        return;
-                      }
-                      window.print();
-                    }}
-                    className="py-2 px-2.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={() => triggerStandingSheetPrint(true)}
+                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                   >
-                    <Printer className="w-3.5 h-3.5" />
+                    <FileDown className="w-3.5 h-3.5 shrink-0" />
+                    <span>Print to PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => triggerStandingSheetPrint(false)}
+                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5 shrink-0" />
                     <span>Print Only</span>
                   </button>
 
@@ -938,22 +973,64 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                       const name = exportWeeklyResultsCsv(appState);
                       onShowToast(`Exported ${name}.`);
                     }}
-                    className="py-2 px-2.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5 shrink-0" />
                     <span>CSV Only</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={onStartNewWeek}
-                    className="py-2 px-2.5 rounded-lg text-xs font-semibold bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800/60 flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800/60 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                     <span>Start New Week</span>
                   </button>
                 </div>
               </div>
+
+              {/* Week Notes Frame (Saved with Weekly Archive & Included on PDF Standing Sheet) */}
+              <section className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-blue-50/90 border-b-2 border-blue-200 px-5 py-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-700 shrink-0" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Week Notes
+                      </h3>
+                      <p className="text-xs text-slate-600">
+                        Tournament details, honor scores &amp; special league events
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-blue-800 shrink-0">
+                    Week {settings.weekNumber || 'Current'}
+                  </span>
+                </div>
+
+                <div className="p-4 space-y-2">
+                  <label htmlFor="quick-week-notes" className="sr-only">
+                    Week Notes for Week {settings.weekNumber || 'Current'}
+                  </label>
+                  <textarea
+                    id="quick-week-notes"
+                    rows={3}
+                    value={appState.weekNotes || ''}
+                    onChange={(e) => onUpdateWeekNotes(e.target.value)}
+                    placeholder="Document sweeper tournaments, 300-game honors, special payouts, lane conditions, or upcoming announcements..."
+                    className="w-full px-3 py-2 text-xs text-slate-900 bg-slate-50 focus:bg-white border-2 border-slate-300 focus:border-blue-500 rounded-lg resize-y leading-relaxed"
+                  />
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>
+                      Saved with Week {settings.weekNumber || 'Current'} archive &amp; included on Standing Sheet PDF
+                    </span>
+                    <span className="font-mono tabular-nums">
+                      {(appState.weekNotes || '').length} chars
+                    </span>
+                  </div>
+                </div>
+              </section>
 
               {/* Live Top 10 Leaderboard Bar Chart Frame */}
               <div className="bg-white border-2 border-emerald-300 rounded-xl overflow-hidden shadow-sm">

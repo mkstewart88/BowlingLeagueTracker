@@ -7,10 +7,12 @@ interface PrintStandingSheetProps {
 }
 
 export const PrintStandingSheet: React.FC<PrintStandingSheetProps> = ({ appState }) => {
-  const { settings, bowlers } = appState;
+  const { settings, bowlers, weekNotes } = appState;
   const rankedIndividual = rankWeeklyBowlers(bowlers);
   const teamStandings = buildTeamStandings(bowlers);
   const today = new Date().toLocaleDateString();
+  const teamColSpan =
+    2 + (settings.entryMode === 'three' ? 4 : 1) + (settings.scoringType === 'handicap' ? 1 : 0);
 
   return (
     <div id="print-standing-sheet" className="hidden print:block bg-white text-slate-950 p-4 font-sans">
@@ -20,7 +22,7 @@ export const PrintStandingSheet: React.FC<PrintStandingSheetProps> = ({ appState
         </h1>
         <p className="text-xs font-semibold text-slate-600 mt-1">
           {settings.weekNumber ? `Week ${settings.weekNumber} · ` : ''}
-          {settings.seasonName} · Generated on {today}
+          {settings.seasonName} · {settings.scoringType === 'handicap' ? `${settings.handicapPercent}% of ${settings.handicapBasis} Handicap` : 'Scratch'} · {bowlers.length} Bowlers · Generated {today}
         </p>
       </div>
 
@@ -157,7 +159,7 @@ export const PrintStandingSheet: React.FC<PrintStandingSheetProps> = ({ appState
                 <table className="w-full border-collapse border border-slate-500 text-xs font-mono tabular-nums">
                   <thead>
                     <tr className="bg-slate-800 text-white font-sans">
-                      <th colSpan={7} className="p-1.5 text-center font-bold">
+                      <th colSpan={teamColSpan} className="p-1.5 text-center font-bold">
                         {t.placement}. {t.name} (Total: {t.total})
                       </th>
                     </tr>
@@ -219,6 +221,17 @@ export const PrintStandingSheet: React.FC<PrintStandingSheetProps> = ({ appState
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {weekNotes && weekNotes.trim() && (
+        <div className="mt-5 p-3 border-2 border-slate-400 rounded-lg bg-slate-50 break-inside-avoid">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+            Week {settings.weekNumber || ''} Notes — Tournament &amp; League Events
+          </div>
+          <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
+            {weekNotes.trim()}
+          </p>
         </div>
       )}
 

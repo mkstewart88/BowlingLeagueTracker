@@ -12,6 +12,7 @@ const INSTALL_DIR = process.env.BOWLING_INSTALL_DIR || path.resolve(__dirname);
 const CONFIG_FILE = path.join(INSTALL_DIR, 'bowling-desktop-config.json');
 
 let pendingClose = false;
+let stagedSavePayload = '';
 const sseClients = new Set();
 
 function readConfig() {
@@ -199,11 +200,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && urlPath === '/api/desktop/autosave-beacon') {
+  if (req.method === 'POST' && urlPath === '/api/desktop/stage-state') {
     try {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);
       const rawBody = Buffer.concat(chunks).toString('utf8');
+      if (rawBody) stagedSavePayload = rawBody;
+      sendJson(res, 200, { ok: true });
+    } catch {
+      sendJson(res, 200, { ok: false });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && urlPath === '/api/desktop/autosave-beacon') {
+    try {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      let rawBody = Buffer.concat(chunks).toString('utf8');
+      if (rawBody.includes('"useStaged"') && stagedSavePayload) {
+        rawBody = stagedSavePayload;
+      }
       const cfg = readConfig();
       const target = (cfg.lastSaveFilePath || '').trim();
       if (target && fs.existsSync(target) && rawBody) {

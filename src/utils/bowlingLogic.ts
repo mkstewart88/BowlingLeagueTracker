@@ -69,28 +69,28 @@ export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
     version: '1.0.14',
     date: 'November 14, 2026',
-    title: 'Windows Desktop Program (C:\\BowlingLeagueHelper), Installer.exe & Auto-Save on Close',
+    title: 'Desktop Program (Windows 11 & Linux), Auto-Save on Close, Week Notes & Print to PDF',
     isLatest: true,
     highlights: [
-      'Real Windows Desktop Program & installer.exe: Installs straight into C:\\BowlingLeagueHelper\\ with a custom Bowling Ball & Pins desktop icon shortcut.',
-      'Direct Folder Self-Updates: Clicking Update and Restart overwrites the real program files inside C:\\BowlingLeagueHelper\\ so clearing Chrome or Edge cache never removes updates or saved data.',
-      'Persistent Save File & Auto-Save on Closing: Writes to BowlingLeagueTrackerSave.json in your chosen folder and keeps updating that exact file when closing (unless you click to save a new file)—if that file is missing, closing pauses so you can pick a new location or click Don\'t Save.',
+      'Desktop Program & Installer (Windows 11 installer.exe + Linux installer): Installs to C:\\BowlingLeagueHelper\\ on Windows 11 or ~/BowlingLeagueHelper/ on Linux with a custom Bowling Ball & Pins desktop icon.',
+      'Auto-Save on Closing (BowlingLeagueTrackerSave.json): Launches cleanly as a single window and automatically updates BowlingLeagueTrackerSave.json on close—or pauses with a Save / Don\'t Save prompt if no save file is found.',
+      'Week Notes & Print to PDF (Tab 1A): Document tournament details or special league events in Quick Entry Week Notes (saved inside each weekly archive), and export formatted landscape Standing Sheet PDFs directly via Print to PDF.',
     ],
     changes: [
       {
         category: 'New Feature',
         description:
-          'Added Windows desktop application, installer.exe targeting C:\\BowlingLeagueHelper\\, custom bowling ball & pins .ico shortcut, and automated Windows release packaging.',
+          'Added Week Notes section in Quick Entry (saved with each Weekly Archive and shown in Season History) plus a dedicated Print to PDF button backed by the landscape Standing Sheet report.',
       },
       {
         category: 'Data & Backup',
         description:
-          'Configured persistent save naming (BowlingLeagueTrackerSave.json) in any user-selected folder plus automatic save-on-close with missing-file recovery prompt.',
+          'Standardized persistent save files to BowlingLeagueTrackerSave.json with automatic save-on-close protection and a recovery modal when the save file is missing or not yet selected.',
       },
       {
         category: 'Improvement',
         description:
-          'Desktop updater writes updated HTML and version.json files directly inside the C:\\BowlingLeagueHelper\\ installation folder before restarting.',
+          'In-app updater installs releases directly into your program directory (C:\\BowlingLeagueHelper\\ on Windows 11), and outdated single-file HTML download buttons were removed from Update & Patch Notes.',
       },
     ],
   },
@@ -1384,6 +1384,7 @@ export function parseUniversalBackupPayload(
     currentDues: rawDues,
     schedule: rawSchedule,
     bracketEntrantIds: rawBrackets,
+    weekNotes: typeof parsed.weekNotes === 'string' ? parsed.weekNotes : '',
     weekArchived: Boolean(parsed.weekArchived),
     weekArchiveId: parsed.weekArchiveId || null,
     activeLeagueId:

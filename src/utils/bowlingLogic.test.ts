@@ -62,14 +62,20 @@ test('runtimeUpdater injects and strips cached runtime boot flag cleanly', () =>
   assert.equal(stripped, sampleHtml);
 });
 
-test('getDefaultSaveFilename returns BowlingLeagueTrackerSave.json without dates and serializeMasterSavePayload includes all leagues', () => {
+test('getDefaultSaveFilename returns BowlingLeagueTrackerSave.json without dates and serializeMasterSavePayload preserves all leagues and weekNotes', () => {
   assert.equal(DEFAULT_SAVE_FILENAME, 'BowlingLeagueTrackerSave.json');
   assert.equal(getDefaultSaveFilename(), 'BowlingLeagueTrackerSave.json');
   const seed = createInitialSeedState();
+  seed.weekNotes = 'Memorial Sweeper Tournament - Lane 5 oiled';
   const payload = serializeMasterSavePayload(seed);
   const parsed = JSON.parse(payload);
   assert.equal(parsed.app, 'Bowling League Helper');
   assert.equal(Object.keys(parsed.allLeaguesRegistry || {}).length, 3);
+  assert.equal(parsed.weekNotes, 'Memorial Sweeper Tournament - Lane 5 oiled');
+
+  const restored = parseUniversalBackupPayload(payload, seed);
+  assert.equal(restored.restoredState.weekNotes, 'Memorial Sweeper Tournament - Lane 5 oiled');
+  assert.ok((restored.restoredState.history[1].weekNotes || '').length > 0);
 });
 
 test('calculateBowlerHandicap computes 90% of 220 accurately for 3-game series and single game', () => {

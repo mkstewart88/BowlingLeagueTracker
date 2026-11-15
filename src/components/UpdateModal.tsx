@@ -9,8 +9,6 @@ import {
   mergePatchNotesHistory,
 } from '../utils/githubUpdater';
 import {
-  DEFAULT_PROGRAM_HTML_FILENAME,
-  downloadDesktopProgramHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import { saveUpdatedRuntimeBundle } from '../utils/runtimeUpdater';
@@ -23,6 +21,8 @@ import {
   X,
   History,
   AlertTriangle,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface UpdateModalProps {
@@ -146,19 +146,14 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       const remoteHtml = await fetchTargetRemoteHtml();
 
       if (!hasNewUpdate) {
-        await downloadDesktopProgramHtmlFile(
-          appState,
-          effectiveLatestVersion,
-          remoteHtml
-        );
         onShowToast(
-          `Downloaded ${DEFAULT_PROGRAM_HTML_FILENAME} (v${effectiveLatestVersion}) with all your league data embedded!`
+          `You are already running the latest version (v${effectiveLatestVersion}).`
         );
         return;
       }
 
       if (!remoteHtml) {
-        const msg = `Could not download v${effectiveLatestVersion} (${DEFAULT_PROGRAM_HTML_FILENAME}) from GitHub. Verify the repository is Public and try again.`;
+        const msg = `Could not download v${effectiveLatestVersion} update bundle from GitHub. Verify the repository is Public and try again.`;
         setUpdateErrorHint(msg);
         onShowToast(msg, true);
         return;
@@ -212,38 +207,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       }
 
       // Rare fallback only if browser blocks IndexedDB entirely
-      const updatedState: AppState = {
-        ...appState,
-        version: effectiveLatestVersion,
-      };
-      await downloadDesktopProgramHtmlFile(updatedState, effectiveLatestVersion, remoteHtml);
-      onShowToast(
-        `Downloaded ${DEFAULT_PROGRAM_HTML_FILENAME} (v${effectiveLatestVersion}) to your Downloads folder.`
-      );
+      const errMsg = 'Could not save updated runtime bundle locally. Please re-run the desktop updater or check permissions.';
+      setUpdateErrorHint(errMsg);
+      onShowToast(errMsg, true);
     } catch (err: unknown) {
       const msg = (err as Error)?.message || 'Update failed. Please try again.';
       setUpdateErrorHint(msg);
       onShowToast(msg, true);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleDownloadPortableCopy = async () => {
-    setIsUpdating(true);
-    try {
-      const remoteHtml = await fetchTargetRemoteHtml();
-      const targetVer = remoteHtml ? effectiveLatestVersion : currentVersion;
-      const updatedState: AppState = {
-        ...appState,
-        version: targetVer,
-      };
-      await downloadDesktopProgramHtmlFile(updatedState, targetVer, remoteHtml);
-      onShowToast(
-        `Downloaded ${DEFAULT_PROGRAM_HTML_FILENAME} (v${targetVer}) with all saved league data.`
-      );
-    } catch {
-      onShowToast(`Could not download ${DEFAULT_PROGRAM_HTML_FILENAME}.`, true);
     } finally {
       setIsUpdating(false);
     }
@@ -270,10 +240,12 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-slate-800">
           <div>
             <h2 id="update-modal-title" className="text-lg font-bold tracking-tight">
-              Program Version Control, Auto-Updater & Patch Notes
+              Program Version Control, Auto-Updater &amp; Patch Notes
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              1-click update right inside {DEFAULT_PROGRAM_HTML_FILENAME} while keeping 100% of your saved scores, roster, and history.
+              {getDesktopBridge()
+                ? `Updates program files directly inside ${desktopInstallDir} while keeping 100% of your saved scores, Week Notes, roster, and history.`
+                : 'Checks for newer releases from GitHub while keeping 100% of your saved scores, Week Notes, roster, and history.'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -368,64 +340,40 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 {hasNewUpdate
                   ? getDesktopBridge()
-                    ? `Click Update and Restart to download v${effectiveLatestVersion} and automatically overwrite the program files inside ${desktopInstallDir} — clearing any browser cache will never remove this update.`
-                    : `Click Update and Restart to automatically install v${effectiveLatestVersion} and restart your BowlingLeagueHelper app right here—no choosing folders or replacing files required.`
+                    ? `Click Update and Restart to download v${effectiveLatestVersion} and automatically overwrite the program files inside ${desktopInstallDir} — clearing browser cache will never remove this update.`
+                    : `Click Update and Restart to install v${effectiveLatestVersion} and reload with all saved leagues intact.`
                   : getDesktopBridge()
-                  ? `Your desktop program inside ${desktopInstallDir} is up to date (v${effectiveLatestVersion}).`
-                  : `Your BowlingLeagueHelper program is up to date. Download the Windows 11 installer (installer.exe) or full repository ZIP (Windows 11 & Linux installer) for permanent desktop installation.`}
+                  ? `Your installed desktop program inside ${desktopInstallDir} is up to date (v${effectiveLatestVersion}).`
+                  : `You are running the latest version (v${effectiveLatestVersion}). Visit the GitHub repository to download the Windows 11 or Linux desktop installer if needed.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={handleUpdateAndRestart}
-                disabled={isUpdating}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
-              >
-                <FileCode2 className="w-4 h-4" />
-                {hasNewUpdate
-                  ? isUpdating
-                    ? 'Updating & Restarting...'
-                    : 'Update and Restart'
-                  : isUpdating
-                  ? `Downloading ${DEFAULT_PROGRAM_HTML_FILENAME}...`
-                  : `Download ${DEFAULT_PROGRAM_HTML_FILENAME}`}
-              </button>
-
-              {!getDesktopBridge() && (
-                <>
-                  <a
-                    href={`${OFFICIAL_GITHUB_URL}/raw/main/installer.exe`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 text-blue-700" />
-                    Download Windows 11 Installer (installer.exe)
-                  </a>
-                  <a
-                    href={`${OFFICIAL_GITHUB_URL}/archive/refs/heads/main.zip`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 text-emerald-700" />
-                    Download Repository ZIP (Windows 11 &amp; Linux)
-                  </a>
-                </>
-              )}
-
-              {hasNewUpdate && (
+              {hasNewUpdate ? (
                 <button
                   type="button"
-                  onClick={handleDownloadPortableCopy}
+                  onClick={handleUpdateAndRestart}
                   disabled={isUpdating}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Download {DEFAULT_PROGRAM_HTML_FILENAME} Copy
+                  <FileCode2 className="w-4 h-4" />
+                  {isUpdating ? 'Updating & Restarting...' : 'Update and Restart'}
                 </button>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-lg">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Up to Date (v{effectiveLatestVersion})
+                </span>
               )}
+
+              <a
+                href={OFFICIAL_GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-700" />
+                Open GitHub Repository
+              </a>
             </div>
           </div>
 
@@ -482,11 +430,11 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 </div>
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-md">
                   {selectedPatch.changes.map((c, i) => (
-                    <div key={i} className="px-3 py-2 text-xs flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div key={i} className="px-3 py-2 text-xs flex flex-col sm:flex-row sm:items-start gap-2">
                       <span className="font-mono font-semibold text-slate-600 sm:w-32 shrink-0">
                         [{c.category}]
                       </span>
-                      <span className="text-slate-800">{c.description}</span>
+                      <span className="text-slate-800 leading-relaxed">{c.description}</span>
                     </div>
                   ))}
                 </div>
@@ -494,17 +442,17 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             </div>
           </div>
 
-          {/* Where is League Info Saved & Dead Computer Crash Protection */}
+          {/* Where League Data Is Saved & Auto-Save on Closing */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                   <HardDrive className="w-4 h-4 text-slate-700" />
-                  Where Your League Data Is Saved & Dead-Computer Protection
+                  Where Your Program &amp; League Save File Are Stored
                 </h4>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  1. <strong>Automatic Browser Memory:</strong> Every league, score, and roster name is saved immediately inside your web browser. Updating or replacing the <code className="font-mono">.html</code> file never wipes your browser memory.<br />
-                  2. <strong>Hard Drive File Backup:</strong> In case browser history is cleared or a new computer is needed, click <strong>Save Master Backup File</strong> (or use Tab 5C Auto-Backup) to save all leagues into a single file on your PC.
+                  1. <strong>Installed Program Folder:</strong> Updates install directly into <code className="font-mono">{desktopInstallDir}</code> (on Windows 11) or your local desktop installation folder (on Linux)—clearing browser cache or history never affects the program.<br />
+                  2. <strong>Auto-Save on Closing (<code className="font-mono">BowlingLeagueTrackerSave.json</code>):</strong> Click <strong>Save New File (.json)...</strong> to pick where <code className="font-mono">BowlingLeagueTrackerSave.json</code> is saved. Closing automatically overwrites that exact file; if it cannot be found, closing pauses and asks for a new location or <strong>Don&apos;t Save</strong>.
                 </p>
               </div>
               <button
@@ -513,7 +461,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors shrink-0 whitespace-nowrap cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                Save Master Backup File
+                Save New File (.json)...
               </button>
             </div>
           </div>
@@ -523,7 +471,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-600">
-              100% Offline Single-File Architecture · Zero License Fees
+              100% Offline Desktop Program (Windows 11 &amp; Linux) · Zero License Fees
             </span>
             <a
               href={OFFICIAL_GITHUB_URL}

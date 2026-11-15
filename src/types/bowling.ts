@@ -157,6 +157,7 @@ export interface ArchivedWeek {
   league: string;
   week: string;
   date: string;
+  weekNotes?: string;
   settings: LeagueSettings;
   bowlers: BowlerEntry[];
   dues?: WeeklyDuesRecord[];
@@ -194,6 +195,7 @@ export interface AppState {
   currentDues: Record<string, WeeklyDuesRecord>;
   schedule: LaneMatchup[];
   bracketEntrantIds: string[];
+  weekNotes?: string;
   weekArchived: boolean;
   weekArchiveId: string | null;
   activeLeagueId?: string;

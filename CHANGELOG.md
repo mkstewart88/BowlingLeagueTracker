@@ -9,15 +9,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 ## [1.0.14] - 2026-11-14
 
 ### Added
-- **Windows 11 Native Desktop App & Installer (`installer.exe`):** Installs `BowlingLeagueHelper.exe` and support files directly into `C:\BowlingLeagueHelper\` with a custom bowling ball & pins Desktop shortcut.
+- **Windows 11 Native Desktop App & Installer (`installer.exe`):** Installs `BowlingLeagueHelper.exe` and support files directly into `C:\BowlingLeagueHelper\` with a custom bowling ball & pins Desktop shortcut inside a single clean window.
 - **Linux Desktop Support & Installer (`install-linux.sh` + `linux-host.mjs`):** Installs the isolated Linux desktop runtime into `~/BowlingLeagueHelper/` with Desktop and Application Menu shortcuts.
+- **Week Notes (`Tab 1A`):** Added an editable Week Notes card for documenting tournament details or special league events—saved with each archived week (`Tab 2D`), cleared on New Week, and printed on standing sheets.
+- **Print to PDF (`Tab 1A`):** Added a dedicated **Print to PDF** action using the formatted landscape standing sheet (`PrintStandingSheet`) with clean file naming and exact print color rendering.
 - Custom multi-resolution bowling ball & pins application icon (`.ico` and `.png`).
 - Persistent full-league save workflow (`BowlingLeagueTrackerSave.json` with no date suffix) that keeps writing to your last chosen save file on every close unless you click **Save New File (.json)...** to choose a new file.
-- Automatic save-on-closing verification: closing automatically saves to the last used save file, or pauses closing and prompts (**Pick New Save Location & Close**, **Don't Save**, or **Cancel (Stay Open)**) if that file cannot be located.
+- Automatic save-on-closing verification: closing automatically saves to the last used save file (including large multi-league payloads), or pauses closing and prompts (**Pick New Save Location & Close**, **Don't Save**, or **Cancel (Stay Open)**) if that file cannot be located.
 - Professional GitHub documentation suite (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, `docs/USER_GUIDE.md`, and issue/PR templates).
 
 ### Changed
 - **Update and Restart** in desktop mode overwrites `BowlingLeagueHelper.html` and `version.json` directly inside the installation directory (`C:\BowlingLeagueHelper\` on Windows 11 or `~/BowlingLeagueHelper/` on Linux) and restarts cleanly without reliance on browser cache.
+- Streamlined in-app Update modal, Tab `5C`, and app footer copy/buttons to reflect the installed desktop workflow (removed redundant standalone HTML / `.exe` download buttons while keeping **Open GitHub Repository**).
 - Cross-platform (`mingw-w64` + `makensis`) and GitHub Actions CI build pipeline configured to output `installer.exe` directly to repository root.
 
 ---

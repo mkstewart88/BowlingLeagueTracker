@@ -56,11 +56,10 @@ Customize every league calculation without hardcoding assumptions:
 - **Team Roster Size:** `1` to `5` bowlers per team
 - **Matchup Points:** Standard `7pt` (2 per game + 1 series), `8pt` (2 per game + 2 series), or custom point weights
 
-### Finishing the Week
-Click **Finish Week & Export Standing Sheet** when all scores are recorded:
-1. Archives the completed week into **Season History** (`Tab 2D`).
-2. Exports an Excel-compatible `.csv` results sheet.
-3. Opens the **Landscape Print Standing Sheet** preview ready for printing (`Ctrl + P`).
+### Finishing the Week, Week Notes & Printing to PDF
+- **Week Notes:** Record tournament notes, sweepers, holidays, or special league announcements in the **Week Notes** box on Tab `1A`. Notes are saved with the week's archive, printed in a callout box on the standing sheet, and automatically cleared when you start a new week.
+- **Finish Week & Generate CSV + Printout:** Archives the completed week (including Week Notes) into **Season History** (`Tab 2D`), exports an Excel-compatible `.csv` results sheet, and opens the **Landscape Print Standing Sheet** preview.
+- **Print to PDF / Print Only:** Click **Print to PDF** in Tab `1A` to open the landscape standing sheet pre-titled for clean PDF export (`Save as PDF` in the print dialog), or **Print Only** / **`Ctrl + P`** to print directly without archiving again.
 
 ---
 
@@ -69,7 +68,7 @@ Click **Finish Week & Export Standing Sheet** when all scores are recorded:
 - **`2A` Team Performance Charts:** Compare week-by-week team totals, season average lines, pin variance (`±`), and consistency rankings.
 - **`2B` Bowler Averages:** Rolling recalculated averages and updated per-game handicaps across all entered + archived weeks.
 - **`2C` High Games & Series:** Tracks High Scratch Game, High Scratch Series, High Handicap Game, High Handicap Series, and configurable Honor Roll milestones.
-- **`2D` Season History:** Inspect, reload, or remove previously archived weeks.
+- **`2D` Season History:** Inspect (including saved **Week Notes**), reload, or remove previously archived weeks.
 
 ---
 

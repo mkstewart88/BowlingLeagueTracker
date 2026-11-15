@@ -28,6 +28,7 @@
 #define WM_APP_SAVE_DIALOG (WM_APP + 1)
 #define WM_APP_EXIT_NOW (WM_APP + 2)
 #define WM_APP_RELAUNCH_EXIT (WM_APP + 3)
+#define WM_APP_CANCEL_CLOSE_TIMER (WM_APP + 4)
 #define IDT_CLOSE_ACK_TIMEOUT 1001
 
 // ============================================================================
@@ -114,6 +115,8 @@ static std::wstring g_installDir;
 static std::wstring g_exePath;
 static CRITICAL_SECTION g_configCs;
 static CRITICAL_SECTION g_sseCs;
+static CRITICAL_SECTION g_stagedCs;
+static std::string g_stagedSavePayload;
 static std::vector<SOCKET> g_sseClients;
 
 struct AutoCsLock {
@@ -603,7 +606,18 @@ static void HandleHttpClient(SOCKET client) {
   // ---- Route: Acknowledge receipt of close-save request ----
   if (method == "POST" && path == "/api/desktop/close-ack") {
     g_closeAcked.store(true);
-    if (g_hwnd) KillTimer(g_hwnd, IDT_CLOSE_ACK_TIMEOUT);
+    if (g_hwnd) PostMessageW(g_hwnd, WM_APP_CANCEL_CLOSE_TIMER, 0, 0);
+    SendHttpResponse(client, 200, "OK", "application/json", "{\"ok\":true}");
+    closesocket(client);
+    return;
+  }
+
+  // ---- Route: Stage latest state in memory (does not overwrite save file until close) ----
+  if (method == "POST" && path == "/api/desktop/stage-state") {
+    if (!body.empty()) {
+      AutoCsLock lock(&g_stagedCs);
+      g_stagedSavePayload = body;
+    }
     SendHttpResponse(client, 200, "OK", "application/json", "{\"ok\":true}");
     closesocket(client);
     return;
@@ -613,9 +627,16 @@ static void HandleHttpClient(SOCKET client) {
   if (method == "POST" && path == "/api/desktop/autosave-beacon") {
     DesktopConfig cfg = ReadDesktopConfig();
     bool saved = false;
-    if (!cfg.lastSaveFilePath.empty() && !body.empty()) {
+    std::string payloadToWrite = body;
+    if (payloadToWrite.find("\"useStaged\"") != std::string::npos) {
+      AutoCsLock lock(&g_stagedCs);
+      if (!g_stagedSavePayload.empty()) {
+        payloadToWrite = g_stagedSavePayload;
+      }
+    }
+    if (!cfg.lastSaveFilePath.empty() && !payloadToWrite.empty()) {
       std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
-      if (FileExistsW(targetWide) && AtomicWriteFileUtf8(targetWide, body)) {
+      if (FileExistsW(targetWide) && AtomicWriteFileUtf8(targetWide, payloadToWrite)) {
         WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
         saved = true;
       }
@@ -922,7 +943,7 @@ static DWORD WINAPI FallbackProcessWaitThread(LPVOID param) {
     CloseHandle(hProc);
   }
   // If browser delegated to another process, wait until UI SSE stream disconnects before exiting
-  Sleep(600);
+  Sleep(800);
   while (g_serverRunning.load()) {
     bool hasClients = false;
     {
@@ -932,6 +953,7 @@ static DWORD WINAPI FallbackProcessWaitThread(LPVOID param) {
     if (!hasClients) break;
     Sleep(500);
   }
+  Sleep(250);
   if (g_hwnd) {
     PostMessageW(g_hwnd, WM_APP_EXIT_NOW, 0, 0);
   }
@@ -1150,14 +1172,19 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     case WM_CLOSE: {
-      if (!g_allowClose.load() && g_webviewReady.load() && g_uiConnected.load()) {
+      if (!g_allowClose.load() && g_webviewReady.load()) {
         // Intercept native [X] close button: notify live UI to auto-save to last save file first
         g_closeAcked.store(false);
         BroadcastCloseRequestEvent();
-        SetTimer(hwnd, IDT_CLOSE_ACK_TIMEOUT, 1500, nullptr);
+        SetTimer(hwnd, IDT_CLOSE_ACK_TIMEOUT, 4000, nullptr);
         return 0;
       }
       DestroyWindow(hwnd);
+      return 0;
+    }
+
+    case WM_APP_CANCEL_CLOSE_TIMER: {
+      KillTimer(hwnd, IDT_CLOSE_ACK_TIMEOUT);
       return 0;
     }
 
@@ -1238,6 +1265,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
 
   InitializeCriticalSection(&g_configCs);
   InitializeCriticalSection(&g_sseCs);
+  InitializeCriticalSection(&g_stagedCs);
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   wchar_t exeBuf[MAX_PATH] = {0};
@@ -1310,8 +1338,10 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
     return 1;
   }
 
-  ShowWindow(g_hwnd, nCmdShow ? nCmdShow : SW_SHOWNORMAL);
-  UpdateWindow(g_hwnd);
+  if (!g_fallbackLaunched.load()) {
+    ShowWindow(g_hwnd, nCmdShow ? nCmdShow : SW_SHOWNORMAL);
+    UpdateWindow(g_hwnd);
+  }
 
   MSG msg;
   while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
@@ -1328,6 +1358,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
   }
   WSACleanup();
   CoUninitialize();
+  DeleteCriticalSection(&g_stagedCs);
   DeleteCriticalSection(&g_sseCs);
   DeleteCriticalSection(&g_configCs);
   return (int)msg.wParam;
