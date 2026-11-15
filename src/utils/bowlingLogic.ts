@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.17';
-export const LATEST_AVAILABLE_VERSION = '1.0.17';
+export const CURRENT_APP_VERSION = '1.0.18';
+export const LATEST_AVAILABLE_VERSION = '1.0.18';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'my-bowling-league',
@@ -67,29 +67,29 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
-    version: '1.0.17',
+    version: '1.0.18',
     date: 'November 14, 2026',
-    title: 'Automatic Window Closing & Process Relaunch on Update & Version 1.0.17 Stability',
+    title: 'Seamless Save Dialog Fallback & Version 1.0.18 Stability',
     isLatest: true,
     highlights: [
-      'Automatic Window Closing & Process Relaunch on Update: Clicking "Update and Restart" now cleanly closes the current running (older version) application window/process across Windows and Linux, immediately restarting into the new updated version.',
-      'Enhanced Desktop Update Lifecycle: Standardized background process termination and atomic relaunch across Windows and Linux desktop hosts.',
+      'Seamless Save Dialog Fallback: Clicking the top-bar Save button when no file is linked yet now automatically opens the system save file picker and links it instantly—eliminating any missing file errors or 404s.',
+      'Enhanced Save Resilience: Refined desktop quick-save endpoints to seamlessly fall back to save dialogs when unlinked.',
     ],
     changes: [
       {
         category: 'New Feature',
-        description: 'Desktop updater now automatically terminates the old process and relaunches the new version window upon installation.',
+        description: 'Quick-save button now automatically opens the save dialog to pick a location if no file is currently linked.',
       },
       {
         category: 'Improvement',
-        description: 'Refined desktop host process lifecycle management and automatic restart reliability.',
+        description: 'Eliminated missing file errors and 404 responses during unlinked desktop save actions.',
       },
     ],
   },
   {
-    version: '1.0.16',
+    version: '1.0.17',
     date: 'November 14, 2026',
-    title: 'Robust Missing-File Save Dialog Fallback & Version 1.0.16 Stability',
+    title: 'Automatic Window Closing & Process Relaunch on Update & Version 1.0.17 Stability',
     isLatest: false,
     highlights: [
       'Desktop Program & Installer (Windows 11 installer.exe + Linux installer): Installs to C:\\BowlingLeagueHelper\\ on Windows 11 or ~/BowlingLeagueHelper/ on Linux with a custom Bowling Ball & Pins desktop icon.',

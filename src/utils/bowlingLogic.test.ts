@@ -34,9 +34,9 @@ import {
 } from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.17 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.17');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.17');
+test('version is set to 1.0.18 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.18');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.18');
 });
 
 test('createFreshInitialState returns a clean empty Week 1 league with zero sample data', () => {
@@ -397,14 +397,14 @@ test('compareSemverVersions and parseGithubRepoSpec accurately track GitHub vers
 
   const merged = mergePatchNotesHistory([
     {
-      version: '1.0.17',
+      version: '1.0.19',
       date: 'November 20, 2026',
       title: 'Remote GitHub Test Release',
       highlights: ['Tested live GitHub version.json update'],
       changes: [{ category: 'New Feature', description: 'Live GitHub update' }],
     },
   ]);
-  assert.equal(merged[0].version, '1.0.17');
+  assert.equal(merged[0].version, '1.0.19');
   assert.equal(merged[0].isLatest, true);
 });
 

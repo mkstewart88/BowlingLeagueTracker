@@ -802,10 +802,20 @@ static void HandleHttpClient(SOCKET client) {
     DesktopConfig cfg = ReadDesktopConfig();
     std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
     if (cfg.lastSaveFilePath.empty() || !FileExistsW(targetWide)) {
-      SendHttpResponse(client, 200, "OK", "application/json",
-                       "{\"saved\":false,\"missing\":true}");
-      closesocket(client);
-      return;
+      std::wstring startDir = GetDocumentsDirW();
+      if (!cfg.lastSaveFilePath.empty()) {
+        std::wstring prevParent = ParentDirW(Utf8ToWide(cfg.lastSaveFilePath));
+        if (DirExistsW(prevParent)) startDir = prevParent;
+      }
+      std::wstring chosenPath;
+      if (!ShowSaveFileDialogOnUiThread(L"Save Bowling League File", startDir,
+                                        L"BowlingLeagueTrackerSave.json", chosenPath)) {
+        SendHttpResponse(client, 200, "OK", "application/json", "{\"saved\":false,\"canceled\":true}");
+        closesocket(client);
+        return;
+      }
+      targetWide = chosenPath;
+      cfg.lastSaveFilePath = WideToUtf8(chosenPath);
     }
 
     if (!AtomicWriteFileUtf8(targetWide, jsonText)) {

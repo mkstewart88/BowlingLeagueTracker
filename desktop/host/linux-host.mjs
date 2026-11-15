@@ -283,10 +283,22 @@ const server = http.createServer(async (req, res) => {
     try {
       const { jsonText } = await readJsonBody(req);
       const cfg = readConfig();
-      const target = (cfg.lastSaveFilePath || '').trim();
+      let target = (cfg.lastSaveFilePath || '').trim();
       if (!target || !fs.existsSync(target)) {
-        sendJson(res, 200, { saved: false, missing: true });
-        return;
+        const startDir =
+          cfg.lastSaveFilePath && fs.existsSync(path.dirname(cfg.lastSaveFilePath))
+            ? path.dirname(cfg.lastSaveFilePath)
+            : getDocumentsDir();
+        const dlg = await showLinuxSaveDialog(
+          'Save Bowling League File',
+          startDir,
+          'BowlingLeagueTrackerSave.json'
+        );
+        if (dlg.canceled || !dlg.filePath) {
+          sendJson(res, 200, { saved: false, canceled: true });
+          return;
+        }
+        target = dlg.filePath;
       }
       const payload = jsonText || stagedSavePayload || '';
       atomicWrite(target, payload);
