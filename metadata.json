@@ -1,0 +1,8 @@
+{
+  "name": "Bowling League Helper",
+  "description": "A comprehensive bowling league management application to track scores, generate leaderboards, analyze player & team performance over time, and export analytical reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

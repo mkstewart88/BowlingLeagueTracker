@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Bowling League Tracker</title>
+    <style>
+        /* --- Screen UI Styles --- */
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f9; color: #333; }
+        #app-container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { text-align: center; margin-top: 0; color: #2c3e50; }
+        
+        .header-inputs { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; }
+        .header-inputs div { flex: 1; }
+        .border-bottom { border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+        
+        .settings-panel { background: #eef2f5; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 10px; justify-content: space-between; border: 1px solid #d1d8dd; }
+        .settings-panel div { flex: 1; }
+        .settings-panel label { margin-top: 0; font-size: 13px; color: #444; }
+        .settings-panel select { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: white; }
+
+        .settings-extra { margin-top:15px; padding:12px; border:1px solid #d1d8dd; border-radius:6px; background:#fafafa; font-size: 14px; }
+        .settings-extra summary { cursor:pointer; font-weight:bold; color: #2c3e50; }
+        .settings-extra .flex-row { margin-top:12px; }
+        .settings-extra label { margin-top: 0; font-size: 12px; }
+
+        .stats { display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #555; margin-bottom: 5px; }
+        .print-warning { text-align: center; color: #d32f2f; font-size: 13px; margin-bottom: 20px; font-weight: bold; background: #ffebee; padding: 8px; border-radius: 4px; }
+        
+        label { font-weight: bold; display: block; margin-top: 10px; font-size: 14px; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
+        input:focus { border-color: #2196F3; outline: none; box-shadow: 0 0 5px rgba(33, 150, 243, 0.3); }
+        
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row div { flex: 1; }
+        .hidden { display: none !important; }
+        
+        button { width: 100%; padding: 12px; margin-top: 15px; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; transition: background 0.2s; }
+        .btn-add { background-color: #4CAF50; }
+        .btn-add:hover { background-color: #45a049; }
+        .btn-finish { background-color: #2196F3; margin-top: 25px; font-size: 18px; padding: 15px; }
+        .btn-finish:hover { background-color: #1976d2; }
+        
+        .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:20px; background: #eee; padding: 10px; border-radius: 6px; justify-content: center;}
+        .toolbar button { width:auto; margin:0; padding:8px 12px; font-size:12px; background:#607d8b; }
+        .toolbar button:hover { background:#546e7a; }
+        .toolbar .btn-danger { background: #d32f2f; }
+        .toolbar .btn-danger:hover { background: #b71c1c; }
+
+        .search-row { display:flex; gap:10px; margin-top:12px; }
+        .search-row input { flex:2; }
+        .search-row select { flex: 1; padding:10px; border:1px solid #ccc; border-radius:4px; background:white; margin-top: 5px; }
+        
+        /* Side-by-side lists */
+        .list-container { display: flex; gap: 15px; margin-top: 10px; }
+        .list-box { flex: 1; border: 1px solid #ddd; background: #fafafa; border-radius: 4px; display: flex; flex-direction: column; }
+        .list-header { background: #e0e0e0; padding: 8px; font-weight: bold; font-size: 13px; text-align: center; border-bottom: 1px solid #ddd; }
+        .list-content { height: 280px; overflow-y: auto; padding: 10px; }
+        
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 6px; border-bottom: 1px solid #eee; font-size: 13px; }
+        .missing-item { padding: 6px; border-bottom: 1px solid #eee; font-size: 13px; display: flex; justify-content: space-between; align-items: center; transition: background 0.1s; }
+        .missing-item:hover { background-color: #e3f2fd; }
+        .missing-name { cursor: pointer; flex: 1; color: #1976d2; padding: 4px; border-radius: 3px; }
+        .missing-name:hover { text-decoration: underline; background-color: #bbdefb; }
+        
+        .item-actions { display: flex; gap: 5px; }
+        .btn-edit { padding: 4px 8px; margin: 0; background-color: #ff9800; color: white; font-size: 11px; border-radius: 3px; }
+        .btn-edit:hover { background-color: #f57c00; }
+        .btn-absent { padding: 4px 8px; margin: 0; background-color: #9e9e9e; color: white; font-size: 11px; border-radius: 3px; }
+        .btn-absent:hover { background-color: #757575; }
+        .btn-delete { padding: 4px 8px; margin: 0; background-color: #e0e0e0; color: #333; font-size: 11px; border-radius: 3px; }
+        .btn-delete:hover { background-color: #f44336; color: white; }
+        .status-absent { color:#d32f2f; font-weight:bold; }
+
+        @media (max-width:650px) {
+            .settings-panel, .header-inputs, .list-container, .search-row, .flex-row { flex-direction:column; }
+        }
+
+        /* --- Print Layout Styles --- */
+        #print-area { display: none; }
+        @media print {
+            @page { size: landscape; margin: 0.4in; }
+            body { padding: 0; background: white; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+            #app-container { display: none; }
+            #print-area { display: block; }
+            
+            .print-header { text-align: center; margin-bottom: 15px; border-bottom: 3px solid #2c3e50; padding-bottom: 10px; }
+            .print-header h1 { margin: 0 0 5px 0; font-size: 28px; color: #2c3e50; }
+            .print-header p { margin: 0; color: #555; font-size: 15px; font-weight: bold; }
+            
+            #print-top-note { text-align: center; font-style: italic; font-size: 16px; color: #d32f2f; margin-bottom: 15px; font-weight: bold; }
+            #print-bottom-note { text-align: center; font-style: italic; font-size: 14px; color: #333; margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; break-before: avoid; }
+            
+            .print-flex-container { display: flex; flex-wrap: wrap; gap: 20px; width: 100%; align-items: flex-start; }
+            table { border-collapse: collapse; break-inside: avoid; font-size: 12px; width: 100%; }
+            th, td { border: 1px solid #777; padding: 6px 8px; text-align: left; }
+            th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 13px; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9f9f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            
+            .first-place { font-weight: bold; background-color: #fffacd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .team-title { background-color: #2c3e50 !important; color: white !important; font-size: 15px; text-align: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; }
+            .print-absent { color: #d32f2f; font-weight: bold; font-style: italic; }
+            .team-summary { width:100%; margin-bottom:20px; }
+            .team-summary th, .team-summary td { text-align:center; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <h2>Bowling League Tracker</h2>
+        
+        <div class="header-inputs">
+            <div>
+                <label for="league-name">League Name:</label>
+                <input type="text" id="league-name" placeholder="e.g. Thursday Night Rollers" onchange="saveConfig(); updateCSVPlaceholder();">
+            </div>
+            <div>
+                <label for="week-number">Week #:</label>
+                <input type="text" id="week-number" placeholder="e.g. 4" onchange="saveConfig(); updateCSVPlaceholder();">
+            </div>
+            <div>
+                <label for="custom-csv">Custom CSV Name (Optional):</label>
+                <input type="text" id="custom-csv" placeholder="Auto-generated if blank" onchange="saveConfig()">
+            </div>
+        </div>
+        
+        <div class="header-inputs border-bottom">
+            <div>
+                <label for="top-note">Top Announcement (Print Only):</label>
+                <input type="text" id="top-note" placeholder="e.g. Position Round Next Week!" onchange="saveConfig()">
+            </div>
+            <div>
+                <label for="bottom-note">Bottom Note (Print Only):</label>
+                <input type="text" id="bottom-note" placeholder="e.g. Pay league dues by Friday." onchange="saveConfig()">
+            </div>
+        </div>
+
+        <div class="settings-panel">
+            <div>
+                <label for="format-mode">Format:</label>
+                <select id="format-mode" onchange="toggleUI()">
+                    <option value="individual">Individual Leaderboard</option>
+                    <option value="team">Team Standings</option>
+                </select>
+            </div>
+            <div>
+                <label for="entry-mode">Game Entry:</label>
+                <select id="entry-mode" onchange="toggleUI()">
+                    <option value="single">Single Total Score</option>
+                    <option value="three">3-Game Series</option>
+                </select>
+            </div>
+            <div>
+                <label for="type-mode">Scoring Type:</label>
+                <select id="type-mode" onchange="toggleUI()">
+                    <option value="scratch">Scratch (Raw Score)</option>
+                    <option value="handicap">Handicap</option>
+                </select>
+            </div>
+        </div>
+
+        <details class="settings-extra">
+            <summary>Advanced League & Validation Settings</summary>
+            <div class="flex-row">
+                <div><label for="absent-score">Absent Score (Per Game):</label><input type="number" id="absent-score" min="0" max="999" value="0" onchange="saveConfig()"></div>
+                <div><label for="max-game-score">Maximum Game Score:</label><input type="number" id="max-game-score" min="1" max="999" value="300" onchange="saveConfig()"></div>
+                <div><label for="show-absent">Show Absent Players:</label><select id="show-absent" onchange="saveConfig(); updateDisplayLists()"><option value="yes">Yes</option><option value="no">No</option></select></div>
+            </div>
+            <div class="flex-row">
+                <div><label for="highlight-first">Highlight 1st Place:</label><select id="highlight-first" onchange="saveConfig()"><option value="yes">Yes</option><option value="no">No</option></select></div>
+                <div><label for="show-team-total">Show Team Summary on Print:</label><select id="show-team-total" onchange="saveConfig()"><option value="yes">Yes</option><option value="no">No</option></select></div>
+            </div>
+        </details>
+
+        <div class="print-warning" style="margin-top: 15px;">NOTE: Progress saves automatically. Set printer to "Landscape".</div>
+        
+        <datalist id="team-suggestions"></datalist>
+        <datalist id="name-suggestions"></datalist>
+
+        <div id="input-team-wrapper" class="hidden">
+            <label for="team-name">Team Name:</label>
+            <input type="text" id="team-name" list="team-suggestions" placeholder="Type to search teams..." autocomplete="off">
+        </div>
+
+        <label for="name">Bowler Name:</label>
+        <input type="text" id="name" list="name-suggestions" placeholder="Type to search names..." autocomplete="off">
+        
+        <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+            <input type="checkbox" id="is-sub" style="width: auto; margin: 0; cursor: pointer;">
+            <label for="is-sub" style="margin: 0; font-size: 13px; font-weight: normal; color: #555; cursor: pointer;">Substitute Player (Do not save to master roster)</label>
+        </div>
+        
+        <div id="input-single-wrapper">
+            <label for="score">Total Score:</label>
+            <input type="number" id="score" placeholder="Enter total score">
+        </div>
+
+        <div id="input-three-wrapper" class="flex-row hidden">
+            <div><label for="g1">Game 1:</label><input type="number" id="g1"></div>
+            <div><label for="g2">Game 2:</label><input type="number" id="g2"></div>
+            <div><label for="g3">Game 3:</label><input type="number" id="g3"></div>
+        </div>
+
+        <div id="input-hdcp-wrapper" class="hidden">
+            <label for="hdcp">Handicap (Total to add):</label>
+            <input type="number" id="hdcp" placeholder="Enter handicap amount">
+        </div>
+        
+        <button class="btn-add" onclick="addBowler()">Add Bowler (or press Enter)</button>
+        
+        <div class="stats" style="margin-top: 25px;">
+            <span id="bowler-count">Entered: 0</span>
+        </div>
+        
+        <div class="search-row">
+            <input type="text" id="entered-search" placeholder="Search entered players or teams..." oninput="updateDisplayLists()">
+            <select id="entered-sort" onchange="updateDisplayLists()">
+                <option value="entry">Sort: Entry Order</option>
+                <option value="name">Sort: Name A–Z</option>
+                <option value="score">Sort: Score High → Low</option>
+                <option value="team">Sort: Team A–Z</option>
+            </select>
+        </div>
+
+        <div class="list-container">
+            <div class="list-box">
+                <div class="list-header">Currently Entered</div>
+                <div class="list-content" id="list-display"></div>
+            </div>
+            <div class="list-box">
+                <div class="list-header">Missing from Roster (Click name to fill)</div>
+                <div class="list-content" id="missing-display"></div>
+            </div>
+        </div>
+        
+        <div class="toolbar">
+            <button onclick="undoLastEntry()">Undo Last Entry</button>
+            <button onclick="exportBackup()">Export Backup File</button>
+            <button onclick="document.getElementById('backup-file').click()">Import Backup</button>
+            <button onclick="exportRoster()">Export Master Roster</button>
+            <button onclick="exportSeasonHistory()">Export Season History</button>
+            <button class="btn-danger" onclick="startNewWeek()">Start New Week</button>
+            <input id="backup-file" type="file" accept=".json" style="display:none" onchange="importBackup(event)">
+        </div>
+
+        <button class="btn-finish" onclick="finishAndGenerate()">FINISH & GENERATE FILES</button>
+    </div>
+
+    <div id="print-area">
+        <div class="print-header">
+            <h1 id="print-title">League Results</h1>
+            <p id="print-subtitle">Date</p>
+        </div>
+        <div id="print-top-note"></div>
+        <div id="print-columns" class="print-flex-container"></div>
+        <div id="print-bottom-note"></div>
+    </div>
+
+    <script>
+        let bowlers = [];
+        let roster = []; 
+        const DATA_VERSION = 2;
+
+        // --- Core Configuration & Utilities ---
+        function saveConfig() {
+            const ids = ["league-name","week-number","custom-csv","top-note","bottom-note","format-mode","entry-mode","type-mode",
+                         "absent-score","max-game-score","show-absent","highlight-first","show-team-total"];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) localStorage.setItem("bowling_" + id, el.value);
+            });
+        }
+
+        function loadConfigValue(id, fallback) {
+            const value = localStorage.getItem("bowling_" + id);
+            return value === null ? fallback : value;
+        }
+
+        function saveData() {
+            localStorage.setItem('bowlingDataV6', JSON.stringify(bowlers));
+            localStorage.setItem('bowlingRosterV1', JSON.stringify(roster));
+            updateDisplayLists();
+            refreshSuggestions();
+        }
+
+        function escapeHTML(value) {
+            return String(value ?? "").replace(/[&<>"']/g, c => ({
+                "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+            }[c]));
+        }
+
+        function csvEscape(value) {
+            return '"' + String(value ?? "").replace(/"/g, '""') + '"';
+        }
+
+        function newUUID() {
+            return window.crypto?.randomUUID ? crypto.randomUUID() :
+                Date.now().toString(36) + Math.random().toString(36).slice(2);
+        }
+
+        function validateScore(score, label="Score") {
+            const max = parseInt(document.getElementById("max-game-score").value, 10) || 300;
+            if (!Number.isFinite(score) || score < 0 || score > max) {
+                alert(`${label} must be between 0 and ${max}.`);
+                return false;
+            }
+            return true;
+        }
+
+        // --- Initialization ---
+        window.onload = function() {
+            const savedBowlers = localStorage.getItem('bowlingDataV6');
+            if (savedBowlers) bowlers = JSON.parse(savedBowlers);
+            
+            const savedRoster = localStorage.getItem('bowlingRosterV1');
+            if (savedRoster) roster = JSON.parse(savedRoster);
+            
+            const defaults = {
+                "league-name":"", "week-number":"", "custom-csv":"", "top-note":"", "bottom-note":"",
+                "format-mode":"individual", "entry-mode":"single", "type-mode":"scratch",
+                "absent-score":"0", "max-game-score":"300", "show-absent":"yes",
+                "highlight-first":"yes", "show-team-total":"yes"
+            };
+            Object.entries(defaults).forEach(([id,fallback]) => {
+                document.getElementById(id).value = loadConfigValue(id, fallback);
+            });
+            
+            // Port over legacy settings from older versions if present
+            const legacy = {
+                "league-name":"bowlingLeagueName", "week-number":"bowlingLeagueWeek", "custom-csv":"bowlingCustomCSV",
+                "top-note":"bowlingTopNote", "bottom-note":"bowlingBottomNote", "format-mode":"bowlingFormat",
+                "entry-mode":"bowlingEntry", "type-mode":"bowlingType"
+            };
+            Object.entries(legacy).forEach(([id,key]) => {
+                const oldValue = localStorage.getItem(key);
+                if (oldValue !== null && localStorage.getItem("bowling_" + id) === null) {
+                    document.getElementById(id).value = oldValue;
+                }
+            });
+            
+            saveConfig();
+            toggleUI();
+            updateDisplayLists();
+            refreshSuggestions();
+            updateCSVPlaceholder();
+        };
+
+        // --- UI Interactions ---
+        function toggleUI() {
+            saveConfig();
+            const format = document.getElementById('format-mode').value;
+            const entry = document.getElementById('entry-mode').value;
+            const type = document.getElementById('type-mode').value;
+
+            document.getElementById('input-team-wrapper').classList.toggle('hidden', format !== 'team');
+            document.getElementById('input-single-wrapper').classList.toggle('hidden', entry !== 'single');
+            document.getElementById('input-three-wrapper').classList.toggle('hidden', entry !== 'three');
+            document.getElementById('input-hdcp-wrapper').classList.toggle('hidden', type !== 'handicap');
+        }
+
+        function refreshSuggestions() {
+            const teamList = document.getElementById("team-suggestions");
+            const nameList = document.getElementById("name-suggestions");
+            const uniqueTeams = [...new Set(roster.map(r => r.team).filter(t => t))];
+            const uniqueNames = [...new Set(roster.map(r => r.name).filter(n => n))];
+            
+            teamList.innerHTML = uniqueTeams.map(t => `<option value="${escapeHTML(t)}">`).join('');
+            nameList.innerHTML = uniqueNames.map(n => `<option value="${escapeHTML(n)}">`).join('');
+        }
+
+        function updateCSVPlaceholder() {
+            const league = document.getElementById('league-name').value.replace(/[^a-zA-Z0-9]/g, "_") || "League";
+            const week = document.getElementById('week-number').value.replace(/[^a-zA-Z0-9]/g, "_");
+            const date = new Date().toISOString().slice(0,10);
+            
+            let autoName = league;
+            if (week) autoName += `_Week_${week}`;
+            autoName += `_${date}.csv`;
+            document.getElementById('custom-csv').placeholder = `Leave blank for: ${autoName}`;
+        }
+
+        document.addEventListener("keypress", function(event) {
+            if (event.key === "Enter" && event.target.tagName === "INPUT" && event.target.type !== "checkbox") {
+                event.preventDefault();
+                addBowler();
+            }
+        });
+
+        // --- Data Entry Logic ---
+        function addBowler() {
+            const format = document.getElementById('format-mode').value;
+            const entry = document.getElementById('entry-mode').value;
+            const type = document.getElementById('type-mode').value;
+            const isSub = document.getElementById('is-sub').checked;
+            const name = document.getElementById("name").value.trim();
+            let team = format === 'team' ? document.getElementById("team-name").value.trim() : "";
+
+            if (!name) { alert("Please enter a bowler name."); return; }
+
+            const rosterPlayer = roster.find(r => r.name.toLowerCase() === name.toLowerCase());
+            if (format === 'team' && !team && rosterPlayer) team = rosterPlayer.team || "";
+            if (format === 'team' && !team) { alert("Please enter a Team Name."); return; }
+
+            if (bowlers.find(b => b.name.toLowerCase() === name.toLowerCase())) {
+                alert(`${name} has already been entered for this week. Use 'Edit' in the list below to make changes.`);
+                return;
+            }
+
+            let scratch_score = 0, g1=0, g2=0, g3=0;
+            if (entry === 'single') {
+                scratch_score = Number(document.getElementById("score").value);
+                if (!Number.isFinite(scratch_score) || !validateScore(scratch_score)) return;
+            } else {
+                g1 = Number(document.getElementById("g1").value);
+                g2 = Number(document.getElementById("g2").value);
+                g3 = Number(document.getElementById("g3").value);
+                if (![g1,g2,g3].every(Number.isFinite)) {
+                    alert("Please enter all three game scores.");
+                    return;
+                }
+                if (![g1,g2,g3].every((v,i) => validateScore(v, `Game ${i+1}`))) return;
+                scratch_score = g1 + g2 + g3;
+            }
+
+            let hdcp = type === 'handicap' ? Number(document.getElementById("hdcp").value) : 0;
+            if (type === 'handicap' && (!Number.isFinite(hdcp) || hdcp < 0)) {
+                alert("Handicap must be 0 or greater.");
+                return;
+            }
+
+            const grand_total = scratch_score + hdcp;
+            bowlers.push({id:newUUID(), team, name, entry, g1, g2, g3, scratch_score, hdcp, grand_total, isAbsent:false});
+
+            if (!isSub && !roster.some(r => r.name.toLowerCase() === name.toLowerCase())) {
+                roster.push({name, team});
+            }
+
+            saveData();
+            document.getElementById("name").value = "";
+            document.getElementById("is-sub").checked = false;
+            if(entry === 'single') document.getElementById("score").value = "";
+            else ["g1","g2","g3"].forEach(id => document.getElementById(id).value = "");
+            if(type === 'handicap') document.getElementById("hdcp").value = "";
+            document.getElementById("name").focus();
+        }
+
+        function selectMissingPlayer(name, team) {
+            document.getElementById("name").value = name;
+            document.getElementById("is-sub").checked = false;
+            if (document.getElementById('format-mode').value === 'team') {
+                document.getElementById("team-name").value = team || "";
+            }
+            if (document.getElementById('entry-mode').value === 'single') {
+                document.getElementById("score").focus();
+            } else {
+                document.getElementById("g1").focus();
+            }
+        }
+
+        function markAbsent(name, team) {
+            if (bowlers.some(b => b.name.toLowerCase() === name.toLowerCase())) {
+                alert(`${name} is already entered.`);
+                return;
+            }
+            const format = document.getElementById('format-mode').value;
+            const entry = document.getElementById('entry-mode').value;
+            const absentScore = Number(document.getElementById("absent-score").value) || 0;
+            const scratch = entry === "three" ? absentScore * 3 : absentScore;
+            
+            bowlers.push({
+                id:newUUID(), team:format === 'team' ? (team || "") : "", name, entry,
+                g1:entry === "three" ? absentScore : 0,
+                g2:entry === "three" ? absentScore : 0,
+                g3:entry === "three" ? absentScore : 0,
+                scratch_score:scratch, hdcp:0, grand_total:scratch, isAbsent:true
+            });
+            saveData();
+        }
+
+        function removeFromRoster(name) {
+            if(confirm(`Permanently remove ${name} from the master auto-complete memory?`)) {
+                roster = roster.filter(r => r.name !== name);
+                saveData();
+            }
+        }
+
+        function removeBowler(idToRemove) {
+            bowlers = bowlers.filter(b => b.id !== idToRemove);
+            saveData();
+        }
+
+        function editBowler(idToEdit) {
+            const b = bowlers.find(x => x.id === idToEdit);
+            if (!b) return;
+
+            document.getElementById("name").value = b.name;
+            if (document.getElementById('format-mode').value === 'team') document.getElementById("team-name").value = b.team;
+            
+            if (b.entry === 'single') {
+                document.getElementById("score").value = b.scratch_score;
+            } else {
+                document.getElementById("g1").value = b.g1;
+                document.getElementById("g2").value = b.g2;
+                document.getElementById("g3").value = b.g3;
+            }
+
+            if (document.getElementById('type-mode').value === 'handicap') {
+                document.getElementById("hdcp").value = b.hdcp;
+            }
+
+            removeBowler(idToEdit);
+            
+            if (b.entry === 'single') {
+                document.getElementById("score").focus();
+            } else {
+                document.getElementById("g1").focus();
+            }
+        }
+
+        // --- List Displays ---
+        function updateDisplayLists() {
+            document.getElementById("bowler-count").innerText = `Entered: ${bowlers.length}`;
+            const listDiv = document.getElementById("list-display");
+            const q = (document.getElementById("entered-search")?.value || "").toLowerCase().trim();
+            const sort = document.getElementById("entered-sort")?.value || "entry";
+
+            let visible = bowlers.filter(b => {
+                if (b.isAbsent && document.getElementById("show-absent").value === "no") return false;
+                return !q || b.name.toLowerCase().includes(q) || (b.team || "").toLowerCase().includes(q);
+            });
+
+            if (sort === "name") visible.sort((a,b)=>a.name.localeCompare(b.name));
+            else if (sort === "score") visible.sort((a,b)=>b.grand_total-a.grand_total);
+            else if (sort === "team") visible.sort((a,b)=>(a.team||"").localeCompare(b.team||"") || a.name.localeCompare(b.name));
+            else visible.reverse();
+
+            listDiv.innerHTML = visible.length ? visible.map(b => {
+                const desc = b.team ? `[${escapeHTML(b.team)}] ` : "";
+                const text = b.isAbsent
+                    ? `${desc}<strong>${escapeHTML(b.name)}</strong> - <span class="status-absent">[Absent]</span>`
+                    : `${desc}<strong>${escapeHTML(b.name)}</strong> - ${b.grand_total}`;
+                return `<div class="list-item"><span>${text}</span><div class="item-actions">
+                    <button class="btn-edit" onclick="editBowler('${b.id}')">Edit</button>
+                    <button class="btn-delete" onclick="removeBowler('${b.id}')">Delete</button>
+                </div></div>`;
+            }).join("") : '<div style="color:#888;text-align:center;margin-top:50px;">No matching entries.</div>';
+
+            const missingDiv = document.getElementById("missing-display");
+            const enteredNames = bowlers.map(b => b.name.toLowerCase());
+            const missing = roster.filter(r => !enteredNames.includes(r.name.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
+
+            if (!roster.length) {
+                missingDiv.innerHTML = '<div style="color:#888;text-align:center;margin-top:50px;">Roster empty. Names save here automatically.</div>';
+            } else if (!missing.length) {
+                missingDiv.innerHTML = '<div style="color:#4CAF50;font-weight:bold;text-align:center;margin-top:50px;">✓ All players entered!</div>';
+            } else {
+                missingDiv.innerHTML = missing.map(p => {
+                    const n = escapeHTML(p.name), t = escapeHTML(p.team || "");
+                    return `<div class="missing-item">
+                        <div class="missing-name" onclick="selectMissingPlayer(this.dataset.name,this.dataset.team)" data-name="${n}" data-team="${t}">
+                            ${p.team ? `[${t}] ` : ""}<strong>${n}</strong>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-absent" onclick="markAbsent(this.dataset.name,this.dataset.team)" data-name="${n}" data-team="${t}">Absent</button>
+                            <button class="btn-delete" onclick="removeFromRoster(this.dataset.name)" data-name="${n}" title="Permanently delete from Master Roster">❌</button>
+                        </div>
+                    </div>`;
+                }).join("");
+            }
+        }
+
+        // --- Toolbar Utilities ---
+        function getWeekSummary() {
+            const absent = bowlers.filter(b => b.isAbsent).length;
+            const teams = new Set(bowlers.map(b => b.team).filter(Boolean)).size;
+            const missing = roster.filter(r => !bowlers.some(b => b.name.toLowerCase() === r.name.toLowerCase())).length;
+            return { entered:bowlers.length, absent, missing, teams };
+        }
+
+        function undoLastEntry() {
+            if (!bowlers.length) return;
+            const last = bowlers[bowlers.length - 1];
+            if (confirm(`Undo ${last.name}${last.isAbsent ? " (Absent)" : ""}?`)) {
+                bowlers.pop();
+                saveData();
+            }
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function exportBackup() {
+            saveConfig();
+            const ids = ["league-name","week-number","custom-csv","top-note","bottom-note","format-mode","entry-mode","type-mode",
+                         "absent-score","max-game-score","show-absent","highlight-first","show-team-total"];
+            const settings = Object.fromEntries(ids.map(id => [id, document.getElementById(id)?.value ?? ""]));
+            const data = { version:DATA_VERSION, exportedAt:new Date().toISOString(), bowlers, roster, settings };
+            downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}),
+                         `Bowling_League_Backup_${new Date().toISOString().slice(0,10)}.json`);
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const data = JSON.parse(reader.result);
+                    if (!Array.isArray(data.bowlers) || !Array.isArray(data.roster)) throw new Error();
+                    if (!confirm("Import this backup? Current data will be replaced.")) return;
+                    bowlers = data.bowlers;
+                    roster = data.roster;
+                    if (data.settings) Object.entries(data.settings).forEach(([id,value]) => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = value;
+                    });
+                    saveConfig();
+                    saveData();
+                    toggleUI();
+                    updateCSVPlaceholder();
+                    alert("Backup restored successfully.");
+                } catch {
+                    alert("That file is not a valid bowling league backup.");
+                } finally {
+                    event.target.value = "";
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportRoster() {
+            const rows = [["Name","Team"], ...roster.map(r => [r.name, r.team || ""])];
+            const csv = rows.map(row => row.map(csvEscape).join(",")).join("\n");
+            downloadBlob(new Blob([csv], {type:"text/csv;charset=utf-8;"}), "Bowling_League_Roster.csv");
+        }
+
+        function archiveWeek() {
+            const history = JSON.parse(localStorage.getItem("bowlingSeasonHistoryV1") || "[]");
+            history.push({
+                id:newUUID(),
+                league:document.getElementById("league-name").value,
+                week:document.getElementById("week-number").value,
+                date:new Date().toISOString(),
+                bowlers:JSON.parse(JSON.stringify(bowlers))
+            });
+            localStorage.setItem("bowlingSeasonHistoryV1", JSON.stringify(history));
+        }
+
+        function exportSeasonHistory() {
+            const history = JSON.parse(localStorage.getItem("bowlingSeasonHistoryV1") || "[]");
+            downloadBlob(new Blob([JSON.stringify(history, null, 2)], {type:"application/json"}),
+                         "Bowling_Season_History.json");
+        }
+
+        function startNewWeek() {
+            if (!confirm("Start a new week? Current scores will be cleared, but the master roster and league settings will remain.")) return;
+            bowlers = [];
+            document.getElementById("week-number").value = "";
+            document.getElementById("top-note").value = "";
+            document.getElementById("bottom-note").value = "";
+            saveConfig();
+            saveData();
+            updateCSVPlaceholder();
+        }
+
+        // --- Generation & Output ---
+        function finishAndGenerate() {
+            if (bowlers.length === 0) {
+                alert("You need to add bowlers first!");
+                return;
+            }
+            
+            const summary = getWeekSummary();
+            if (!confirm(`Ready to generate?\n\nEntered: ${summary.entered}\nAbsent: ${summary.absent}\nMissing from roster: ${summary.missing}\nTeams: ${summary.teams}\n\nGenerate CSV and print?`)) return;
+            
+            saveConfig();
+            archiveWeek();
+
+            const format = document.getElementById('format-mode').value;
+            const leagueName = document.getElementById('league-name').value || "Bowling League Results";
+            const weekNum = document.getElementById('week-number').value;
+            const today = new Date().toLocaleDateString();
+            
+            document.getElementById("print-title").innerText = leagueName;
+            document.getElementById("print-subtitle").innerText = (weekNum ? `Week ${weekNum} | ` : "") + `Generated on: ${today}`;
+
+            const topNote = document.getElementById('top-note').value.trim();
+            const bottomNote = document.getElementById('bottom-note').value.trim();
+            
+            const topEl = document.getElementById('print-top-note');
+            if (topNote) { topEl.innerText = topNote; topEl.style.display = 'block'; } else { topEl.style.display = 'none'; }
+            
+            const botEl = document.getElementById('print-bottom-note');
+            if (bottomNote) { botEl.innerText = bottomNote; botEl.style.display = 'block'; } else { botEl.style.display = 'none'; }
+
+            if (format === 'individual') {
+                processIndividual();
+            } else {
+                processTeam();
+            }
+        }
+
+        function processIndividual() {
+            let sorted = [...bowlers].sort((a,b) => (a.isAbsent-b.isAbsent) || (b.grand_total-a.grand_total));
+            let place = 1;
+            sorted.forEach((b, i) => {
+                if (i > 0 && b.grand_total < sorted[i-1].grand_total) place = i + 1;
+                b.placement = place;
+            });
+            generateCSV(sorted, 'individual');
+            buildPrintTables(sorted, 'individual');
+        }
+
+        function processTeam() {
+            let teamsMap = {};
+            bowlers.forEach(b => {
+                if (!teamsMap[b.team]) teamsMap[b.team] = { name: b.team, total: 0, players: [] };
+                teamsMap[b.team].players.push(b);
+                teamsMap[b.team].total += b.grand_total;
+            });
+
+            let teamsArr = Object.values(teamsMap).sort((a, b) => b.total - a.total);
+            let place = 1;
+            teamsArr.forEach((t, i) => {
+                if (i > 0 && t.total < teamsArr[i-1].total) place = i + 1;
+                t.placement = place;
+                t.players.sort((a,b) => b.grand_total - a.grand_total);
+            });
+            generateCSV(teamsArr, 'team');
+            buildPrintTables(teamsArr, 'team');
+        }
+
+        function generateCSV(data, format) {
+            const entry = document.getElementById('entry-mode').value;
+            const type = document.getElementById('type-mode').value;
+            
+            let csvContent = "";
+            let cols = ["Name"];
+            if (entry === 'three') cols.push("Game1", "Game2", "Game3", "Scratch Series");
+            else cols.push("Scratch Score");
+            
+            if (type === 'handicap') cols.push("Handicap", "Grand Total");
+            else cols.push("Grand Total");
+
+            if (format === 'individual') {
+                csvContent = "Placement," + cols.join(",") + "\n";
+                data.forEach(b => {
+                    let row = [b.placement, csvEscape(b.name)];
+                    
+                    if (b.isAbsent) {
+                        if(entry === 'three') row.push("ABSENT", "ABSENT", "ABSENT", "0");
+                        else row.push("ABSENT");
+                        
+                        if(type === 'handicap') row.push("0", "0");
+                        else row.push("0");
+                    } else {
+                        if(entry === 'three') row.push(b.g1, b.g2, b.g3, b.scratch_score);
+                        else row.push(b.scratch_score);
+                        
+                        if(type === 'handicap') row.push(b.hdcp, b.grand_total);
+                        else row.push(b.grand_total);
+                    }
+                    csvContent += row.join(",") + "\n";
+                });
+            } else {
+                csvContent = "Team Placement,Team Name,Team Total," + cols.join(",") + "\n";
+                data.forEach(t => {
+                    t.players.forEach(b => {
+                        let row = [t.placement, csvEscape(t.name), t.total, csvEscape(b.name)];
+                        
+                        if (b.isAbsent) {
+                            if(entry === 'three') row.push("ABSENT", "ABSENT", "ABSENT", "0");
+                            else row.push("ABSENT");
+                            
+                            if(type === 'handicap') row.push("0", "0");
+                            else row.push("0");
+                        } else {
+                            if(entry === 'three') row.push(b.g1, b.g2, b.g3, b.scratch_score);
+                            else row.push(b.scratch_score);
+                            
+                            if(type === 'handicap') row.push(b.hdcp, b.grand_total);
+                            else row.push(b.grand_total);
+                        }
+                        csvContent += row.join(",") + "\n";
+                    });
+                });
+            }
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            
+            let filename = document.getElementById('custom-csv').value.trim();
+            if (!filename) {
+                const league = document.getElementById('league-name').value.replace(/[^a-zA-Z0-9]/g, "_") || "League";
+                const week = document.getElementById('week-number').value.replace(/[^a-zA-Z0-9]/g, "_");
+                const date = new Date().toISOString().slice(0,10);
+                filename = league;
+                if (week) filename += `_Week_${week}`;
+                filename += `_${date}`;
+            }
+            if (!filename.toLowerCase().endsWith('.csv')) filename += '.csv';
+            
+            link.download = filename;
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function buildPrintTables(data, format) {
+            const container = document.getElementById("print-columns");
+            const entry = document.getElementById('entry-mode').value;
+            const type = document.getElementById('type-mode').value;
+            
+            let thHTML = `<th>#</th><th>Name</th>`;
+            if (entry === 'three') thHTML += `<th>G1</th><th>G2</th><th>G3</th><th>Scratch</th>`;
+            if (type === 'handicap') thHTML += `<th>Hdcp</th>`;
+            thHTML += `<th>Total</th>`;
+
+            let html = "";
+
+            if (format === 'individual') {
+                let numCols = data.length > 75 ? 3 : (data.length > 35 ? 2 : 1);
+                let itemsPerCol = Math.ceil(data.length / numCols);
+                
+                for (let i = 0; i < numCols; i++) {
+                    let chunk = data.slice(i * itemsPerCol, (i + 1) * itemsPerCol);
+                    if (chunk.length === 0) continue;
+                    
+                    html += `<table style="flex: 1; min-width: 300px;">
+                        <thead><tr>${thHTML}</tr></thead><tbody>`;
+                    
+                    chunk.forEach(b => {
+                        const first = (document.getElementById('highlight-first').value === 'yes' && !b.isAbsent && b.placement === 1) ? 'class="first-place"' : '';
+                        html += `<tr ${first}><td>${b.placement}</td><td>${escapeHTML(b.name)}</td>`;
+                        
+                        if (b.isAbsent) {
+                            if (entry === 'three') html += `<td colspan="4" class="print-absent" style="text-align:center;">ABSENT</td>`;
+                            else html += `<td class="print-absent">ABSENT</td>`;
+                            if (type === 'handicap') html += `<td>0</td>`;
+                            html += `<td><strong>0</strong></td></tr>`;
+                        } else {
+                            if (entry === 'three') html += `<td>${b.g1}</td><td>${b.g2}</td><td>${b.g3}</td><td>${b.scratch_score}</td>`;
+                            if (type === 'handicap') html += `<td>${b.hdcp}</td>`;
+                            html += `<td><strong>${b.grand_total}</strong></td></tr>`;
+                        }
+                    });
+                    html += `</tbody></table>`;
+                }
+            } else {
+                if (document.getElementById('show-team-total').value === 'yes') {
+                    html += `<table class="team-summary"><thead><tr><th>Place</th><th>Team</th><th>Total</th></tr></thead><tbody>`;
+                    data.forEach(t => {
+                        html += `<tr><td>${t.placement}</td><td>${escapeHTML(t.name)}</td><td><strong>${t.total}</strong></td></tr>`;
+                    });
+                    html += `</tbody></table>`;
+                }
+                data.forEach(t => {
+                    let teamFirst = (document.getElementById('highlight-first').value === 'yes' && t.placement === 1) ? 'class="first-place"' : '';
+                    html += `<table style="width: calc(33% - 14px); min-width: 320px; margin-bottom: 20px;">
+                        <thead>
+                            <tr><th colspan="10" class="team-title">${t.placement === 1 ? '🏆 ' : ''}${t.placement}. ${t.name} (Total: ${t.total})</th></tr>
+                            <tr>${thHTML.replace('<th>#</th>', '')}</tr>
+                        </thead><tbody>`;
+                    
+                    t.players.forEach(b => {
+                        html += `<tr ${teamFirst}><td>${escapeHTML(b.name)}</td>`;
+                        if (b.isAbsent) {
+                            if (entry === 'three') html += `<td colspan="4" class="print-absent" style="text-align:center;">ABSENT</td>`;
+                            else html += `<td class="print-absent">ABSENT</td>`;
+                            if (type === 'handicap') html += `<td>0</td>`;
+                            html += `<td><strong>0</strong></td></tr>`;
+                        } else {
+                            if (entry === 'three') html += `<td>${b.g1}</td><td>${b.g2}</td><td>${b.g3}</td><td>${b.scratch_score}</td>`;
+                            if (type === 'handicap') html += `<td>${b.hdcp}</td>`;
+                            html += `<td><strong>${b.grand_total}</strong></td></tr>`;
+                        }
+                    });
+                    html += `</tbody></table>`;
+                });
+            }
+
+            container.innerHTML = html;
+            setTimeout(() => window.print(), 500);
+        }
+    </script>
+</body>
+</html>

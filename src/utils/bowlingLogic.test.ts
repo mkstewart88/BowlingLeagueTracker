@@ -1,0 +1,275 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  calculateBowlerHandicap,
+  rankWeeklyBowlers,
+  buildTeamStandings,
+  calculateMatchupPoints,
+  buildEightPlayerBracket,
+  generateRoundRobinSchedule,
+  calculateTreasurySummary,
+  parseUniversalBackupPayload,
+  computeMasterDatabaseMetrics,
+  CURRENT_APP_VERSION,
+  LATEST_AVAILABLE_VERSION,
+  DEFAULT_SETTINGS,
+} from './bowlingLogic';
+import { createInitialSeedState } from './seedData';
+import { generateStandaloneSingleHtmlBundle } from './fileExport';
+import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
+
+test('version starts at 1.0.06 with 1.0.07 available for update testing', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.06');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.07');
+});
+
+test('calculateBowlerHandicap computes 90% of 220 accurately for 3-game series and single game', () => {
+  const hdcp180 = calculateBowlerHandicap(180, 220, 90, 'three');
+  assert.equal(hdcp180.perGame, 36);
+  assert.equal(hdcp180.totalHandicap, 108);
+
+  const hdcpSingle = calculateBowlerHandicap(195, 220, 90, 'single');
+  assert.equal(hdcpSingle.perGame, 22);
+  assert.equal(hdcpSingle.totalHandicap, 22);
+
+  const hdcpAboveBasis = calculateBowlerHandicap(225, 220, 90, 'three');
+  assert.equal(hdcpAboveBasis.perGame, 0);
+  assert.equal(hdcpAboveBasis.totalHandicap, 0);
+});
+
+test('rankWeeklyBowlers handles ties and places absent bowlers at the bottom', () => {
+  const entries: BowlerEntry[] = [
+    {
+      id: '1',
+      name: 'Bob',
+      team: 'A',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 200,
+      g2: 200,
+      g3: 200,
+      scratchScore: 600,
+      handicap: 60,
+      grandTotal: 660,
+      isAbsent: false,
+      isSub: false,
+      createdAt: '',
+    },
+    {
+      id: '2',
+      name: 'Alice',
+      team: 'A',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 200,
+      g2: 200,
+      g3: 200,
+      scratchScore: 600,
+      handicap: 60,
+      grandTotal: 660,
+      isAbsent: false,
+      isSub: false,
+      createdAt: '',
+    },
+    {
+      id: '3',
+      name: 'Charlie',
+      team: 'B',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 150,
+      g2: 150,
+      g3: 150,
+      scratchScore: 450,
+      handicap: 0,
+      grandTotal: 450,
+      isAbsent: true,
+      isSub: false,
+      createdAt: '',
+    },
+    {
+      id: '4',
+      name: 'Dave',
+      team: 'B',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 190,
+      g2: 190,
+      g3: 190,
+      scratchScore: 570,
+      handicap: 30,
+      grandTotal: 600,
+      isAbsent: false,
+      isSub: false,
+      createdAt: '',
+    },
+  ];
+
+  const ranked = rankWeeklyBowlers(entries);
+  assert.equal(ranked[0].name, 'Alice');
+  assert.equal(ranked[0].placement, 1);
+  assert.equal(ranked[1].name, 'Bob');
+  assert.equal(ranked[1].placement, 1);
+  assert.equal(ranked[2].name, 'Dave');
+  assert.equal(ranked[2].placement, 3);
+  assert.equal(ranked[3].name, 'Charlie');
+  assert.equal(ranked[3].placement, null);
+});
+
+test('buildTeamStandings and calculateMatchupPoints compute 7-point and 8-point rules', () => {
+  const entries: BowlerEntry[] = [
+    {
+      id: '1',
+      name: 'Pin King',
+      team: 'Pin Crushers',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 210,
+      g2: 180,
+      g3: 220,
+      scratchScore: 610,
+      handicap: 60,
+      grandTotal: 670,
+      isAbsent: false,
+      isSub: false,
+      createdAt: '',
+    },
+    {
+      id: '2',
+      name: 'Split Happens',
+      team: 'Alley Cats',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 190,
+      g2: 210,
+      g3: 190,
+      scratchScore: 590,
+      handicap: 60,
+      grandTotal: 650,
+      isAbsent: false,
+      isSub: false,
+      createdAt: '',
+    },
+  ];
+
+  const teams = buildTeamStandings(entries);
+  assert.equal(teams.length, 2);
+  assert.equal(teams[0].name, 'Pin Crushers');
+  assert.equal(teams[0].placement, 1);
+
+  const matchup7 = calculateMatchupPoints(teams[0], teams[1], '7pt');
+  assert.equal(matchup7.teamAPoints, 5);
+  assert.equal(matchup7.teamBPoints, 2);
+
+  const matchup8 = calculateMatchupPoints(teams[0], teams[1], '8pt');
+  // 2 pts G1 + 0 pts G2 + 2 pts G3 + 2 pts Series = 6 pts vs 2 pts
+  assert.equal(matchup8.teamAPoints, 6);
+  assert.equal(matchup8.teamBPoints, 2);
+  assert.deepEqual(matchup8.wonFlagsA, ['W', 'L', 'W', 'W']);
+});
+
+test('buildEightPlayerBracket resolves Quarterfinals (G1), Semifinals (G2), and Finals (G3) with payouts', () => {
+  const entrants: BowlerEntry[] = Array.from({ length: 8 }, (_, idx) => ({
+    id: `b-${idx + 1}`,
+    name: `Bowler ${idx + 1}`,
+    team: `Team ${(idx % 4) + 1}`,
+    entryMode: 'three' as const,
+    scoringType: 'handicap' as const,
+    g1: 180 + idx * 5,
+    g2: 190 + idx * 5,
+    g3: 200 + idx * 5,
+    scratchScore: 570 + idx * 15,
+    handicap: 30,
+    grandTotal: 600 + idx * 15,
+    isAbsent: false,
+    isSub: false,
+    createdAt: '',
+  }));
+
+  const bracket = buildEightPlayerBracket(entrants, 'handicap', 'Bracket #1', 5, 25, 10);
+  assert.ok(bracket);
+  assert.equal(bracket.quarterfinals.length, 4);
+  assert.equal(bracket.champion.name, 'Bowler 8');
+  assert.equal(bracket.champion.payout, 25);
+  assert.equal(bracket.runnerUp.name, 'Bowler 4');
+  assert.equal(bracket.runnerUp.payout, 10);
+});
+
+test('generateRoundRobinSchedule produces valid lane pairs for each week', () => {
+  const teams = ['Pin Crushers', 'Split Happens', 'Gutter Gang', 'Pocket Pounders'];
+  const schedule = generateRoundRobinSchedule(teams, 1, 6);
+  assert.equal(schedule.length, 12);
+  const week1 = schedule.filter((m) => m.week === 1);
+  assert.equal(week1.length, 2);
+  assert.equal(week1[0].oddLane, 1);
+  assert.equal(week1[0].evenLane, 2);
+  assert.equal(week1[1].oddLane, 3);
+  assert.equal(week1[1].evenLane, 4);
+});
+
+test('calculateTreasurySummary splits house lineage and prize fund accurately', () => {
+  const roster: RosterPlayer[] = [
+    { id: 'p1', name: 'Bowler 1', team: 'T1' },
+    { id: 'p2', name: 'Bowler 2', team: 'T1' },
+  ];
+  const dues: Record<string, WeeklyDuesRecord> = {
+    p1: {
+      playerId: 'p1',
+      playerName: 'Bowler 1',
+      team: 'T1',
+      status: 'paid',
+      amountPaid: 22,
+      sidePotStrike: true,
+      sidePotHighGame: false,
+    },
+    p2: {
+      playerId: 'p2',
+      playerName: 'Bowler 2',
+      team: 'T1',
+      status: 'owes',
+      amountPaid: 0,
+      sidePotStrike: false,
+      sidePotHighGame: false,
+    },
+  };
+
+  const summary = calculateTreasurySummary(roster, dues, {
+    ...DEFAULT_SETTINGS,
+    weeklyDuesPerBowler: 22,
+    lineageCostPerBowler: 12,
+  });
+
+  assert.equal(summary.expectedGrossDues, 44);
+  assert.equal(summary.collectedGrossDues, 22);
+  assert.equal(summary.outstandingArrears, 22);
+  assert.equal(summary.houseLineageCut, 12);
+  assert.equal(summary.netPrizeFundContribution, 10);
+  assert.equal(summary.strikePotCollected, 5);
+});
+
+test('parseUniversalBackupPayload and computeMasterDatabaseMetrics preserve all leagues across JSON and Single-HTML backups', () => {
+  const seed = createInitialSeedState();
+  assert.ok(seed.allLeaguesRegistry);
+  assert.equal(Object.keys(seed.allLeaguesRegistry).length, 3);
+
+  const metrics = computeMasterDatabaseMetrics(seed.allLeaguesRegistry, null, null);
+  assert.equal(metrics.totalLeagues, 3);
+  assert.equal(metrics.activeLeagues, 3);
+  assert.equal(metrics.duplicateBowlersCount, 2); // Walter Sobchak & Jesus Quintana bowl in 2 leagues
+
+  // Simulate exporting a Single-HTML standalone bundle and importing it on a new PC with cleared browser history
+  const htmlBundle = generateStandaloneSingleHtmlBundle(seed, '1.0.07');
+  const emptyFallback = { ...seed, bowlers: [], roster: [], history: [], allLeaguesRegistry: {} };
+
+  const restoredFromHtml = parseUniversalBackupPayload(htmlBundle, emptyFallback);
+  assert.equal(restoredFromHtml.sourceType, 'html_bundle');
+  assert.equal(restoredFromHtml.restoredState.version, '1.0.07');
+  assert.equal(restoredFromHtml.restoredState.bowlers.length, seed.bowlers.length);
+  assert.equal(restoredFromHtml.restoredState.roster.length, seed.roster.length);
+  assert.equal(restoredFromHtml.restoredState.history.length, seed.history.length);
+  assert.equal(
+    Object.keys(restoredFromHtml.restoredState.allLeaguesRegistry || {}).length,
+    3
+  );
+});
+
