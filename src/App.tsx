@@ -78,12 +78,8 @@ export default function App() {
       if (rawSource) {
         const parsed = JSON.parse(rawSource);
         if (parsed && Array.isArray(parsed.bowlers) && Array.isArray(parsed.roster)) {
-          const resolvedVersion =
-            compareSemverVersions(CURRENT_APP_VERSION, parsed.version || '1.0.0') >= 0
-              ? CURRENT_APP_VERSION
-              : parsed.version;
           return syncActiveLeagueInRegistry({
-            version: resolvedVersion,
+            version: CURRENT_APP_VERSION,
             settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
             bowlers: parsed.bowlers,
             roster: parsed.roster,
@@ -707,33 +703,13 @@ export default function App() {
     );
   };
 
-  const handleUpgradeVersion = (newVersion: string) => {
-    setAppState((prev) => {
-      const synced = syncActiveLeagueInRegistry(prev);
-      const updatedRegistry: NonNullable<AppState['allLeaguesRegistry']> = {};
-      for (const [id, lg] of Object.entries(synced.allLeaguesRegistry || {})) {
-        updatedRegistry[id] = {
-          ...lg,
-          version: newVersion,
-          settings: { ...DEFAULT_SETTINGS, ...lg.settings },
-        };
-      }
-      return {
-        ...synced,
-        version: newVersion,
-        settings: { ...DEFAULT_SETTINGS, ...synced.settings },
-        allLeaguesRegistry: updatedRegistry,
-      };
-    });
-  };
-
   const latestAvailableVersion =
     compareSemverVersions(remoteManifest.latestVersion, LATEST_AVAILABLE_VERSION) >= 0
       ? remoteManifest.latestVersion
       : LATEST_AVAILABLE_VERSION;
 
   const hasAvailableUpdate =
-    compareSemverVersions(latestAvailableVersion, appState.version || CURRENT_APP_VERSION) > 0;
+    compareSemverVersions(latestAvailableVersion, CURRENT_APP_VERSION) > 0;
 
   const switchTab = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -1020,7 +996,6 @@ export default function App() {
         onUpdateManifest={(manifest) => {
           setRemoteManifest(manifest);
         }}
-        onUpgradeVersion={handleUpgradeVersion}
         onShowToast={showToast}
       />
 

@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.10';
-export const LATEST_AVAILABLE_VERSION = '1.0.10';
+export const CURRENT_APP_VERSION = '1.0.11';
+export const LATEST_AVAILABLE_VERSION = '1.0.11';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -67,10 +67,38 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.11',
+    date: 'November 14, 2026',
+    title: 'Direct Overwrite & Auto-Restart Updater + GitHub Diagnostics',
+    isLatest: true,
+    highlights: [
+      'Direct HTML File Overwrite & Automatic Restart: Removed the confusing in-memory "Update Live App" button. Updating now downloads the new build, preserves 100% of your league data, overwrites your opened HTML file, and restarts directly into the new version.',
+      'Pre-Filled Active Filename: Automatically detects the exact .html filename you opened so saving overwrites your existing desktop file cleanly instead of creating duplicate copies.',
+      'Honest GitHub Update Diagnostics: Clearly reports HTTP 404 (Private repository / missing version.json) or network errors when checking for updates instead of silently showing the old version.',
+    ],
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Removed the in-memory Update Live App button; updates now require overwriting/saving the actual single-HTML program file and automatically restart the app upon overwrite.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Updater now pre-selects your currently opened HTML filename and uses the GitHub API raw endpoint first to avoid CDN cache lag on newly pushed releases.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Fixed installed version tracking to always reflect the compiled HTML file running in your browser and added clear error messages if GitHub returns 404.',
+      },
+    ],
+  },
+  {
     version: '1.0.10',
     date: 'November 14, 2026',
     title: 'Clear Framed Section Borders & Color-Coded Headers Across All 5 Tabs',
-    isLatest: true,
+    isLatest: false,
     highlights: [
       'Distinct Framed Section Borders Across Every Tab: Upgraded every section container across Tabs 1–5 with crisp 2px borders, elevated frame contrast, and color-tinted header bands so each section stands out at a glance.',
       'Color-Coded Section Headers & Rule Groups: Separated League Rules (Tab 1D), Team Performance & Averages (Tab 2), Brackets & Side Pots (Tab 3), Dues & Prize Fund (Tab 4), and Multi-League & Backups (Tab 5) into individually framed panels.',

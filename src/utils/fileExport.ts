@@ -457,9 +457,30 @@ export async function executeAutoBackupWrite(
   return { wrote: false, targetName: '', method: 'skipped' };
 }
 
+let activeOpenedHtmlHandle: WritableFileHandle | null = null;
+
 /**
- * Overwrites an existing `.html` file on the user's computer using the File System Access API
- * (`window.showSaveFilePicker`) if supported by Chrome/Edge, or falls back to a clean download.
+ * Extracts the exact `.html` filename currently open in the browser (when launched from disk via `file://`),
+ * falling back to `Bowling_League_Helper_Latest.html`.
+ */
+export function getCurrentOpenedHtmlFilename(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    try {
+      const rawPath = window.location.pathname || '';
+      const lastSeg = decodeURIComponent(rawPath.split('/').pop() || '').trim();
+      if (/\.html?$/i.test(lastSeg)) {
+        return lastSeg;
+      }
+    } catch {
+      // Ignore malformed URI components
+    }
+  }
+  return 'Bowling_League_Helper_Latest.html';
+}
+
+/**
+ * Overwrites the `.html` file that was used to open the app via the File System Access API
+ * (`window.showSaveFilePicker`) if supported by Chrome/Edge, or falls back to downloading with the same filename.
  */
 export async function overwriteOrDownloadSingleHtmlFile(
   state: AppState,
@@ -471,7 +492,19 @@ export async function overwriteOrDownloadSingleHtmlFile(
     targetVersion,
     remoteHtmlTemplate
   );
-  const defaultFilename = `Bowling_League_Helper_v${targetVersion}.html`;
+  const openedFilename = getCurrentOpenedHtmlFilename();
+
+  // If we already have a writable handle to the HTML file from earlier in this session, overwrite it directly
+  if (activeOpenedHtmlHandle) {
+    try {
+      const writable = await activeOpenedHtmlHandle.createWritable();
+      await writable.write(htmlContent);
+      await writable.close();
+      return { method: 'filesystem', filename: activeOpenedHtmlHandle.name || openedFilename };
+    } catch {
+      activeOpenedHtmlHandle = null;
+    }
+  }
 
   const win = window as unknown as {
     showSaveFilePicker?: (options: unknown) => Promise<WritableFileHandle>;
@@ -480,7 +513,8 @@ export async function overwriteOrDownloadSingleHtmlFile(
   if (typeof win.showSaveFilePicker === 'function') {
     try {
       const handle = await win.showSaveFilePicker({
-        suggestedName: defaultFilename,
+        id: 'bowling-league-app-html',
+        suggestedName: openedFilename,
         types: [
           {
             description: 'Single-File Bowling League HTML Program',
@@ -488,10 +522,11 @@ export async function overwriteOrDownloadSingleHtmlFile(
           },
         ],
       });
+      activeOpenedHtmlHandle = handle;
       const writable = await handle.createWritable();
       await writable.write(htmlContent);
       await writable.close();
-      return { method: 'filesystem', filename: handle.name || defaultFilename };
+      return { method: 'filesystem', filename: handle.name || openedFilename };
     } catch (err: unknown) {
       const errorName = (err as { name?: string })?.name;
       if (errorName === 'AbortError') {
@@ -500,8 +535,8 @@ export async function overwriteOrDownloadSingleHtmlFile(
     }
   }
 
-  downloadBlob(new Blob([htmlContent], { type: 'text/html;charset=utf-8;' }), defaultFilename);
-  return { method: 'download', filename: defaultFilename };
+  downloadBlob(new Blob([htmlContent], { type: 'text/html;charset=utf-8;' }), openedFilename);
+  return { method: 'download', filename: openedFilename };
 }
 
 /**

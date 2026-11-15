@@ -9,6 +9,7 @@ import {
   mergePatchNotesHistory,
 } from '../utils/githubUpdater';
 import {
+  getCurrentOpenedHtmlFilename,
   overwriteOrDownloadSingleHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
@@ -16,7 +17,6 @@ import {
   Download,
   HardDrive,
   RefreshCw,
-  CheckCircle2,
   FileCode2,
   X,
   History,
@@ -29,7 +29,6 @@ interface UpdateModalProps {
   appState: AppState;
   remoteManifest: VersionManifest;
   onUpdateManifest: (manifest: VersionManifest) => void;
-  onUpgradeVersion: (newVersion: string) => void;
   onShowToast: (msg: string, isError?: boolean) => void;
 }
 
@@ -39,7 +38,6 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   appState,
   remoteManifest,
   onUpdateManifest,
-  onUpgradeVersion,
   onShowToast,
 }) => {
   const effectiveLatestVersion =
@@ -97,26 +95,67 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     }
   };
 
+  const openedFilename = getCurrentOpenedHtmlFilename();
+
   const handleApplyAndOverwriteHtml = async () => {
     setIsUpdating(true);
+    setUpdateErrorHint(null);
     try {
+      let remoteHtml = await fetchRemoteHtmlTemplateFromGithub(remoteManifest);
+
+      // When running over http/https (e.g. hosted web/dev preview), also allow local ./standalone_template.html if it contains target version
+      if (!remoteHtml && typeof window !== 'undefined' && window.location.protocol !== 'file:') {
+        try {
+          const resp = await fetch(`./standalone_template.html?t=${Date.now()}`, {
+            cache: 'no-store',
+          });
+          if (resp.ok) {
+            const candidate = await resp.text();
+            if (
+              candidate.includes('id="root"') &&
+              candidate.includes('<script') &&
+              candidate.includes(effectiveLatestVersion)
+            ) {
+              remoteHtml = candidate;
+            }
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (hasNewUpdate && !remoteHtml) {
+        const msg = `Could not download v${effectiveLatestVersion} HTML bundle from GitHub. Verify the repository is Public and try again.`;
+        setUpdateErrorHint(msg);
+        onShowToast(msg, true);
+        return;
+      }
+
       const updatedState: AppState = {
         ...appState,
         version: effectiveLatestVersion,
       };
-      onUpgradeVersion(effectiveLatestVersion);
 
-      const remoteHtml = await fetchRemoteHtmlTemplateFromGithub(remoteManifest);
       const res = await overwriteOrDownloadSingleHtmlFile(
         updatedState,
         effectiveLatestVersion,
         remoteHtml
       );
-      onShowToast(
-        res.method === 'filesystem'
-          ? `Updated to v${effectiveLatestVersion} and overwrote ${res.filename} with all league data intact!`
-          : `Updated to v${effectiveLatestVersion} and downloaded ${res.filename} with all league data intact!`
-      );
+
+      if (res.method === 'filesystem') {
+        onShowToast(
+          `Overwrote ${res.filename} with v${effectiveLatestVersion}! Restarting app...`
+        );
+        setTimeout(() => {
+          window.location.reload();
+        }, 900);
+      } else {
+        onShowToast(
+          hasNewUpdate
+            ? `Downloaded ${res.filename} (v${effectiveLatestVersion}). Replace your old file with this download and open it to restart in v${effectiveLatestVersion}.`
+            : `Saved ${res.filename} (v${effectiveLatestVersion}) with all league data intact!`
+        );
+      }
     } catch (err: unknown) {
       const msg = (err as Error)?.message || 'Update cancelled.';
       if (!msg.includes('Cancelled')) {
@@ -125,13 +164,6 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     } finally {
       setIsUpdating(false);
     }
-  };
-
-  const handleApplyInAppUpdateOnly = () => {
-    onUpgradeVersion(effectiveLatestVersion);
-    onShowToast(
-      `Program updated to v${effectiveLatestVersion}! All ${appState.bowlers.length} active bowlers and ${appState.roster.length} roster players were preserved.`
-    );
   };
 
   const handleSaveBackupNow = async () => {
@@ -242,31 +274,21 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             </div>
           )}
 
-          {/* Primary Overwrite & Update Action Box */}
+          {/* Primary Overwrite & Restart Action Box */}
           <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-lg space-y-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
                 {hasNewUpdate
-                  ? `Upgrade from v${currentVersion} to v${effectiveLatestVersion} (Keep All League Data)`
+                  ? `Update from v${currentVersion} to v${effectiveLatestVersion} (Overwrite & Restart)`
                   : `You Are Running the Latest Version (v${effectiveLatestVersion})`}
               </h3>
               <p className="text-xs text-slate-600 mt-0.5">
                 {hasNewUpdate
-                  ? 'Updates your program to the latest release while keeping 100% of your saved leagues, scores, teams, and season history intact.'
-                  : 'Your program is up to date. You can also re-save your standalone single-file .html desktop program with all current league data embedded inside.'}
+                  ? `Select "${openedFilename}" to overwrite the HTML file you opened with v${effectiveLatestVersion} (keeping 100% of your saved leagues, scores, teams, and history) and automatically restart.`
+                  : `Your program is up to date. You can overwrite or save "${openedFilename}" with all current league data embedded inside.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 pt-1">
-              {hasNewUpdate && (
-                <button
-                  type="button"
-                  onClick={handleApplyInAppUpdateOnly}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Update Live App to v{effectiveLatestVersion}
-                </button>
-              )}
               <button
                 type="button"
                 onClick={handleApplyAndOverwriteHtml}
@@ -275,10 +297,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               >
                 <FileCode2 className="w-4 h-4" />
                 {isUpdating
-                  ? 'Saving HTML File...'
+                  ? `Overwriting ${openedFilename}...`
                   : hasNewUpdate
-                  ? `Update & Overwrite Single HTML File (v${effectiveLatestVersion})`
-                  : `Save Single HTML Desktop File (v${effectiveLatestVersion})`}
+                  ? `Update, Overwrite "${openedFilename}" & Restart (v${effectiveLatestVersion})`
+                  : `Overwrite / Save "${openedFilename}" (v${effectiveLatestVersion})`}
               </button>
             </div>
           </div>
