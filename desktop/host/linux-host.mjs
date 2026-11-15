@@ -257,6 +257,62 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && urlPath === '/api/desktop/load-save') {
+    const cfg = readConfig();
+    const target = (cfg.lastSaveFilePath || '').trim();
+    if (!target || !fs.existsSync(target)) {
+      sendJson(res, 200, { ok: false, exists: false, filePath: target || '' });
+      return;
+    }
+    try {
+      const jsonText = fs.readFileSync(target, 'utf8');
+      if (jsonText) stagedSavePayload = jsonText;
+      sendJson(res, 200, { ok: true, exists: true, filePath: target, jsonText });
+    } catch (err) {
+      sendJson(res, 200, {
+        ok: false,
+        exists: false,
+        filePath: target,
+        error: err?.message || 'Could not read save file.',
+      });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && urlPath === '/api/desktop/quick-save') {
+    try {
+      const { jsonText } = await readJsonBody(req);
+      const cfg = readConfig();
+      const target = (cfg.lastSaveFilePath || '').trim();
+      if (!target || !fs.existsSync(target)) {
+        sendJson(res, 200, { saved: false, missing: true });
+        return;
+      }
+      const payload = jsonText || stagedSavePayload || '';
+      atomicWrite(target, payload);
+      if (payload) stagedSavePayload = payload;
+      const savedAt = new Date().toISOString();
+      writeConfig({ lastSaveFilePath: target, lastSavedAt: savedAt });
+      sendJson(res, 200, {
+        saved: true,
+        missing: false,
+        filePath: target,
+        filename: path.basename(target),
+        savedAt,
+      });
+    } catch (err) {
+      sendJson(res, 200, { saved: false, error: err?.message || 'Quick save failed.' });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && urlPath === '/api/desktop/clear-save-link') {
+    writeConfig({ lastSaveFilePath: '', lastSavedAt: null });
+    stagedSavePayload = '';
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === 'POST' && urlPath === '/api/desktop/save-backup') {
     try {
       const { jsonText, defaultFilename } = await readJsonBody(req);

@@ -756,6 +756,92 @@ static void HandleHttpClient(SOCKET client) {
     return;
   }
 
+  // ---- Route: Load Linked Save File On Startup ----
+  if (method == "GET" && path == "/api/desktop/load-save") {
+    g_uiConnected.store(true);
+    DesktopConfig cfg = ReadDesktopConfig();
+    std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
+    if (cfg.lastSaveFilePath.empty() || !FileExistsW(targetWide)) {
+      std::string resp = "{\"ok\":false,\"exists\":false,\"filePath\":" +
+        JsonEscape(cfg.lastSaveFilePath) + "}";
+      SendHttpResponse(client, 200, "OK", "application/json", resp);
+      closesocket(client);
+      return;
+    }
+
+    std::string jsonText;
+    if (!ReadFileUtf8(targetWide, jsonText)) {
+      std::string resp = "{\"ok\":false,\"exists\":false,\"filePath\":" +
+        JsonEscape(cfg.lastSaveFilePath) +
+        ",\"error\":\"Could not read linked save file.\"}";
+      SendHttpResponse(client, 200, "OK", "application/json", resp);
+      closesocket(client);
+      return;
+    }
+
+    if (!jsonText.empty()) {
+      AutoCsLock lock(&g_stagedCs);
+      g_stagedSavePayload = jsonText;
+    }
+    std::string resp = "{\"ok\":true,\"exists\":true,\"filePath\":" +
+      JsonEscape(cfg.lastSaveFilePath) + ",\"jsonText\":" + JsonEscape(jsonText) + "}";
+    SendHttpResponse(client, 200, "OK", "application/json", resp);
+    closesocket(client);
+    return;
+  }
+
+  // ---- Route: Quick-Save Directly Over Linked Save File ----
+  if (method == "POST" && path == "/api/desktop/quick-save") {
+    std::string jsonText;
+    ExtractJsonStringField(body, "jsonText", jsonText);
+    if (jsonText.empty()) {
+      AutoCsLock lock(&g_stagedCs);
+      jsonText = g_stagedSavePayload;
+    }
+
+    DesktopConfig cfg = ReadDesktopConfig();
+    std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
+    if (cfg.lastSaveFilePath.empty() || !FileExistsW(targetWide)) {
+      SendHttpResponse(client, 200, "OK", "application/json",
+                       "{\"saved\":false,\"missing\":true}");
+      closesocket(client);
+      return;
+    }
+
+    if (!AtomicWriteFileUtf8(targetWide, jsonText)) {
+      SendHttpResponse(client, 200, "OK", "application/json",
+                       "{\"saved\":false,\"missing\":false,\"error\":\"Could not write to linked save file.\"}");
+      closesocket(client);
+      return;
+    }
+
+    if (!jsonText.empty()) {
+      AutoCsLock lock(&g_stagedCs);
+      g_stagedSavePayload = jsonText;
+    }
+    std::string savedAt = CurrentIsoTimestamp();
+    WriteDesktopConfig({cfg.lastSaveFilePath, savedAt});
+    std::string fileUtf8 = WideToUtf8(BaseNameW(targetWide));
+    std::string resp = "{\"saved\":true,\"missing\":false,\"filePath\":" +
+      JsonEscape(cfg.lastSaveFilePath) + ",\"filename\":" + JsonEscape(fileUtf8) +
+      ",\"savedAt\":" + JsonEscape(savedAt) + "}";
+    SendHttpResponse(client, 200, "OK", "application/json", resp);
+    closesocket(client);
+    return;
+  }
+
+  // ---- Route: Unlink Last Save File On Start Fresh Reset ----
+  if (method == "POST" && path == "/api/desktop/clear-save-link") {
+    WriteDesktopConfig({"", ""});
+    {
+      AutoCsLock lock(&g_stagedCs);
+      g_stagedSavePayload.clear();
+    }
+    SendHttpResponse(client, 200, "OK", "application/json", "{\"ok\":true}");
+    closesocket(client);
+    return;
+  }
+
   // ---- Route: Save New League Data File ----
   if (method == "POST" && path == "/api/desktop/save-backup") {
     std::string jsonText;
@@ -785,6 +871,10 @@ static void HandleHttpClient(SOCKET client) {
       return;
     }
 
+    if (!jsonText.empty()) {
+      AutoCsLock lock(&g_stagedCs);
+      g_stagedSavePayload = jsonText;
+    }
     std::string chosenUtf8 = WideToUtf8(chosenPath);
     std::string fileUtf8 = WideToUtf8(BaseNameW(chosenPath));
     std::string savedAt = CurrentIsoTimestamp();

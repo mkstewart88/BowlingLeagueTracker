@@ -225,6 +225,55 @@ ipcMain.handle('desktop:get-info', () => {
   };
 });
 
+ipcMain.handle('desktop:load-save', () => {
+  const cfg = readDesktopConfig();
+  const targetPath = (cfg.lastSaveFilePath || '').trim();
+  if (!targetPath || !fs.existsSync(targetPath)) {
+    return { ok: false, exists: false, filePath: targetPath || '' };
+  }
+  try {
+    const jsonText = fs.readFileSync(targetPath, 'utf8');
+    return { ok: true, exists: true, filePath: targetPath, jsonText };
+  } catch (err) {
+    return {
+      ok: false,
+      exists: false,
+      filePath: targetPath,
+      error: err && err.message ? err.message : 'Could not read save file.',
+    };
+  }
+});
+
+ipcMain.handle('desktop:quick-save', (_evt, { jsonText }) => {
+  const cfg = readDesktopConfig();
+  const targetPath = (cfg.lastSaveFilePath || '').trim();
+  if (!targetPath || !fs.existsSync(targetPath)) {
+    return { saved: false, missing: true };
+  }
+  try {
+    atomicWriteFileSync(targetPath, jsonText);
+    const savedAt = new Date().toISOString();
+    writeDesktopConfig({ lastSaveFilePath: targetPath, lastSavedAt: savedAt });
+    return {
+      saved: true,
+      missing: false,
+      filePath: targetPath,
+      filename: path.basename(targetPath),
+      savedAt,
+    };
+  } catch (err) {
+    return {
+      saved: false,
+      error: err && err.message ? err.message : 'Quick save failed.',
+    };
+  }
+});
+
+ipcMain.handle('desktop:clear-save-link', () => {
+  writeDesktopConfig({ lastSaveFilePath: '', lastSavedAt: null });
+  return { ok: true };
+});
+
 ipcMain.handle('desktop:save-backup-dated', async (_evt, { jsonText, defaultFilename }) => {
   try {
     const cfg = readDesktopConfig();

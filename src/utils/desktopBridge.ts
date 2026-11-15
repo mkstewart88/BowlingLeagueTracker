@@ -43,9 +43,29 @@ export interface DesktopInstallUpdateResult {
   error?: string;
 }
 
+export interface DesktopLoadSaveResult {
+  ok: boolean;
+  exists: boolean;
+  filePath?: string;
+  jsonText?: string;
+  error?: string;
+}
+
+export interface DesktopQuickSaveResult {
+  saved: boolean;
+  missing?: boolean;
+  filePath?: string;
+  filename?: string;
+  savedAt?: string;
+  error?: string;
+}
+
 export interface BowlingDesktopBridge {
   isDesktopApp: boolean;
   getDesktopInfo: () => Promise<DesktopInfo>;
+  loadLastSaveFile?: () => Promise<DesktopLoadSaveResult>;
+  quickSaveToCurrentFile?: (jsonText: string) => Promise<DesktopQuickSaveResult>;
+  clearLastSaveLink?: () => Promise<{ ok: boolean }>;
   saveNewLeagueFile: (
     jsonText: string,
     defaultFilename: string
@@ -94,6 +114,19 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
       }
       return resp.json() as Promise<DesktopInfo>;
     },
+    loadLastSaveFile: async () => {
+      const resp = await fetch(api('/api/desktop/load-save'), { cache: 'no-store' });
+      if (!resp.ok) {
+        throw new Error(`Failed to load last save file (${resp.status})`);
+      }
+      return resp.json() as Promise<DesktopLoadSaveResult>;
+    },
+    quickSaveToCurrentFile: async (jsonText) =>
+      postJson<DesktopQuickSaveResult>('/api/desktop/quick-save', {
+        jsonText,
+      }),
+    clearLastSaveLink: async () =>
+      postJson<{ ok: boolean }>('/api/desktop/clear-save-link', {}),
     saveNewLeagueFile: async (jsonText, defaultFilename) =>
       postJson<DesktopBackupSaveResult>('/api/desktop/save-backup', {
         jsonText,

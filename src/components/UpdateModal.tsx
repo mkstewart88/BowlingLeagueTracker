@@ -12,7 +12,7 @@ import {
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import { saveUpdatedRuntimeBundle } from '../utils/runtimeUpdater';
-import { getDesktopBridge } from '../utils/desktopBridge';
+import { getDesktopBridge, serializeMasterSavePayload } from '../utils/desktopBridge';
 import {
   Download,
   HardDrive,
@@ -162,6 +162,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       // 1. Desktop App Mode (`C:\BowlingLeagueHelper\`): overwrite real files in install folder & relaunch
       const desktopBridge = getDesktopBridge();
       if (desktopBridge) {
+        await desktopBridge.quickSaveToCurrentFile?.(serializeMasterSavePayload(appState)).catch(() => {});
         const versionJsonText = JSON.stringify(
           {
             ...remoteManifest,

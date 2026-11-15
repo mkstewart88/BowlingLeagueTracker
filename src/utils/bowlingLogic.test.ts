@@ -446,6 +446,30 @@ test('createHttpDesktopBridge communicates with native desktop host HTTP endpoin
       );
     }
 
+    if (url.endsWith('/api/desktop/load-save')) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          exists: true,
+          filePath: 'C:\\Users\\Test\\Documents\\BowlingLeagueTrackerSave.json',
+          jsonText: '{"bowlers":[],"roster":[]}',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (url.endsWith('/api/desktop/quick-save')) {
+      return new Response(
+        JSON.stringify({
+          saved: true,
+          missing: false,
+          filePath: 'C:\\Users\\Test\\Documents\\BowlingLeagueTrackerSave.json',
+          filename: 'BowlingLeagueTrackerSave.json',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -458,6 +482,18 @@ test('createHttpDesktopBridge communicates with native desktop host HTTP endpoin
     assert.equal(info.isDesktopApp, true);
     assert.equal(info.installDir, 'C:\\BowlingLeagueHelper');
 
+    const loadRes = await bridge.loadLastSaveFile!();
+    assert.equal(loadRes.ok, true);
+    assert.equal(loadRes.exists, true);
+    assert.ok(loadRes.jsonText?.includes('"bowlers"'));
+
+    const quickRes = await bridge.quickSaveToCurrentFile!('{"bowlers":[]}');
+    assert.equal(quickRes.saved, true);
+    assert.equal(quickRes.filename, 'BowlingLeagueTrackerSave.json');
+
+    const clearRes = await bridge.clearLastSaveLink!();
+    assert.equal(clearRes.ok, true);
+
     const closeRes = await bridge.attemptCloseWithSave('{"test":1}');
     assert.equal(closeRes.ok, false);
     assert.equal(closeRes.missing, true);
@@ -468,9 +504,9 @@ test('createHttpDesktopBridge communicates with native desktop host HTTP endpoin
       versionJsonContent: '{"latestVersion":"1.0.15"}',
     });
     assert.equal(updRes.ok, true);
-    assert.equal(calls.length, 3);
-    assert.equal(calls[2].method, 'POST');
-    assert.ok(calls[2].url.endsWith('/api/desktop/install-update'));
+    assert.equal(calls.length, 6);
+    assert.equal(calls[5].method, 'POST');
+    assert.ok(calls[5].url.endsWith('/api/desktop/install-update'));
   } finally {
     globalThis.fetch = origFetch;
   }

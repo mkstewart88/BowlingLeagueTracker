@@ -37,6 +37,7 @@ import {
   forceCloseProgramWithoutSaving,
   hasConnectedAutoBackupHandle,
   pickNewSaveLocationAndFinishClose,
+  quickSaveLeagueFile,
   saveLeagueFileToComputer,
   verifyAndSaveBeforeClose,
 } from './utils/fileExport';
@@ -45,6 +46,7 @@ import {
   RefreshCw,
   Calendar,
   LogOut,
+  Save,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'bowling_league_helper_state_v5';
@@ -114,6 +116,7 @@ export default function App() {
   const [undoStack, setUndoStack] = useState<AppState[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>('entry');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isQuickSaving, setIsQuickSaving] = useState(false);
   const [remoteManifest, setRemoteManifest] = useState<VersionManifest>(() =>
     getBuiltInFallbackManifest()
   );
@@ -185,7 +188,52 @@ export default function App() {
     };
 
     refreshDesktopSaveStatus();
-    bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+    if (typeof bridge.loadLastSaveFile === 'function') {
+      bridge
+        .loadLastSaveFile()
+        .then((res) => {
+          if (res?.ok && res.exists && res.jsonText) {
+            try {
+              const parsedRaw = JSON.parse(res.jsonText);
+              const { restoredState } = parseUniversalBackupPayload(
+                res.jsonText,
+                createFreshInitialState()
+              );
+              const hasRegistry = Boolean(
+                parsedRaw && typeof parsedRaw.allLeaguesRegistry === 'object'
+              );
+              const loaded = syncActiveLeagueInRegistry({
+                ...restoredState,
+                version: CURRENT_APP_VERSION,
+                allLeaguesRegistry: hasRegistry ? restoredState.allLeaguesRegistry : undefined,
+                settings: {
+                  ...restoredState.settings,
+                  autoBackupDirectoryLabel:
+                    res.filePath || restoredState.settings.autoBackupDirectoryLabel,
+                },
+              });
+              setAppState(loaded);
+              setUndoStack([]);
+              desktopLastSaveExistsRef.current = true;
+              desktopLastSavePathRef.current = res.filePath || null;
+              bridge.stageSavePayload?.(serializeMasterSavePayload(loaded)).catch(() => {});
+              setToast({
+                message: `Opened save file "${res.filePath || 'BowlingLeagueTrackerSave.json'}".`,
+                isError: false,
+              });
+              return;
+            } catch (err) {
+              console.warn('Could not parse linked save file on startup:', err);
+            }
+          }
+          bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+        })
+        .catch(() => {
+          bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+        });
+    } else {
+      bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+    }
     const statusPoll = setInterval(refreshDesktopSaveStatus, 4000);
     window.addEventListener('focus', refreshDesktopSaveStatus);
 
@@ -847,6 +895,9 @@ export default function App() {
     } catch {
       // Ignore storage removal errors
     }
+    desktopLastSaveExistsRef.current = false;
+    desktopLastSavePathRef.current = null;
+    getDesktopBridge()?.clearLastSaveLink?.().catch(() => {});
     const fresh = createFreshInitialState();
     setUndoStack([]);
     setAppState(fresh);
@@ -870,6 +921,23 @@ export default function App() {
         },
       })
     );
+  };
+
+  const handleQuickSave = async () => {
+    if (isQuickSaving) return;
+    setIsQuickSaving(true);
+    try {
+      const res = await quickSaveLeagueFile(appStateRef.current);
+      handleRecordBackupTimestamp('local', res.filePath || res.filename);
+      showToast(`Saved "${res.filePath || res.filename}".`);
+    } catch (err: unknown) {
+      const msg = (err as Error)?.message || '';
+      if (!/cancel/i.test(msg)) {
+        showToast(msg || 'Could not save league file.', true);
+      }
+    } finally {
+      setIsQuickSaving(false);
+    }
   };
 
   const latestAvailableVersion =
@@ -1038,8 +1106,22 @@ export default function App() {
             </button>
           </nav>
 
-          {/* Zone 3: 1 Primary Action (Update & Version Control Button) */}
-          <div className="flex items-center shrink-0">
+          {/* Zone 3: Quick Save & Update Actions */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleQuickSave}
+              disabled={isQuickSaving}
+              title={
+                appState.settings.autoBackupDirectoryLabel
+                  ? `Save directly to ${appState.settings.autoBackupDirectoryLabel}`
+                  : 'Save BowlingLeagueTrackerSave.json'
+              }
+              className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isQuickSaving ? 'Saving...' : 'Save'}</span>
+            </button>
             <button
               type="button"
               onClick={() => setIsUpdateModalOpen(true)}

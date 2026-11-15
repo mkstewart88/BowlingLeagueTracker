@@ -835,6 +835,55 @@ export async function saveLeagueFileToComputer(
 }
 
 /**
+ * Overwrites the currently linked save file (`BowlingLeagueTrackerSave.json`) directly
+ * without opening a file picker if already linked; otherwise prompts to choose a save location.
+ */
+export async function quickSaveLeagueFile(
+  state: AppState
+): Promise<{ method: 'desktop' | 'filesystem' | 'download'; filename: string; filePath?: string }> {
+  const suggestedName = getDefaultSaveFilename();
+  const payload = serializeMasterSavePayload(state);
+
+  const bridge = getDesktopBridge();
+  if (bridge) {
+    if (typeof bridge.quickSaveToCurrentFile === 'function') {
+      const res = await bridge.quickSaveToCurrentFile(payload);
+      if (res.saved && res.filePath) {
+        return {
+          method: 'desktop',
+          filename: res.filename || suggestedName,
+          filePath: res.filePath,
+        };
+      }
+    }
+    return saveLeagueFileToComputer(state);
+  }
+
+  const candidateHandle = activeAutoBackupFileHandle || (await loadLastBackupHandle());
+  if (candidateHandle) {
+    try {
+      const allowed = await ensureReadWritePermission(candidateHandle);
+      if (allowed) {
+        const writable = await candidateHandle.createWritable();
+        await writable.write(payload);
+        await writable.close();
+        activeAutoBackupFileHandle = candidateHandle;
+        return {
+          method: 'filesystem',
+          filename: candidateHandle.name || suggestedName,
+          filePath: candidateHandle.name || suggestedName,
+        };
+      }
+    } catch {
+      activeAutoBackupFileHandle = null;
+      await clearLastBackupHandle();
+    }
+  }
+
+  return saveLeagueFileToComputer(state);
+}
+
+/**
  * Automatically saves to the remembered last save file when closing.
  * If the last save file cannot be found on disk (deleted, moved, or not set yet),
  * returns `{ ok: false, missing: true, ... }` so the program stays open and prompts the user.
