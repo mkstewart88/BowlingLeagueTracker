@@ -1,7 +1,7 @@
 {
   "name": "bowling-league-helper-desktop",
   "productName": "Bowling League Helper",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "description": "Offline desktop application for Bowling League Helper with C:\\BowlingLeagueHelper auto-updates and save-on-close protection.",
   "main": "main.cjs",
   "scripts": {

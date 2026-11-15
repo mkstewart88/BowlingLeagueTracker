@@ -1678,12 +1678,19 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsUpdateModalOpen(true)}
-              className="px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
+              title={
+                hasAvailableUpdate
+                  ? `Update available (v${latestAvailableVersion}) — click to update`
+                  : `Version ${appState.version} — click for Updates & Patch Notes`
+              }
+              className={`px-3.5 py-2 text-xs font-bold text-white ${
+                hasAvailableUpdate
+                  ? 'bg-amber-600 hover:bg-amber-500'
+                  : 'bg-blue-600 hover:bg-blue-500'
+              } rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5`}
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>
-                v{appState.version} · {hasAvailableUpdate ? `Update to v${latestAvailableVersion}` : 'Updates & Patch Notes'}
-              </span>
+              <span>{hasAvailableUpdate ? 'Update Available' : `v${appState.version}`}</span>
             </button>
             <button
               type="button"

@@ -65,7 +65,7 @@ function readInstalledVersion() {
   } catch {
     // Fallback
   }
-  return '1.0.21';
+  return '1.0.22';
 }
 
 function commandExists(cmd) {

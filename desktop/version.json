@@ -1,8 +1,8 @@
 {
   "appName": "Bowling League Helper",
-  "latestVersion": "1.0.21",
+  "latestVersion": "1.0.22",
   "releaseDate": "November 15, 2026",
-  "title": "Cross-Port Cookie Vault Persistence, Guaranteed Save Prompt on Close & Print-Ready Active Tables",
+  "title": "Compact Top-Bar Version & \"Update Available\" Button",
   "htmlBundlePath": "BowlingLeagueHelper.html",
   "fallbackHtmlPaths": [
     "public/BowlingLeagueHelper.html",
@@ -11,10 +11,25 @@
   ],
   "releases": [
     {
+      "version": "1.0.22",
+      "date": "November 15, 2026",
+      "title": "Compact Top-Bar Version & \"Update Available\" Button",
+      "isLatest": true,
+      "highlights": [
+        "Clean Top-Bar Version Button: The top-bar update button now displays only the version number (e.g., \"v1.0.22\") when up to date, and changes to \"Update Available\" when a newer release is detected."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Simplified the top-bar update button label to show only the version number (\"v1.0.22\") unless a newer version is available, in which case it displays \"Update Available\"."
+        }
+      ]
+    },
+    {
       "version": "1.0.21",
       "date": "November 15, 2026",
       "title": "Cross-Port Cookie Vault Persistence, Guaranteed Save Prompt on Close & Print-Ready Active Tables",
-      "isLatest": true,
+      "isLatest": false,
       "highlights": [
         "Guaranteed Data Restoration on Reopen (Even Across Random Localhost Ports): Added a cross-port 127.0.0.1 Cookie Vault, local disk autosave cache, and embedded HTML state hydration so reopening the program always restores 100% of your saved leagues, scores, and rosters—even on older v1.0.14/v1.0.15 desktop hosts.",
         "Guaranteed Save Prompt on Closing Program: Fixed window close handling so closing the window with unsaved changes always prompts to Save Changes & Close, Save As, Don't Save, or Cancel in both \"Manual Only — Prompt on Close\" and \"On Closing Program\" modes, plus added 1-click Open and Exit buttons to the top bar.",

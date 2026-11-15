@@ -491,7 +491,7 @@ static std::string ReadInstalledVersion() {
       return ver;
     }
   }
-  return "1.0.21";
+  return "1.0.22";
 }
 
 // ============================================================================

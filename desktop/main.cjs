@@ -149,7 +149,7 @@ function readInstalledVersion() {
       // Ignore
     }
   }
-  return '1.0.21';
+  return '1.0.22';
 }
 
 function createMainWindow() {

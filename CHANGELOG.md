@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 
 ---
 
+## [1.0.22] - 2026-11-15
+
+### Changed
+- **Compact Top-Bar Version / Update Button:** Updated the top navigation bar update button so it displays only the version number (`v1.0.22`) when up to date, and switches to `Update Available` whenever a newer version is detected.
+
+---
+
 ## [1.0.21] - 2026-11-15
 
 ### Added
