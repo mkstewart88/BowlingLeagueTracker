@@ -5,6 +5,11 @@ import {
   rankWeeklyBowlers,
 } from './bowlingLogic';
 import { loadUpdatedRuntimeBundle, stripBootFromCacheFlag } from './runtimeUpdater';
+import {
+  getDatedBackupFilename,
+  getDesktopBridge,
+  serializeMasterSavePayload,
+} from './desktopBridge';
 
 function csvCell(value: unknown): string {
   const s = String(value ?? '');
@@ -312,6 +317,7 @@ export async function buildInteractiveSingleHtmlFile(
 // Persistent session handle for optional user-selected Auto-Backup location
 interface WritableFileHandle {
   name: string;
+  getFile?: () => Promise<File>;
   queryPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<'granted' | 'denied' | 'prompt'>;
   requestPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<'granted' | 'denied' | 'prompt'>;
   createWritable: () => Promise<{
@@ -473,6 +479,7 @@ export const DEFAULT_PROGRAM_HTML_FILENAME = 'BowlingLeagueHelper.html';
 const HANDLE_DB_NAME = 'BowlingLeagueHelperFS';
 const HANDLE_STORE_NAME = 'handles';
 const PROGRAM_HANDLE_KEY = 'programHtmlFile';
+const LAST_SAVE_HANDLE_KEY = 'lastBackupJsonHandle';
 
 function openHandleDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
@@ -721,30 +728,79 @@ export async function overwriteOrDownloadSingleHtmlFile(
   return { method: 'download', filename: openedFilename, reusedSavedHandle: false };
 }
 
+async function loadLastBackupHandle(): Promise<WritableFileHandle | null> {
+  const db = await openHandleDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(HANDLE_STORE_NAME, 'readonly');
+      const store = tx.objectStore(HANDLE_STORE_NAME);
+      const req = store.get(LAST_SAVE_HANDLE_KEY);
+      req.onsuccess = () => resolve((req.result as WritableFileHandle) || null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function saveLastBackupHandle(handle: WritableFileHandle): Promise<void> {
+  const db = await openHandleDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(HANDLE_STORE_NAME);
+      const req = store.put(handle, LAST_SAVE_HANDLE_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function clearLastBackupHandle(): Promise<void> {
+  const db = await openHandleDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(HANDLE_STORE_NAME);
+      const req = store.delete(LAST_SAVE_HANDLE_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
 /**
- * Saves the complete league data `.json` file directly to the user's hard drive via File Picker
- * or standard browser download.
+ * Saves a dated full-league backup file (`BowlingLeagueHelper_Backup_YYYY-MM-DD.json`) to
+ * whatever folder the user chooses (such as OneDrive), and sets it as the automatic save-on-close target.
  */
 export async function saveLeagueFileToComputer(
   state: AppState
-): Promise<{ method: 'filesystem' | 'download'; filename: string }> {
-  const d = new Date();
-  const dateStamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate()
-  ).padStart(2, '0')}`;
-  const cleanLeague = (state.settings.leagueName || 'Bowling_League').replace(/[^a-zA-Z0-9]+/g, '_');
-  const suggestedName = `${cleanLeague}_Data_${dateStamp}.json`;
+): Promise<{ method: 'desktop' | 'filesystem' | 'download'; filename: string; filePath?: string }> {
+  const suggestedName = getDatedBackupFilename();
+  const payload = serializeMasterSavePayload(state);
 
-  const payload = JSON.stringify(
-    {
-      app: 'Bowling League Helper',
-      schemaVersion: 4,
-      exportedAt: new Date().toISOString(),
-      ...state,
-    },
-    null,
-    2
-  );
+  const bridge = getDesktopBridge();
+  if (bridge) {
+    const res = await bridge.saveDatedBackup(payload, suggestedName);
+    if (res.canceled) {
+      throw new Error('Cancelled file save.');
+    }
+    if (!res.saved || !res.filePath) {
+      throw new Error(res.error || 'Could not save backup file.');
+    }
+    return {
+      method: 'desktop',
+      filename: res.filename || suggestedName,
+      filePath: res.filePath,
+    };
+  }
 
   const win = window as unknown as {
     showSaveFilePicker?: (options: unknown) => Promise<WritableFileHandle>;
@@ -756,16 +812,21 @@ export async function saveLeagueFileToComputer(
         suggestedName,
         types: [
           {
-            description: 'Bowling League Data File (.json)',
+            description: 'Bowling League Save File (.json)',
             accept: { 'application/json': ['.json'] },
           },
         ],
       });
       activeAutoBackupFileHandle = handle;
+      await saveLastBackupHandle(handle);
       const writable = await handle.createWritable();
       await writable.write(payload);
       await writable.close();
-      return { method: 'filesystem', filename: handle.name || suggestedName };
+      return {
+        method: 'filesystem',
+        filename: handle.name || suggestedName,
+        filePath: handle.name || suggestedName,
+      };
     } catch (err: unknown) {
       const errorName = (err as { name?: string })?.name;
       if (errorName === 'AbortError') {
@@ -776,4 +837,103 @@ export async function saveLeagueFileToComputer(
 
   downloadBlob(new Blob([payload], { type: 'application/json' }), suggestedName);
   return { method: 'download', filename: suggestedName };
+}
+
+/**
+ * Automatically saves to the remembered last save file when closing.
+ * If the last save file cannot be found on disk (deleted, moved, or not set yet),
+ * returns `{ ok: false, missing: true, ... }` so the program stays open and prompts the user.
+ */
+export async function verifyAndSaveBeforeClose(state: AppState): Promise<{
+  ok: boolean;
+  missing?: boolean;
+  missingPath?: string | null;
+  reason?: string;
+  savedPath?: string;
+}> {
+  const payload = serializeMasterSavePayload(state);
+  const bridge = getDesktopBridge();
+  if (bridge) {
+    return bridge.attemptCloseWithSave(payload);
+  }
+
+  const candidateHandle = activeAutoBackupFileHandle || (await loadLastBackupHandle());
+  if (!candidateHandle) {
+    return {
+      ok: false,
+      missing: true,
+      missingPath: null,
+      reason: 'No save file location has been picked yet.',
+    };
+  }
+
+  try {
+    const allowed = await ensureReadWritePermission(candidateHandle);
+    if (!allowed) {
+      return {
+        ok: false,
+        missing: true,
+        missingPath: candidateHandle.name,
+        reason: `Permission to write to "${candidateHandle.name}" is no longer available.`,
+      };
+    }
+
+    if (typeof candidateHandle.getFile === 'function') {
+      await candidateHandle.getFile();
+    }
+
+    const writable = await candidateHandle.createWritable();
+    await writable.write(payload);
+    await writable.close();
+    activeAutoBackupFileHandle = candidateHandle;
+    return { ok: true, savedPath: candidateHandle.name };
+  } catch {
+    activeAutoBackupFileHandle = null;
+    await clearLastBackupHandle();
+    return {
+      ok: false,
+      missing: true,
+      missingPath: candidateHandle.name,
+      reason: `Cannot find your last save file "${candidateHandle.name}". It may have been moved or deleted.`,
+    };
+  }
+}
+
+export async function pickNewSaveLocationAndFinishClose(state: AppState): Promise<{
+  closed: boolean;
+  canceled?: boolean;
+  filePath?: string;
+  error?: string;
+}> {
+  const payload = serializeMasterSavePayload(state);
+  const defaultName = getDatedBackupFilename();
+  const bridge = getDesktopBridge();
+  if (bridge) {
+    return bridge.pickNewSaveAndClose(payload, defaultName);
+  }
+
+  try {
+    const saved = await saveLeagueFileToComputer(state);
+    return { closed: true, filePath: saved.filePath || saved.filename };
+  } catch (err: unknown) {
+    const msg = (err as Error)?.message || '';
+    if (/cancel/i.test(msg)) {
+      return { closed: false, canceled: true };
+    }
+    return { closed: false, error: msg || 'Failed to save to new location.' };
+  }
+}
+
+export async function forceCloseProgramWithoutSaving(): Promise<void> {
+  const bridge = getDesktopBridge();
+  if (bridge) {
+    await bridge.forceCloseWithoutSaving();
+  }
+}
+
+export async function cancelPendingClose(): Promise<void> {
+  const bridge = getDesktopBridge();
+  if (bridge) {
+    await bridge.cancelClose();
+  }
 }

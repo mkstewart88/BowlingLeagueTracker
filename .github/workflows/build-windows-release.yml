@@ -1,0 +1,73 @@
+name: Build Windows Installer & Release ZIP
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build frontend & copy unified BowlingLeagueHelper.html
+        run: |
+          npm ci
+          npm run build
+          Copy-Item "dist\index.html" "BowlingLeagueHelper.html" -Force
+          Copy-Item "dist\index.html" "public\BowlingLeagueHelper.html" -Force
+          Copy-Item "dist\index.html" "desktop\BowlingLeagueHelper.html" -Force
+          Copy-Item "version.json" "desktop\version.json" -Force
+
+      - name: Build Electron desktop files & compile installer.exe
+        shell: pwsh
+        run: |
+          Push-Location desktop
+          npm ci
+          npm run pack:win
+          Pop-Location
+          New-Item -ItemType Directory -Force -Path "dist-win\BowlingLeagueHelper-Package" | Out-Null
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" `
+            "/DSOURCE_DIR=$PWD\dist-win\win-unpacked" `
+            "/DOUT_FILE=$PWD\dist-win\BowlingLeagueHelper-Package\installer.exe" `
+            "desktop\installer\installer.nsi"
+          Copy-Item "desktop\README-Windows.txt" "dist-win\BowlingLeagueHelper-Package\README.txt" -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path "dist-win\BowlingLeagueHelper-Package\*" -DestinationPath "BowlingLeagueHelper-Windows.zip" -Force
+
+      - name: Read app version from version.json
+        id: ver
+        shell: pwsh
+        run: |
+          $json = Get-Content version.json -Raw | ConvertFrom-Json
+          echo "version=$($json.latestVersion)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload BowlingLeagueHelper-Windows.zip build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BowlingLeagueHelper-Windows-v${{ steps.ver.outputs.version }}
+          path: BowlingLeagueHelper-Windows.zip
+
+      - name: Publish ZIP & installer to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Bowling League Helper v${{ steps.ver.outputs.version }} (Windows Installer ZIP)
+          body: |
+            Download **BowlingLeagueHelper-Windows.zip**, unzip it, and run **installer.exe**.
+            It installs everything into `C:\BowlingLeagueHelper\` and creates the Desktop icon shortcut automatically.
+          files: |
+            BowlingLeagueHelper-Windows.zip
+            BowlingLeagueHelper.html
+            version.json

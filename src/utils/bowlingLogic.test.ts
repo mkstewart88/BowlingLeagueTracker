@@ -23,15 +23,19 @@ import {
   stripBootFromCacheFlag,
 } from './runtimeUpdater';
 import {
+  getDatedBackupFilename,
+  serializeMasterSavePayload,
+} from './desktopBridge';
+import {
   compareSemverVersions,
   parseGithubRepoSpec,
   mergePatchNotesHistory,
 } from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.13 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.13');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.13');
+test('version is set to 1.0.14 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.14');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.14');
 });
 
 test('getCurrentOpenedHtmlFilename defaults to BowlingLeagueHelper.html and preserves opened filenames', () => {
@@ -55,6 +59,16 @@ test('runtimeUpdater injects and strips cached runtime boot flag cleanly', () =>
   const stripped = stripBootFromCacheFlag(injected);
   assert.ok(!stripped.includes('bowling-runtime-boot-flag'));
   assert.equal(stripped, sampleHtml);
+});
+
+test('getDatedBackupFilename formats current date and serializeMasterSavePayload includes all leagues', () => {
+  const dated = getDatedBackupFilename(new Date(2026, 10, 14));
+  assert.equal(dated, 'BowlingLeagueHelper_Backup_2026-11-14.json');
+  const seed = createInitialSeedState();
+  const payload = serializeMasterSavePayload(seed);
+  const parsed = JSON.parse(payload);
+  assert.equal(parsed.app, 'Bowling League Helper');
+  assert.equal(Object.keys(parsed.allLeaguesRegistry || {}).length, 3);
 });
 
 test('calculateBowlerHandicap computes 90% of 220 accurately for 3-game series and single game', () => {

@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.13';
-export const LATEST_AVAILABLE_VERSION = '1.0.13';
+export const CURRENT_APP_VERSION = '1.0.14';
+export const LATEST_AVAILABLE_VERSION = '1.0.14';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -67,10 +67,38 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.14',
+    date: 'November 14, 2026',
+    title: 'Windows Desktop Program (C:\\BowlingLeagueHelper), Installer.exe & Auto-Save on Close',
+    isLatest: true,
+    highlights: [
+      'Real Windows Desktop Program & installer.exe: Installs straight into C:\\BowlingLeagueHelper\\ with a custom Bowling Ball & Pins desktop icon shortcut.',
+      'Direct Folder Self-Updates: Clicking Update and Restart overwrites the real program files inside C:\\BowlingLeagueHelper\\ so clearing Chrome or Edge cache never removes updates or saved data.',
+      'Dated OneDrive / PC Backups & Auto-Save on Closing: Saves dated files (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) and automatically saves to your last file when closing—if that file is missing, closing pauses so you can pick a new location or click Don\'t Save.',
+    ],
+    changes: [
+      {
+        category: 'New Feature',
+        description:
+          'Added Electron Windows desktop application, NSIS installer.exe targeting C:\\BowlingLeagueHelper\\, custom Bowling Ball & Pins .ico shortcut, and automated GitHub Actions release ZIP builder.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Added dated backup naming (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) defaulting to OneDrive/Documents plus automatic save-on-close with missing-file recovery prompt.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Desktop updater writes updated HTML and version.json files directly inside the C:\\BowlingLeagueHelper\\ installation folder before restarting.',
+      },
+    ],
+  },
+  {
     version: '1.0.13',
     date: 'November 14, 2026',
     title: 'Zero-Prompt Automatic Self-Updater & Unified BowlingLeagueHelper.html',
-    isLatest: true,
+    isLatest: false,
     highlights: [
       'True 1-Click "Update and Restart" (Zero File Pickers): Clicking Update and Restart downloads the new release directly into persistent app storage and automatically restarts into the new version—no choosing files or save locations required.',
       'Unified Filename Everywhere: Uses BowlingLeagueHelper.html consistently on GitHub, AI Studio web downloads, and inside the app footer and backup hub.',

@@ -669,8 +669,10 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 onClick={async () => {
                   try {
                     const res = await saveLeagueFileToComputer(appState);
-                    onRecordBackupTimestamp('local', res.filename);
-                    onShowToast(`Saved full multi-league backup (${res.filename}) to your computer.`);
+                    onRecordBackupTimestamp('local', res.filePath || res.filename);
+                    onShowToast(
+                      `Saved dated backup (${res.filePath || res.filename}). Auto-save on closing is now linked to this file.`
+                    );
                   } catch {
                     // Cancelled
                   }
@@ -678,7 +680,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
               >
                 <HardDrive className="w-4 h-4" />
-                Save Master Backup (.json)
+                Save Dated Backup (OneDrive / PC)...
               </button>
               <button
                 type="button"

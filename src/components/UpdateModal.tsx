@@ -14,6 +14,7 @@ import {
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import { saveUpdatedRuntimeBundle } from '../utils/runtimeUpdater';
+import { getDesktopBridge } from '../utils/desktopBridge';
 import {
   Download,
   HardDrive,
@@ -149,8 +150,37 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         return;
       }
 
-      // Install the new release directly into persistent browser IndexedDB runtime storage —
-      // zero file pickers, zero save-location prompts, and all league data stays untouched!
+      // 1. Desktop App Mode (`C:\BowlingLeagueHelper\`): overwrite real files in install folder & relaunch
+      const desktopBridge = getDesktopBridge();
+      if (desktopBridge) {
+        const versionJsonText = JSON.stringify(
+          {
+            ...remoteManifest,
+            latestVersion: effectiveLatestVersion,
+          },
+          null,
+          2
+        );
+        const installRes = await desktopBridge.installUpdateToProgramFolder({
+          targetVersion: effectiveLatestVersion,
+          htmlContent: remoteHtml,
+          versionJsonContent: versionJsonText,
+        });
+        if (installRes.ok) {
+          onShowToast(
+            `Updated files in ${installRes.installDir || 'C:\\BowlingLeagueHelper'} to v${effectiveLatestVersion}! Restarting...`
+          );
+          return;
+        }
+        const errMsg =
+          installRes.error ||
+          'Failed to write updated files to installation folder.';
+        setUpdateErrorHint(errMsg);
+        onShowToast(errMsg, true);
+        return;
+      }
+
+      // 2. Browser / Single-HTML Mode: install into persistent IndexedDB runtime storage and reload
       const savedInApp = await saveUpdatedRuntimeBundle(effectiveLatestVersion, remoteHtml);
 
       if (savedInApp) {
@@ -317,8 +347,12 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </h3>
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 {hasNewUpdate
-                  ? `Click Update and Restart to automatically install v${effectiveLatestVersion} and restart your BowlingLeagueHelper app right here—no choosing folders or replacing files required, and 100% of your leagues, scores, teams, and history stay intact.`
-                  : `Your BowlingLeagueHelper program is up to date. You can also download a fresh "${DEFAULT_PROGRAM_HTML_FILENAME}" copy anytime to share or move to another computer.`}
+                  ? getDesktopBridge()
+                    ? `Click Update and Restart to download v${effectiveLatestVersion} and automatically overwrite the program files inside C:\\BowlingLeagueHelper\\ — clearing any browser cache will never remove this update.`
+                    : `Click Update and Restart to automatically install v${effectiveLatestVersion} and restart your BowlingLeagueHelper app right here—no choosing folders or replacing files required.`
+                  : getDesktopBridge()
+                  ? `Your Windows desktop program inside C:\\BowlingLeagueHelper\\ is up to date (v${effectiveLatestVersion}).`
+                  : `Your BowlingLeagueHelper program is up to date. Download the Windows Installer ZIP (installer.exe) to install permanently into C:\\BowlingLeagueHelper\\ with a Desktop bowling icon.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -337,6 +371,18 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   ? `Downloading ${DEFAULT_PROGRAM_HTML_FILENAME}...`
                   : `Download ${DEFAULT_PROGRAM_HTML_FILENAME}`}
               </button>
+
+              {!getDesktopBridge() && (
+                <a
+                  href={`${OFFICIAL_GITHUB_URL}/releases/latest/download/BowlingLeagueHelper-Windows.zip`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-700" />
+                  Download Windows Installer ZIP (installer.exe)
+                </a>
+              )}
 
               {hasNewUpdate && (
                 <button

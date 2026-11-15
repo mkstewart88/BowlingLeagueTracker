@@ -1,0 +1,48 @@
+{
+  "name": "bowling-league-helper-desktop",
+  "productName": "Bowling League Helper",
+  "version": "1.0.14",
+  "description": "Offline desktop application for Bowling League Helper with C:\\BowlingLeagueHelper auto-updates and save-on-close protection.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack:win": "electron-builder --win dir"
+  },
+  "build": {
+    "appId": "com.bowingleaguehelper.app",
+    "productName": "Bowling League Helper",
+    "executableName": "BowlingLeagueHelper",
+    "directories": {
+      "output": "../dist-win"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "assets/**",
+      "BowlingLeagueHelper.html",
+      "version.json"
+    ],
+    "extraResources": [
+      {
+        "from": "BowlingLeagueHelper.html",
+        "to": "BowlingLeagueHelper.html"
+      },
+      {
+        "from": "version.json",
+        "to": "version.json"
+      },
+      {
+        "from": "assets/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "assets/icon.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "^35.1.2",
+    "electron-builder": "^25.1.8"
+  }
+}

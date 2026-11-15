@@ -28,17 +28,24 @@ import { BracketsTab } from './components/BracketsTab';
 import { TreasuryTab } from './components/TreasuryTab';
 import { ScheduleTab } from './components/ScheduleTab';
 import { UpdateModal } from './components/UpdateModal';
+import { CloseSaveModal } from './components/CloseSaveModal';
 import { PrintStandingSheet } from './components/PrintStandingSheet';
 import {
   DEFAULT_PROGRAM_HTML_FILENAME,
+  cancelPendingClose,
   downloadDesktopProgramHtmlFile,
   executeAutoBackupWrite,
+  forceCloseProgramWithoutSaving,
   hasConnectedAutoBackupHandle,
+  pickNewSaveLocationAndFinishClose,
   saveLeagueFileToComputer,
+  verifyAndSaveBeforeClose,
 } from './utils/fileExport';
+import { getDesktopBridge } from './utils/desktopBridge';
 import {
   RefreshCw,
   Calendar,
+  LogOut,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'bowling_league_helper_state_v5';
@@ -111,6 +118,22 @@ export default function App() {
     getBuiltInFallbackManifest()
   );
   const [toast, setToast] = useState<{ message: string; isError: boolean; showUndo?: boolean } | null>(null);
+  const [closeModalState, setCloseModalState] = useState<{
+    isOpen: boolean;
+    missingPath: string | null;
+    reason: string;
+    isBusy: boolean;
+  }>({
+    isOpen: false,
+    missingPath: null,
+    reason: '',
+    isBusy: false,
+  });
+
+  const appStateRef = React.useRef(appState);
+  useEffect(() => {
+    appStateRef.current = appState;
+  }, [appState]);
 
   // Silently check GitHub (mkstewart88/BowlingLeagueTracker) / version.json on mount
   useEffect(() => {
@@ -123,6 +146,47 @@ export default function App() {
       .catch(() => {});
     return () => {
       active = false;
+    };
+  }, []);
+
+  // Register Electron native window close interception + load last remembered disk save path
+  useEffect(() => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+
+    bridge
+      .getDesktopInfo()
+      .then((info) => {
+        if (info.lastSaveFilePath) {
+          setAppState((prev) =>
+            syncActiveLeagueInRegistry({
+              ...prev,
+              settings: {
+                ...prev.settings,
+                autoBackupDirectoryLabel: info.lastSaveFilePath,
+              },
+            })
+          );
+        }
+      })
+      .catch(() => {});
+
+    const unsubscribe = bridge.onRequestCloseSave(async () => {
+      const result = await verifyAndSaveBeforeClose(appStateRef.current);
+      if (!result.ok && result.missing) {
+        setCloseModalState({
+          isOpen: true,
+          missingPath: result.missingPath || null,
+          reason:
+            result.reason ||
+            'Cannot find your last save file. Pick a new save location or choose Don\'t Save.',
+          isBusy: false,
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, []);
 
@@ -713,6 +777,65 @@ export default function App() {
   const hasAvailableUpdate =
     compareSemverVersions(latestAvailableVersion, CURRENT_APP_VERSION) > 0;
 
+  const handleSafeExitProgram = async () => {
+    const result = await verifyAndSaveBeforeClose(appStateRef.current);
+    if (result.ok) {
+      if (result.savedPath) {
+        handleRecordBackupTimestamp('local', result.savedPath);
+      }
+      if (!getDesktopBridge()) {
+        showToast(
+          `Auto-saved directly to "${result.savedPath || 'last save file'}". Ready to close safely.`
+        );
+      }
+      return;
+    }
+
+    setCloseModalState({
+      isOpen: true,
+      missingPath: result.missingPath || null,
+      reason:
+        result.reason ||
+        'Cannot find your last save file. Pick a new save location or choose Don\'t Save.',
+      isBusy: false,
+    });
+  };
+
+  const handleClosePickNewLocation = async () => {
+    setCloseModalState((prev) => ({ ...prev, isBusy: true }));
+    const res = await pickNewSaveLocationAndFinishClose(appStateRef.current);
+    if (res.closed) {
+      if (res.filePath) {
+        handleRecordBackupTimestamp('local', res.filePath);
+      }
+      setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
+      if (!getDesktopBridge()) {
+        showToast(
+          `Saved to "${res.filePath || 'new save file'}". Ready to close safely.`
+        );
+      }
+      return;
+    }
+    setCloseModalState((prev) => ({ ...prev, isBusy: false }));
+    if (res.error) {
+      showToast(res.error, true);
+    }
+  };
+
+  const handleCloseDontSave = async () => {
+    setCloseModalState((prev) => ({ ...prev, isBusy: true }));
+    await forceCloseProgramWithoutSaving();
+    setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
+    if (!getDesktopBridge()) {
+      showToast('Closed without saving to a backup file.');
+    }
+  };
+
+  const handleCloseCancel = async () => {
+    await cancelPendingClose();
+    setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
+  };
+
   const switchTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
@@ -959,10 +1082,45 @@ export default function App() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            Bowling League Helper · {appState.settings.leagueName || 'Thursday Night Rollers'} · Version {appState.version} · Auto-saved locally in browser memory
+          <div className="space-y-0.5">
+            <div>
+              Bowling League Helper · {appState.settings.leagueName || 'Thursday Night Rollers'} · Version {appState.version}
+              {getDesktopBridge() ? ' · Desktop Program (C:\\BowlingLeagueHelper)' : ' · Auto-saved locally'}
+            </div>
+            {appState.settings.autoBackupDirectoryLabel && (
+              <div className="text-[11px] text-slate-500 font-mono">
+                Auto-Save Target: {appState.settings.autoBackupDirectoryLabel}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await saveLeagueFileToComputer(appState);
+                  handleRecordBackupTimestamp('local', res.filePath || res.filename);
+                  showToast(
+                    `Saved dated backup "${res.filePath || res.filename}". Future closes will auto-save here.`
+                  );
+                } catch {
+                  // Cancelled
+                }
+              }}
+              className="font-semibold text-slate-800 hover:text-blue-700 cursor-pointer"
+            >
+              Save Dated Backup (.json)...
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={handleSafeExitProgram}
+              className="inline-flex items-center gap-1 font-semibold text-slate-800 hover:text-red-700 cursor-pointer"
+            >
+              <LogOut className="w-3 h-3" />
+              Save &amp; Close
+            </button>
+            <span>·</span>
             <button
               type="button"
               onClick={async () => {
@@ -983,25 +1141,10 @@ export default function App() {
             <span>·</span>
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  const res = await saveLeagueFileToComputer(appState);
-                  showToast(`Saved ${res.filename} to your computer.`);
-                } catch {
-                  // Cancelled
-                }
-              }}
-              className="font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
-            >
-              Save Backup File to PC (.json)
-            </button>
-            <span>·</span>
-            <button
-              type="button"
               onClick={() => setIsUpdateModalOpen(true)}
               className="font-semibold text-blue-700 hover:underline cursor-pointer"
             >
-              Check for Updates & Patch Notes
+              Check for Updates &amp; Patch Notes
             </button>
           </div>
         </div>
@@ -1017,6 +1160,17 @@ export default function App() {
           setRemoteManifest(manifest);
         }}
         onShowToast={showToast}
+      />
+
+      {/* Save-On-Close Recovery Modal when Last Save File Cannot Be Found */}
+      <CloseSaveModal
+        isOpen={closeModalState.isOpen}
+        missingPath={closeModalState.missingPath}
+        reason={closeModalState.reason}
+        isBusy={closeModalState.isBusy}
+        onPickNewSaveLocation={handleClosePickNewLocation}
+        onDontSaveAndClose={handleCloseDontSave}
+        onCancel={handleCloseCancel}
       />
 
       {/* Landscape Print Standing Sheet (Only visible when printing) */}

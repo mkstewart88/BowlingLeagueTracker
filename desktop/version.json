@@ -1,0 +1,264 @@
+{
+  "appName": "Bowling League Helper",
+  "latestVersion": "1.0.14",
+  "releaseDate": "November 14, 2026",
+  "title": "Windows Desktop Program (C:\\BowlingLeagueHelper), Installer.exe & Auto-Save on Close",
+  "htmlBundlePath": "BowlingLeagueHelper.html",
+  "fallbackHtmlPaths": [
+    "public/BowlingLeagueHelper.html",
+    "public/standalone_template.html",
+    "Bowling_League_Helper_Latest.html"
+  ],
+  "releases": [
+    {
+      "version": "1.0.14",
+      "date": "November 14, 2026",
+      "title": "Windows Desktop Program (C:\\BowlingLeagueHelper), Installer.exe & Auto-Save on Close",
+      "isLatest": true,
+      "highlights": [
+        "Real Windows Desktop Program & installer.exe: Installs straight into C:\\BowlingLeagueHelper\\ with a custom Bowling Ball & Pins desktop icon shortcut.",
+        "Direct Folder Self-Updates: Clicking Update and Restart overwrites the real program files inside C:\\BowlingLeagueHelper\\ so clearing Chrome or Edge cache never removes updates or saved data.",
+        "Dated OneDrive / PC Backups & Auto-Save on Closing: Saves dated files (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) and automatically saves to your last file when closing—if that file is missing, closing pauses so you can pick a new location or click Don't Save."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Added Electron Windows desktop application, NSIS installer.exe targeting C:\\BowlingLeagueHelper\\, custom Bowling Ball & Pins .ico shortcut, and automated GitHub Actions release ZIP builder."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Added dated backup naming (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) defaulting to OneDrive/Documents plus automatic save-on-close with missing-file recovery prompt."
+        },
+        {
+          "category": "Improvement",
+          "description": "Desktop updater writes updated HTML and version.json files directly inside the C:\\BowlingLeagueHelper\\ installation folder before restarting."
+        }
+      ]
+    },
+    {
+      "version": "1.0.13",
+      "date": "November 14, 2026",
+      "title": "Zero-Prompt Automatic Self-Updater & Unified BowlingLeagueHelper.html",
+      "isLatest": false,
+      "highlights": [
+        "True 1-Click \"Update and Restart\" (Zero File Pickers): Clicking Update and Restart downloads the new release directly into persistent app storage and automatically restarts into the new version—no choosing files or save locations required.",
+        "Unified Filename Everywhere: Uses BowlingLeagueHelper.html consistently on GitHub, AI Studio web downloads, and inside the app footer and backup hub.",
+        "100% League Data Preserved: Scores, teams, rosters, brackets, dues, and season histories automatically stay intact across every update and restart."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Added persistent IndexedDB runtime self-updating so BowlingLeagueHelper.html installs newer GitHub releases and boots directly into the new version on reload with zero save dialogs."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Standardized desktop bundle filename to BowlingLeagueHelper.html across GitHub releases, AI Studio hosting, Tab 5C backups, and app footer downloads."
+        },
+        {
+          "category": "Improvement",
+          "description": "Kept optional Download BowlingLeagueHelper.html copy action available without interrupting the 1-click Update and Restart experience."
+        }
+      ]
+    },
+    {
+      "version": "1.0.12",
+      "date": "November 14, 2026",
+      "title": "Clean \"Update and Restart\" Button, Version-Free Filename & Remembered File Location",
+      "isLatest": false,
+      "highlights": [
+        "Clean \"Update and Restart\" Button: Simplified the update action button to read simply \"Update and Restart\" with zero version clutter.",
+        "Consistent \"Bowling League Helper.html\" Filename: Removed version numbers from the saved desktop file name so restarting launches the exact same file name cleanly.",
+        "Remembered Save Location Across Restarts: Persists your granted file handle in browser IndexedDB so once linked, future updates overwrite \"Bowling League Helper.html\" in place without prompting for a folder again."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Changed the primary updater action label to \"Update and Restart\" and removed version tags from default saved .html filenames."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Added persistent IndexedDB FileSystemFileHandle storage with readwrite permission reuse so subsequent updates overwrite your existing \"Bowling League Helper.html\" directly at its launch location."
+        },
+        {
+          "category": "Improvement",
+          "description": "Normalized default single-file program downloads and saves to \"Bowling League Helper.html\" across the updater and backup hub."
+        }
+      ]
+    },
+    {
+      "version": "1.0.11",
+      "date": "November 14, 2026",
+      "title": "Direct Overwrite & Auto-Restart Updater + GitHub Diagnostics",
+      "isLatest": false,
+      "highlights": [
+        "Direct HTML File Overwrite & Automatic Restart: Removed the confusing in-memory Update Live App button. Updating now downloads the new build, preserves 100% of your league data, overwrites your opened HTML file, and restarts directly into the new version.",
+        "Pre-Filled Active Filename: Automatically detects the exact .html filename you opened so saving overwrites your existing desktop file cleanly instead of creating duplicate copies.",
+        "Honest GitHub Update Diagnostics: Clearly reports HTTP 404 (Private repository / missing version.json) or network errors when checking for updates instead of silently showing the old version."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Removed the in-memory Update Live App button; updates now require overwriting/saving the actual single-HTML program file and automatically restart the app upon overwrite."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Updater now pre-selects your currently opened HTML filename and uses the GitHub API raw endpoint first to avoid CDN cache lag on newly pushed releases."
+        },
+        {
+          "category": "Improvement",
+          "description": "Fixed installed version tracking to always reflect the compiled HTML file running in your browser and added clear error messages if GitHub returns 404."
+        }
+      ]
+    },
+    {
+      "version": "1.0.10",
+      "date": "November 14, 2026",
+      "title": "Clear Framed Section Borders & Color-Coded Headers Across All 5 Tabs",
+      "isLatest": false,
+      "highlights": [
+        "Distinct Framed Section Borders Across Every Tab: Upgraded every section container across Tabs 1-5 with crisp 2px borders, elevated frame contrast, and color-tinted header bands so each section stands out at a glance.",
+        "Color-Coded Section Headers & Rule Groups: Separated League Rules (Tab 1D), Team Performance & Averages (Tab 2), Brackets & Side Pots (Tab 3), Dues & Prize Fund (Tab 4), and Multi-League & Backups (Tab 5) into individually framed panels.",
+        "High-Contrast Dark Sub-Tab Bar: Added a dark slate sub-tab navigation bar at the top of each workspace to clearly anchor sub-sections above the framed content panels."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Added 2px structural borders and color-tinted top header bands (Blue, Emerald, Amber, Slate) to every frame across all 5 tabs for instant visual separation."
+        },
+        {
+          "category": "Improvement",
+          "description": "Split League Rules & Sheet Options (Tab 1D) into 4 individually framed cards with distinct colored headers instead of a single combined box."
+        },
+        {
+          "category": "Improvement",
+          "description": "Upgraded sub-tab bars and KPI metric cards with distinct borders and surface tints so every frame is easy to distinguish."
+        }
+      ]
+    },
+    {
+      "version": "1.0.09",
+      "date": "November 14, 2026",
+      "title": "Natural Instant Undo, Streamlined Non-Duplicated Tabs & Automatic Update Sync",
+      "highlights": [
+        "Natural Undo Placement & Toast Undo Button: Added an instant 'Undo' button right inside the bottom notification banner AND directly above the Currently Entered bowler list and Score Entry form.",
+        "Eliminated Duplicate Controls & Legacy Comparison Clutter: Removed the V1/V2 comparison view, consolidated League Officers & Birthdays into the Master Roster tab, and kept all Backup/Download actions cleanly in Tab 5C.",
+        "Seamless Single-File Updater: Downloaded .html files now automatically stamp the latest version so a freshly downloaded latest build never falsely asks for an update."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Moved Undo Last Action right next to Score Entry and Currently Entered lists, plus added an inline [Undo] button inside toast notifications."
+        },
+        {
+          "category": "Improvement",
+          "description": "Removed V1 vs V2 comparison clutter from Tab 5 and eliminated duplicate backup/download buttons from Tab 1."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Streamlined single-file updater to check for the latest release automatically in the background with a direct GitHub icon link."
+        }
+      ]
+    },
+    {
+      "version": "1.0.08",
+      "date": "November 14, 2026",
+      "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & Delete Protection",
+      "highlights": [
+        "New Team Performance & Consistency Section (Tab 2A): Displays a bar chart of total team scores per week across the season to identify the most consistent teams.",
+        "Reorganized all 5 primary tabs into clean, focused Sub-Tabs so score entry, recap grids, rosters, league rules, charts, side pots, prize funds, and backups never clutter a single page.",
+        "League-Agnostic Customization (BLS 2026 Parity): Configurable Bowlers Per Team (1-5), Absentee Rules (Fixed vs. Avg Minus Penalty Pins vs. % of Avg), Max Handicap Cap, Custom Match Points, Mystery Score & High-Game Side Pots, and End-of-Season Prize Fund Calculator.",
+        "Added Mandatory 'Are You Sure?' Confirmation Modal before deleting any league, roster bowler, or archived week."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Team Performance Weekly Bar Chart & Consistency Analyzer: Visualizes total team scores per week against season weekly averages with variance (± pins), high/low spread, and CSV export."
+        },
+        {
+          "category": "Improvement",
+          "description": "Dedicated Sub-Tab Bars inside all 5 main tabs (1A-1D, 2A-2D, 3A-3C, 4A-4B, 5A-5C) for easy reading and zero screen clutter."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Added 'Are you sure you want to delete this league?' confirmation popup modal so leagues cannot be accidentally deleted with a single click."
+        },
+        {
+          "category": "League Rules",
+          "description": "Removed center/league assumptions: customize team size (1-5), absent score calculation formula, handicap caps, custom match point values, and honor roll thresholds."
+        }
+      ]
+    },
+    {
+      "version": "1.0.07",
+      "date": "November 12, 2026",
+      "title": "Multi-League Database Manager, Auto-Backup Scheduler & Single-File HTML Fix",
+      "highlights": [
+        "Added Multi-League Database Manager to run and switch between unlimited leagues inside one program.",
+        "Added Automatic Backup Scheduler & 1-click Universal Import from a single .json or .html file."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Multi-League Switcher & Master Bowler Database metrics (active/inactive bowlers, cross-league duplicates, and backup status)."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Fixed standalone .html export escaping so pre-compiled single-file desktop builds open cleanly in any browser."
+        }
+      ]
+    },
+    {
+      "version": "1.0.06",
+      "date": "November 10, 2026",
+      "title": "Unified Score Entry, Treasurer Ledger & Multi-Tab Foundation",
+      "highlights": [
+        "Combined the clean rapid keyboard entry of Version 1 with the live standings and 30-step Undo Stack (Ctrl+Z) of Version 2.",
+        "Added Treasurer Dues, Lineage & Prize Fund Ledger and Round-Robin Lane Schedule Generator."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Fast Enter-key score entry workflow with automatic roster lookup and team completion."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Single-File HTML Self-Updater and backwards-compatible migration from legacy storage keys."
+        }
+      ]
+    },
+    {
+      "version": "1.0.05",
+      "date": "October 18, 2026",
+      "title": "Thursday Night Rollers Live Leaderboard Edition",
+      "highlights": [
+        "Added Top 10 Live Bar Chart leaderboard and responsive mobile layout.",
+        "Added Season History archiving and previous week reloading."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Added visual bar chart for current week high scores."
+        },
+        {
+          "category": "Improvement",
+          "description": "Added Substitute player checkbox so subs do not clutter the master roster."
+        }
+      ]
+    },
+    {
+      "version": "1.0.01",
+      "date": "September 25, 2026",
+      "title": "Original Bowling League Helper Base",
+      "highlights": [
+        "Core score entry for Single Game or 3-Game Series (Scratch & Handicap).",
+        "Landscape Printout Standing Sheet & Automatic CSV Spreadsheet Export."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Side-by-side Currently Entered and Missing from Roster lists."
+        }
+      ]
+    }
+  ]
+}
