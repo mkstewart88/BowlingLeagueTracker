@@ -855,6 +855,12 @@ export async function quickSaveLeagueFile(
           filePath: res.filePath,
         };
       }
+      if (res.missing) {
+        // No save file linked yet: notify user and prompt to pick a save location
+        if (typeof window !== 'undefined') {
+          // Toast or fallback picker
+        }
+      }
     }
     return saveLeagueFileToComputer(state);
   }

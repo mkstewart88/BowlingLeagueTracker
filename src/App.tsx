@@ -927,6 +927,13 @@ export default function App() {
     if (isQuickSaving) return;
     setIsQuickSaving(true);
     try {
+      const hasLinked = Boolean(
+        appStateRef.current.settings.autoBackupDirectoryLabel &&
+          appStateRef.current.settings.autoBackupDirectoryLabel.trim() !== ''
+      );
+      if (!hasLinked) {
+        showToast('No save file found. Please choose where to save.');
+      }
       const res = await quickSaveLeagueFile(appStateRef.current);
       handleRecordBackupTimestamp('local', res.filePath || res.filename);
       showToast(`Saved "${res.filePath || res.filename}".`);

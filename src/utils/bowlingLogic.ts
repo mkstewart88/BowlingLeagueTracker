@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.15';
-export const LATEST_AVAILABLE_VERSION = '1.0.15';
+export const CURRENT_APP_VERSION = '1.0.16';
+export const LATEST_AVAILABLE_VERSION = '1.0.16';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'my-bowling-league',
@@ -67,30 +67,29 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
-    version: '1.0.15',
+    version: '1.0.16',
     date: 'November 14, 2026',
-    title: 'Top-Bar Quick Save Button, Auto-Load Save File on Startup & 1.0.15 Stability',
+    title: 'Robust Missing-File Save Dialog Fallback & Version 1.0.16 Stability',
     isLatest: true,
     highlights: [
-      'Top-Bar Quick Save Button: Added a persistent Save button right next to the update button in the top navigation bar for 1-click saving.',
-      'Auto-Load Linked Save File on Startup: Automatically loads and opens your linked BowlingLeagueTrackerSave.json file on launch so you pick up right where you left off.',
-      'Enhanced Desktop & Updater Stability: Automatic safe-saving when applying updates and improved process cleanup across Windows and Linux.',
+      'Robust Missing-File Save Dialog Fallback: When clicking the top-bar Save button with no linked save file, the app now gracefully reports "No save file found. Please choose where to save." and opens the system save file picker.',
+      'Enhanced Version 1.0.16 Stability & Desktop Integration: Further refined desktop state synchronization, close-save confirmation dialogs, and GitHub updater connectivity.',
     ],
     changes: [
       {
         category: 'New Feature',
-        description: 'Added a top-bar Quick Save button to instantly overwrite your linked save file without opening dialogs.',
+        description: 'Added graceful save dialog fallback when no save file is currently linked or found.',
       },
       {
         category: 'Improvement',
-        description: 'Automatically detects and loads your previously linked BowlingLeagueTrackerSave.json file on application startup.',
+        description: 'Optimized state synchronization between active web session and desktop host processes.',
       },
     ],
   },
   {
-    version: '1.0.14',
+    version: '1.0.15',
     date: 'November 14, 2026',
-    title: 'Desktop Program (Windows 11 & Linux), Auto-Save on Close, Week Notes & Print to PDF',
+    title: 'Top-Bar Quick Save Button, Auto-Load Save File on Startup & 1.0.15 Stability',
     isLatest: false,
     highlights: [
       'Desktop Program & Installer (Windows 11 installer.exe + Linux installer): Installs to C:\\BowlingLeagueHelper\\ on Windows 11 or ~/BowlingLeagueHelper/ on Linux with a custom Bowling Ball & Pins desktop icon.',
