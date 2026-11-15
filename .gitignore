@@ -7,6 +7,9 @@ playwright-report/
 test-results/
 verify_*.png
 
+# Exclude old version-numbered HTML snapshots from GitHub (keep single Bowling_League_Helper_Latest.html)
+Bowling_League_Helper_v*.html
+
 # Dependencies & Local Secret Env Files (keep .env.example and all source/compiled files)
 node_modules/
 .env

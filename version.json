@@ -5,9 +5,7 @@
   "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & GitHub Auto-Updater",
   "htmlBundlePath": "Bowling_League_Helper_Latest.html",
   "fallbackHtmlPaths": [
-    "Bowling_League_Helper_v1.0.08.html",
-    "public/standalone_template.html",
-    "Bowling_League_Helper_v1.0.06.html"
+    "public/standalone_template.html"
   ],
   "releases": [
     {
