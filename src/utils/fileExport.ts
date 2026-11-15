@@ -154,8 +154,19 @@ function buildBootstrapScriptBlock(state: AppState, targetVersion: string): stri
     `      localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(parsed));\n` +
     `    } else {\n` +
     `      var existing = JSON.parse(existingRaw);\n` +
+    `      var changed = false;\n` +
     `      if (parsed.version && parsed.version !== existing.version) {\n` +
     `        existing.version = parsed.version;\n` +
+    `        changed = true;\n` +
+    `      }\n` +
+    `      if (parsed.settings && parsed.settings.githubRepo && (!existing.settings || !existing.settings.githubRepo)) {\n` +
+    `        existing.settings = Object.assign({}, existing.settings || {}, {\n` +
+    `          githubRepo: parsed.settings.githubRepo,\n` +
+    `          githubBranch: parsed.settings.githubBranch || 'main'\n` +
+    `        });\n` +
+    `        changed = true;\n` +
+    `      }\n` +
+    `      if (changed) {\n` +
     `        localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(existing));\n` +
     `      }\n` +
     `    }\n` +
@@ -202,27 +213,45 @@ function stripOldEmbeddedScripts(html: string): string {
 }
 
 /**
- * Builds the 100% interactive, full 5-tab Single-File HTML desktop application (`Bowling_League_Helper_v1.0.06.html`)
- * by injecting the user's complete multi-league `AppState` into the compiled `vite-plugin-singlefile` bundle.
- * Works both when hosted on the web AND when running offline from a local Desktop `.html` file (`file://`).
+ * Builds the 100% interactive, full 5-tab Single-File HTML desktop application
+ * by injecting the user's complete multi-league `AppState` into:
+ *   1. A freshly fetched GitHub HTML bundle (`remoteHtmlTemplate`), OR
+ *   2. The hosted `/standalone_template.html` bundle, OR
+ *   3. The currently running single-file document's `<head>` when offline (`file://`).
  */
 export async function buildInteractiveSingleHtmlFile(
   state: AppState,
-  targetVersion: string
+  targetVersion: string,
+  remoteHtmlTemplate?: string | null
 ): Promise<string> {
   const bootstrapBlock = buildBootstrapScriptBlock(state, targetVersion);
   const cBody = closeTag('body');
   const cHead = closeTag('head');
   const cHtml = closeTag('html');
 
-  // 1. Try fetching the pre-compiled singlefile template when running over http/https
+  // 1. If a newly downloaded GitHub HTML bundle was provided, inject the user's saved leagues into it!
+  if (remoteHtmlTemplate && remoteHtmlTemplate.includes('id="root"')) {
+    const cleaned = stripOldEmbeddedScripts(remoteHtmlTemplate);
+    const lastBodyIdx = cleaned.lastIndexOf(cBody);
+    if (lastBodyIdx !== -1) {
+      return (
+        cleaned.slice(0, lastBodyIdx) +
+        '\n' +
+        bootstrapBlock +
+        '\n' +
+        cleaned.slice(lastBodyIdx)
+      );
+    }
+  }
+
+  // 2. Try fetching the pre-compiled singlefile template when running over http/https
   try {
     if (
       typeof window !== 'undefined' &&
       typeof fetch === 'function' &&
       window.location.protocol !== 'file:'
     ) {
-      const resp = await fetch('/standalone_template.html', { cache: 'no-store' });
+      const resp = await fetch(`/standalone_template.html?t=${Date.now()}`, { cache: 'no-store' });
       if (resp.ok) {
         const templateHtml = await resp.text();
         if (templateHtml.includes('id="root"')) {
@@ -244,7 +273,7 @@ export async function buildInteractiveSingleHtmlFile(
     // Fall through to live DOM self-cloning when offline (file://)
   }
 
-  // 2. Offline / Desktop `file://` Mode: Clone the currently running single-file document's <head> bundle
+  // 3. Offline / Desktop `file://` Mode: Clone the currently running single-file document's <head> bundle
   if (typeof document !== 'undefined' && document.head) {
     const cleanHeadInner = stripOldEmbeddedScripts(document.head.innerHTML);
     return (
@@ -422,9 +451,14 @@ export async function executeAutoBackupWrite(
  */
 export async function overwriteOrDownloadSingleHtmlFile(
   state: AppState,
-  targetVersion: string
+  targetVersion: string,
+  remoteHtmlTemplate?: string | null
 ): Promise<{ method: 'filesystem' | 'download'; filename: string }> {
-  const htmlContent = await buildInteractiveSingleHtmlFile(state, targetVersion);
+  const htmlContent = await buildInteractiveSingleHtmlFile(
+    state,
+    targetVersion,
+    remoteHtmlTemplate
+  );
   const defaultFilename = `Bowling_League_Helper_v${targetVersion}.html`;
 
   const win = window as unknown as {

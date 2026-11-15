@@ -60,6 +60,9 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   autoBackupDirectoryLabel: 'Downloads / Chosen PC Folder',
   lastLocalBackupAt: null,
   lastAutoBackupAt: null,
+  githubRepo: '',
+  githubBranch: 'main',
+  lastGithubUpdateCheckAt: null,
 };
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [

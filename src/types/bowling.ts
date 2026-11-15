@@ -50,6 +50,20 @@ export interface LeagueSettings {
   autoBackupDirectoryLabel?: string;
   lastLocalBackupAt?: string | null;
   lastAutoBackupAt?: string | null;
+  // GitHub Version Tracking & Self-Updater Settings
+  githubRepo?: string; // e.g. 'MKStewart88/bowling-league-helper' or full GitHub URL
+  githubBranch?: string; // e.g. 'main'
+  lastGithubUpdateCheckAt?: string | null;
+}
+
+export interface VersionManifest {
+  appName: string;
+  latestVersion: string;
+  releaseDate: string;
+  title: string;
+  htmlBundlePath: string;
+  fallbackHtmlPaths?: string[];
+  releases: PatchRelease[];
 }
 
 export type GameRollStatus = 'normal' | 'absent' | 'vacant' | 'forfeit';

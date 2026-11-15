@@ -1,0 +1,121 @@
+{
+  "appName": "Bowling League Helper",
+  "latestVersion": "1.0.08",
+  "releaseDate": "November 14, 2026",
+  "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & GitHub Auto-Updater",
+  "htmlBundlePath": "Bowling_League_Helper_Latest.html",
+  "fallbackHtmlPaths": [
+    "Bowling_League_Helper_v1.0.08.html",
+    "public/standalone_template.html",
+    "Bowling_League_Helper_v1.0.06.html"
+  ],
+  "releases": [
+    {
+      "version": "1.0.08",
+      "date": "November 14, 2026",
+      "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & GitHub Auto-Updater",
+      "isLatest": true,
+      "highlights": [
+        "Added GitHub Version Manifest (version.json) & Live GitHub Auto-Updater so any standalone .html desktop file tracks your GitHub repo and updates itself to the newest version while preserving all leagues.",
+        "New Team Performance & Consistency Section (Tab 2A): Displays a bar chart of total team scores per week across the season to identify the most consistent teams.",
+        "Reorganized all 5 primary tabs into clean, focused Sub-Tabs so score entry, recap grids, rosters, league rules, charts, side pots, prize funds, and backups never clutter a single page.",
+        "League-Agnostic Customization (BLS 2026 Parity): Configurable Bowlers Per Team (1-5), Absentee Rules (Fixed vs. Avg Minus Penalty Pins vs. % of Avg), Max Handicap Cap, Custom Match Points, Mystery Score & High-Game Side Pots, and End-of-Season Prize Fund Calculator.",
+        "Added Mandatory 'Are You Sure?' Confirmation Modal before deleting any league, roster bowler, or archived week."
+      ],
+      "changes": [
+        {
+          "category": "Data & Backup",
+          "description": "GitHub Live Version Tracking (version.json): Automatically checks GitHub for new releases and downloads/injects your saved league data into the newest pre-compiled .html file."
+        },
+        {
+          "category": "New Feature",
+          "description": "Team Performance Weekly Bar Chart & Consistency Analyzer: Visualizes total team scores per week against season weekly averages with variance (± pins), high/low spread, and CSV export."
+        },
+        {
+          "category": "Improvement",
+          "description": "Dedicated Sub-Tab Bars inside all 5 main tabs (1A-1D, 2A-2D, 3A-3C, 4A-4B, 5A-5D) for easy reading and zero screen clutter."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Added 'Are you sure you want to delete this league?' confirmation popup modal so leagues cannot be accidentally deleted with a single click."
+        },
+        {
+          "category": "League Rules",
+          "description": "Removed center/league assumptions: customize team size (1-5), absent score calculation formula, handicap caps, custom match point values, and honor roll thresholds."
+        }
+      ]
+    },
+    {
+      "version": "1.0.07",
+      "date": "November 12, 2026",
+      "title": "Multi-League Database Manager, Auto-Backup Scheduler & Single-File HTML Fix",
+      "highlights": [
+        "Added Multi-League Database Manager to run and switch between unlimited leagues inside one program.",
+        "Added Automatic Backup Scheduler & 1-click Universal Import from a single .json or .html file."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Multi-League Switcher & Master Bowler Database metrics (active/inactive bowlers, cross-league duplicates, and backup status)."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Fixed standalone .html export escaping so pre-compiled single-file desktop builds open cleanly in any browser."
+        }
+      ]
+    },
+    {
+      "version": "1.0.06",
+      "date": "November 10, 2026",
+      "title": "Unified Score Entry, Treasurer Ledger & Multi-Tab Foundation",
+      "highlights": [
+        "Combined the clean rapid keyboard entry of Version 1 with the live standings and 30-step Undo Stack (Ctrl+Z) of Version 2.",
+        "Added Treasurer Dues, Lineage & Prize Fund Ledger and Round-Robin Lane Schedule Generator."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Fast Enter-key score entry workflow with automatic roster lookup and team completion."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Single-File HTML Self-Updater and backwards-compatible migration from legacy storage keys."
+        }
+      ]
+    },
+    {
+      "version": "1.0.05",
+      "date": "October 18, 2026",
+      "title": "Thursday Night Rollers Live Leaderboard Edition",
+      "highlights": [
+        "Added Top 10 Live Bar Chart leaderboard and responsive mobile layout.",
+        "Added Season History archiving and previous week reloading."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Added visual bar chart for current week high scores."
+        },
+        {
+          "category": "Improvement",
+          "description": "Added Substitute player checkbox so subs do not clutter the master roster."
+        }
+      ]
+    },
+    {
+      "version": "1.0.01",
+      "date": "September 25, 2026",
+      "title": "Original Bowling League Helper Base",
+      "highlights": [
+        "Core score entry for Single Game or 3-Game Series (Scratch & Handicap).",
+        "Landscape Printout Standing Sheet & Automatic CSV Spreadsheet Export."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Side-by-side Currently Entered and Missing from Roster lists."
+        }
+      ]
+    }
+  ]
+}

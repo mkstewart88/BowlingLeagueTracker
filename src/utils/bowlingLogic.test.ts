@@ -18,6 +18,11 @@ import {
 } from './bowlingLogic';
 import { createInitialSeedState } from './seedData';
 import { generateStandaloneSingleHtmlBundle } from './fileExport';
+import {
+  compareSemverVersions,
+  parseGithubRepoSpec,
+  mergePatchNotesHistory,
+} from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
 test('version starts at 1.0.06 with 1.0.08 available as the latest update for testing', () => {
@@ -306,4 +311,41 @@ test('parseUniversalBackupPayload and computeMasterDatabaseMetrics preserve all 
     3
   );
 });
+
+test('compareSemverVersions and parseGithubRepoSpec accurately track GitHub version.json updates', () => {
+  assert.equal(compareSemverVersions('1.0.08', '1.0.07'), 1);
+  assert.equal(compareSemverVersions('1.0.09', '1.0.08'), 1);
+  assert.equal(compareSemverVersions('1.0.06', '1.0.08'), -1);
+  assert.equal(compareSemverVersions('1.0.08', '1.0.08'), 0);
+
+  const shortSpec = parseGithubRepoSpec('MKStewart88/bowling-league-helper', 'main');
+  assert.deepEqual(shortSpec, {
+    owner: 'MKStewart88',
+    repo: 'bowling-league-helper',
+    branch: 'main',
+  });
+
+  const urlSpec = parseGithubRepoSpec(
+    'https://github.com/MKStewart88/bowling-league-helper/tree/release',
+    'main'
+  );
+  assert.deepEqual(urlSpec, {
+    owner: 'MKStewart88',
+    repo: 'bowling-league-helper',
+    branch: 'release',
+  });
+
+  const merged = mergePatchNotesHistory([
+    {
+      version: '1.0.09',
+      date: 'November 20, 2026',
+      title: 'Remote GitHub Test Release',
+      highlights: ['Tested live GitHub version.json update'],
+      changes: [{ category: 'New Feature', description: 'Live GitHub update' }],
+    },
+  ]);
+  assert.equal(merged[0].version, '1.0.09');
+  assert.equal(merged[0].isLatest, true);
+});
+
 

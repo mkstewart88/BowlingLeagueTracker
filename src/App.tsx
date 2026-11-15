@@ -5,6 +5,7 @@ import {
   LaneMatchup,
   LeagueSettings,
   RosterPlayer,
+  VersionManifest,
   WeeklyDuesRecord,
 } from './types/bowling';
 import {
@@ -15,6 +16,11 @@ import {
   generateRoundRobinSchedule,
   parseUniversalBackupPayload,
 } from './utils/bowlingLogic';
+import {
+  compareSemverVersions,
+  fetchVersionManifest,
+  getBuiltInFallbackManifest,
+} from './utils/githubUpdater';
 import { createInitialSeedState } from './utils/seedData';
 import { QuickEntryTab } from './components/QuickEntryTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
@@ -99,7 +105,29 @@ export default function App() {
   const [undoStack, setUndoStack] = useState<AppState[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>('entry');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [remoteManifest, setRemoteManifest] = useState<VersionManifest>(() =>
+    getBuiltInFallbackManifest()
+  );
+  const [manifestSourceUrl, setManifestSourceUrl] = useState<string>('/version.json');
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
+
+  // Automatically check GitHub / version.json on mount and when githubRepo changes
+  useEffect(() => {
+    let active = true;
+    fetchVersionManifest(
+      appState.settings.githubRepo,
+      appState.settings.githubBranch
+    )
+      .then((res) => {
+        if (!active) return;
+        setRemoteManifest(res.manifest);
+        setManifestSourceUrl(res.sourceUrl);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [appState.settings.githubRepo, appState.settings.githubBranch]);
 
   // Sync to localStorage and legacy keys on every state change
   useEffect(() => {
@@ -690,7 +718,13 @@ export default function App() {
     });
   };
 
-  const hasAvailableUpdate = appState.version !== LATEST_AVAILABLE_VERSION;
+  const latestAvailableVersion =
+    compareSemverVersions(remoteManifest.latestVersion, LATEST_AVAILABLE_VERSION) >= 0
+      ? remoteManifest.latestVersion
+      : LATEST_AVAILABLE_VERSION;
+
+  const hasAvailableUpdate =
+    compareSemverVersions(latestAvailableVersion, appState.version || CURRENT_APP_VERSION) > 0;
 
   const switchTab = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -785,7 +819,7 @@ export default function App() {
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>
-                v{appState.version} · {hasAvailableUpdate ? `Update to v${LATEST_AVAILABLE_VERSION}` : 'Updates & Patch Notes'}
+                v{appState.version} · {hasAvailableUpdate ? `Update to v${latestAvailableVersion}` : 'Updates & Patch Notes'}
               </span>
             </button>
           </div>
@@ -975,6 +1009,13 @@ export default function App() {
         isOpen={isUpdateModalOpen}
         onClose={() => setIsUpdateModalOpen(false)}
         appState={appState}
+        remoteManifest={remoteManifest}
+        manifestSourceUrl={manifestSourceUrl}
+        onUpdateManifest={(manifest, sourceUrl) => {
+          setRemoteManifest(manifest);
+          setManifestSourceUrl(sourceUrl);
+        }}
+        onUpdateSettings={handleUpdateSettings}
         onUpgradeVersion={handleUpgradeVersion}
         onShowToast={showToast}
       />
