@@ -12,7 +12,7 @@ import {
 } from '../types/bowling';
 
 export const CURRENT_APP_VERSION = '1.0.06';
-export const LATEST_AVAILABLE_VERSION = '1.0.07';
+export const LATEST_AVAILABLE_VERSION = '1.0.08';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -64,36 +64,57 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
-    version: '1.0.07',
+    version: '1.0.08',
     date: 'November 14, 2026',
-    title: 'Multi-League Database Manager, Team Consistency Bar Charts & Sub-Tab Workspace',
+    title: 'Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & Delete Protection',
     isLatest: true,
     highlights: [
-      'Added Clean Sub-Tab Navigation across all 5 primary sections so every task has its own uncluttered screen.',
-      'Added Team Performance & Consistency Analyzer with multi-week bar charts of total team scores per week.',
-      'Added League-Agnostic Rule Engine: Customize Absentee Rules (Fixed vs. Average Minus X Pins), Handicap Caps, Custom Match Points, and Prize Fund Payouts.',
-      'Added Multi-League Database Manager & Automatic Backup Scheduler with 1-click restore from a single .json or .html file.',
+      'New Team Performance & Consistency Section (Tab 2A): Displays a bar chart of total team scores per week across the season to identify the most consistent teams.',
+      'Reorganized all 5 primary tabs into clean, focused Sub-Tabs so score entry, recap grids, rosters, league rules, charts, side pots, prize funds, and backups never clutter a single page.',
+      'League-Agnostic Customization (BLS 2026 Parity): Configurable Bowlers Per Team (1–5), Absentee Rules (Fixed vs. Avg Minus Penalty Pins vs. % of Avg), Max Handicap Cap, Custom Match Points, Mystery Score & High-Game Side Pots, and End-of-Season Prize Fund Calculator.',
+      'Added Mandatory "Are You Sure?" Confirmation Modal before deleting any league, roster bowler, or archived week.',
     ],
     changes: [
       {
         category: 'New Feature',
         description:
-          'Team Performance Bar Chart & Consistency Table: Compare weekly team totals across the season and identify the most consistent teams by variance and spread.',
+          'Team Performance Weekly Bar Chart & Consistency Analyzer: Visualizes total team scores per week against season weekly averages with variance (± pins), high/low spread, and CSV export.',
       },
       {
         category: 'Improvement',
         description:
-          'Organized all 5 primary tabs into dedicated, easy-to-read Sub-Tabs so score entry, rosters, rules, charts, brackets, dues, and backups are never crowded together.',
-      },
-      {
-        category: 'League Rules',
-        description:
-          'League-Agnostic Customization: Supports Fixed Absent Score or USBC Average-Minus-Pins rule, custom points per game/series, any team size, and any starting lane.',
+          'Dedicated Sub-Tab Bars inside all 5 main tabs (1A–1D, 2A–2D, 3A–3C, 4A–4B, 5A–5D) for easy reading and zero screen clutter.',
       },
       {
         category: 'Data & Backup',
         description:
-          'Auto-Backup Scheduler & Universal Import: Schedule automatic backups and restore 100% of all leagues from a single .json or .html file.',
+          'Added "Are you sure you want to delete this league?" confirmation popup modal so leagues cannot be accidentally deleted with a single click.',
+      },
+      {
+        category: 'League Rules',
+        description:
+          'Removed center/league assumptions: customize team size (1–5), absent score calculation formula, handicap caps, custom match point values, and honor roll thresholds.',
+      },
+    ],
+  },
+  {
+    version: '1.0.07',
+    date: 'November 12, 2026',
+    title: 'Multi-League Database Manager, Auto-Backup Scheduler & Single-File HTML Fix',
+    highlights: [
+      'Added Multi-League Database Manager to run and switch between unlimited leagues inside one program.',
+      'Added Automatic Backup Scheduler & 1-click Universal Import from a single .json or .html file.',
+    ],
+    changes: [
+      {
+        category: 'New Feature',
+        description:
+          'Multi-League Switcher & Master Bowler Database metrics (active/inactive bowlers, cross-league duplicates, and backup status).',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Fixed standalone .html export escaping so pre-compiled single-file desktop builds open cleanly in any browser.',
       },
     ],
   },

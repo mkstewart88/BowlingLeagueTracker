@@ -671,12 +671,23 @@ export default function App() {
   };
 
   const handleUpgradeVersion = (newVersion: string) => {
-    setAppState((prev) =>
-      syncActiveLeagueInRegistry({
-        ...prev,
+    setAppState((prev) => {
+      const synced = syncActiveLeagueInRegistry(prev);
+      const updatedRegistry: NonNullable<AppState['allLeaguesRegistry']> = {};
+      for (const [id, lg] of Object.entries(synced.allLeaguesRegistry || {})) {
+        updatedRegistry[id] = {
+          ...lg,
+          version: newVersion,
+          settings: { ...DEFAULT_SETTINGS, ...lg.settings },
+        };
+      }
+      return {
+        ...synced,
         version: newVersion,
-      })
-    );
+        settings: { ...DEFAULT_SETTINGS, ...synced.settings },
+        allLeaguesRegistry: updatedRegistry,
+      };
+    });
   };
 
   const hasAvailableUpdate = appState.version !== LATEST_AVAILABLE_VERSION;

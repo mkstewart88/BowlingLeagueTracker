@@ -152,7 +152,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <div className="text-xs text-slate-600 mt-0.5">
                 {checkCompleted
                   ? hasNewUpdate
-                    ? 'Update available (Brackets, Recap Sheet & Averages Suite)'
+                    ? 'Update available (Team Performance Chart, Clean Sub-Tabs & Delete Protection)'
                     : 'Up to date with latest release'
                   : 'Checking release manifest...'}
               </div>

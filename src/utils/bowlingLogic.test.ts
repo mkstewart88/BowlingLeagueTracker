@@ -20,9 +20,9 @@ import { createInitialSeedState } from './seedData';
 import { generateStandaloneSingleHtmlBundle } from './fileExport';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version starts at 1.0.06 with 1.0.07 available for update testing', () => {
+test('version starts at 1.0.06 with 1.0.08 available as the latest update for testing', () => {
   assert.equal(CURRENT_APP_VERSION, '1.0.06');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.07');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.08');
 });
 
 test('calculateBowlerHandicap computes 90% of 220 accurately for 3-game series and single game', () => {
