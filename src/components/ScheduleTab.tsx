@@ -680,7 +680,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
               >
                 <HardDrive className="w-4 h-4" />
-                Save Dated Backup (OneDrive / PC)...
+                Save Dated Backup (.json)...
               </button>
               <button
                 type="button"

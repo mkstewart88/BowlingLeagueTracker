@@ -149,7 +149,9 @@ export default function App() {
     };
   }, []);
 
-  // Register Electron native window close interception + load last remembered disk save path
+  const closeInFlightRef = React.useRef(false);
+
+  // Register native desktop close interception + load last remembered disk save path
   useEffect(() => {
     const bridge = getDesktopBridge();
     if (!bridge) return;
@@ -172,16 +174,24 @@ export default function App() {
       .catch(() => {});
 
     const unsubscribe = bridge.onRequestCloseSave(async () => {
-      const result = await verifyAndSaveBeforeClose(appStateRef.current);
-      if (!result.ok && result.missing) {
-        setCloseModalState({
-          isOpen: true,
-          missingPath: result.missingPath || null,
-          reason:
-            result.reason ||
-            'Cannot find your last save file. Pick a new save location or choose Don\'t Save.',
-          isBusy: false,
-        });
+      if (closeInFlightRef.current) return;
+      closeInFlightRef.current = true;
+      try {
+        const result = await verifyAndSaveBeforeClose(appStateRef.current);
+        if (!result.ok && result.missing) {
+          setCloseModalState({
+            isOpen: true,
+            missingPath: result.missingPath || null,
+            reason:
+              result.reason ||
+              'Cannot find your last save file. Pick a new save location or choose Don\'t Save.',
+            isBusy: false,
+          });
+        } else {
+          closeInFlightRef.current = false;
+        }
+      } catch {
+        closeInFlightRef.current = false;
       }
     });
 
@@ -805,6 +815,7 @@ export default function App() {
     setCloseModalState((prev) => ({ ...prev, isBusy: true }));
     const res = await pickNewSaveLocationAndFinishClose(appStateRef.current);
     if (res.closed) {
+      closeInFlightRef.current = false;
       if (res.filePath) {
         handleRecordBackupTimestamp('local', res.filePath);
       }
@@ -825,6 +836,7 @@ export default function App() {
   const handleCloseDontSave = async () => {
     setCloseModalState((prev) => ({ ...prev, isBusy: true }));
     await forceCloseProgramWithoutSaving();
+    closeInFlightRef.current = false;
     setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
     if (!getDesktopBridge()) {
       showToast('Closed without saving to a backup file.');
@@ -832,6 +844,7 @@ export default function App() {
   };
 
   const handleCloseCancel = async () => {
+    closeInFlightRef.current = false;
     await cancelPendingClose();
     setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
   };

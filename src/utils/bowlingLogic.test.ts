@@ -389,4 +389,73 @@ test('compareSemverVersions and parseGithubRepoSpec accurately track GitHub vers
   assert.equal(merged[0].isLatest, true);
 });
 
+test('createHttpDesktopBridge communicates with native desktop host HTTP endpoints', async () => {
+  const { createHttpDesktopBridge } = await import('./desktopBridge');
+  const calls: Array<{ url: string; method: string; body?: string }> = [];
+  const origFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method || 'GET';
+    const body = typeof init?.body === 'string' ? init.body : undefined;
+    calls.push({ url, method, body });
+
+    if (url.endsWith('/api/desktop/info')) {
+      return new Response(
+        JSON.stringify({
+          isDesktopApp: true,
+          installDir: 'C:\\BowlingLeagueHelper',
+          defaultSaveDir: 'C:\\Users\\League\\Documents',
+          desktopVersion: '1.0.14',
+          lastSaveFilePath: '',
+          lastSavedAt: null,
+          lastSaveExists: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (url.endsWith('/api/desktop/close-attempt')) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          missing: true,
+          missingPath: null,
+          reason: 'No save file location has been selected yet.',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    const bridge = createHttpDesktopBridge('http://127.0.0.1:45123');
+    const info = await bridge.getDesktopInfo();
+    assert.equal(info.isDesktopApp, true);
+    assert.equal(info.installDir, 'C:\\BowlingLeagueHelper');
+
+    const closeRes = await bridge.attemptCloseWithSave('{"test":1}');
+    assert.equal(closeRes.ok, false);
+    assert.equal(closeRes.missing, true);
+
+    const updRes = await bridge.installUpdateToProgramFolder({
+      targetVersion: '1.0.15',
+      htmlContent: '<html><div id="root"></div></html>',
+      versionJsonContent: '{"latestVersion":"1.0.15"}',
+    });
+    assert.equal(updRes.ok, true);
+    assert.equal(calls.length, 3);
+    assert.equal(calls[2].method, 'POST');
+    assert.ok(calls[2].url.endsWith('/api/desktop/install-update'));
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+
 

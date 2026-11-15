@@ -69,7 +69,7 @@ export const CloseSaveModal: React.FC<CloseSaveModalProps> = ({
 
           <p className="leading-relaxed text-slate-600">
             To protect your league data, the program cancelled closing. Choose a new
-            save location (such as OneDrive or Documents) to save and exit, or click{' '}
+            save location on your computer or cloud folder to save and exit, or click{' '}
             <strong className="text-slate-900">Don&apos;t Save</strong> to close
             anyway.
           </p>

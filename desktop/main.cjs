@@ -64,25 +64,16 @@ function writeDesktopConfig(partial) {
   return next;
 }
 
-function detectPreferredOneDriveDir() {
-  const candidates = [
-    process.env.OneDriveCommercial,
-    process.env.OneDriveConsumer,
-    process.env.OneDrive,
-    path.join(os.homedir(), 'OneDrive'),
-    path.join(os.homedir(), 'Documents'),
-  ].filter(Boolean);
-
-  for (const dir of candidates) {
-    try {
-      if (dir && fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
-        return dir;
-      }
-    } catch {
-      // Try next directory
+function detectPreferredDocumentsDir() {
+  const docs = app.getPath('documents');
+  try {
+    if (docs && fs.existsSync(docs) && fs.statSync(docs).isDirectory()) {
+      return docs;
     }
+  } catch {
+    // Ignore
   }
-  return app.getPath('documents');
+  return os.homedir();
 }
 
 function atomicWriteFileSync(targetPath, content) {
@@ -226,7 +217,7 @@ ipcMain.handle('desktop:get-info', () => {
   return {
     isDesktopApp: true,
     installDir: getInstallDir(),
-    oneDriveDir: detectPreferredOneDriveDir(),
+    defaultSaveDir: detectPreferredDocumentsDir(),
     desktopVersion: readInstalledVersion(),
     lastSaveFilePath: cfg.lastSaveFilePath || '',
     lastSavedAt: cfg.lastSavedAt || null,
@@ -240,7 +231,7 @@ ipcMain.handle('desktop:save-backup-dated', async (_evt, { jsonText, defaultFile
     const startDir =
       (cfg.lastSaveFilePath && fs.existsSync(path.dirname(cfg.lastSaveFilePath))
         ? path.dirname(cfg.lastSaveFilePath)
-        : null) || detectPreferredOneDriveDir();
+        : null) || detectPreferredDocumentsDir();
 
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Save Dated Bowling League Backup',
@@ -320,7 +311,7 @@ ipcMain.handle('desktop:attempt-close-with-save', async (_evt, { jsonText }) => 
 
 ipcMain.handle('desktop:pick-new-save-and-close', async (_evt, { jsonText, defaultFilename }) => {
   try {
-    const startDir = detectPreferredOneDriveDir();
+    const startDir = detectPreferredDocumentsDir();
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Pick Save File Location Before Closing',
       defaultPath: path.join(startDir, defaultFilename),

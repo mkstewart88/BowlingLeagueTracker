@@ -74,18 +74,18 @@ export const PATCH_NOTES_HISTORY: PatchRelease[] = [
     highlights: [
       'Real Windows Desktop Program & installer.exe: Installs straight into C:\\BowlingLeagueHelper\\ with a custom Bowling Ball & Pins desktop icon shortcut.',
       'Direct Folder Self-Updates: Clicking Update and Restart overwrites the real program files inside C:\\BowlingLeagueHelper\\ so clearing Chrome or Edge cache never removes updates or saved data.',
-      'Dated OneDrive / PC Backups & Auto-Save on Closing: Saves dated files (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) and automatically saves to your last file when closing—if that file is missing, closing pauses so you can pick a new location or click Don\'t Save.',
+      'Dated Backups & Auto-Save on Closing: Saves dated files (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) to your chosen folder and automatically saves to your last file when closing—if that file is missing, closing pauses so you can pick a new location or click Don\'t Save.',
     ],
     changes: [
       {
         category: 'New Feature',
         description:
-          'Added Electron Windows desktop application, NSIS installer.exe targeting C:\\BowlingLeagueHelper\\, custom Bowling Ball & Pins .ico shortcut, and automated GitHub Actions release ZIP builder.',
+          'Added Windows desktop application, installer.exe targeting C:\\BowlingLeagueHelper\\, custom bowling ball & pins .ico shortcut, and automated Windows release packaging.',
       },
       {
         category: 'Data & Backup',
         description:
-          'Added dated backup naming (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) defaulting to OneDrive/Documents plus automatic save-on-close with missing-file recovery prompt.',
+          'Added dated backup naming (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) to any user-selected folder plus automatic save-on-close with missing-file recovery prompt.',
       },
       {
         category: 'Improvement',

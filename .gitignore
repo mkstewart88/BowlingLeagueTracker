@@ -1,4 +1,4 @@
-# AI Studio Exclusive Files & Folders (excluded from GitHub, kept in workspace)
+# AI Studio & Test Temp Artifacts
 .aistudio/
 public/assets/aistudio/
 metadata.json
@@ -7,18 +7,23 @@ playwright-report/
 test-results/
 verify_*.png
 
-# Exclude old version-numbered HTML snapshots from GitHub (keep single Bowling_League_Helper_Latest.html)
+# Build Temp Directories (keep root installer.exe and BowlingLeagueHelper.html tracked)
+dist/
+dist-win/
+desktop/dist-host/resource.res
+BowlingLeagueHelper-Windows.zip
 Bowling_League_Helper_v*.html
+!installer.exe
 
-# Dependencies & Local Secret Env Files (keep .env.example and all source/compiled files)
+# Dependencies & Environment Files
 node_modules/
+desktop/node_modules/
 .env
 .env.local
 .env.*.local
 !.env.example
 
-# OS / Editor Temp Files
+# OS & Logs
 .DS_Store
 Thumbs.db
 *.log
-

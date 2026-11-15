@@ -778,7 +778,7 @@ async function clearLastBackupHandle(): Promise<void> {
 
 /**
  * Saves a dated full-league backup file (`BowlingLeagueHelper_Backup_YYYY-MM-DD.json`) to
- * whatever folder the user chooses (such as OneDrive), and sets it as the automatic save-on-close target.
+ * whatever folder the user chooses, and sets it as the automatic save-on-close target.
  */
 export async function saveLeagueFileToComputer(
   state: AppState
