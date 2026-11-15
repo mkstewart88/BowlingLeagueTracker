@@ -9,11 +9,11 @@ import {
   mergePatchNotesHistory,
 } from '../utils/githubUpdater';
 import {
-  getCurrentOpenedHtmlFilename,
-  hasRememberedProgramHandle,
-  overwriteOrDownloadSingleHtmlFile,
+  DEFAULT_PROGRAM_HTML_FILENAME,
+  downloadDesktopProgramHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
+import { saveUpdatedRuntimeBundle } from '../utils/runtimeUpdater';
 import {
   Download,
   HardDrive,
@@ -55,24 +55,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const [checkCompleted, setCheckCompleted] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateErrorHint, setUpdateErrorHint] = useState<string | null>(null);
-  const [hasLinkedFile, setHasLinkedFile] = useState(false);
 
   useEffect(() => {
     setSelectedPatchVersion(effectiveLatestVersion);
   }, [effectiveLatestVersion]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    let active = true;
-    hasRememberedProgramHandle()
-      .then((linked) => {
-        if (active) setHasLinkedFile(linked);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -110,18 +96,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     }
   };
 
-  const openedFilename = getCurrentOpenedHtmlFilename();
+  const fetchTargetRemoteHtml = async (): Promise<string | null> => {
+    let remoteHtml = await fetchRemoteHtmlTemplateFromGithub(remoteManifest);
 
-  const handleApplyAndOverwriteHtml = async () => {
-    setIsUpdating(true);
-    setUpdateErrorHint(null);
-    try {
-      let remoteHtml = await fetchRemoteHtmlTemplateFromGithub(remoteManifest);
-
-      // When running over http/https (e.g. hosted web/dev preview), also allow local ./standalone_template.html if it contains target version
-      if (!remoteHtml && typeof window !== 'undefined' && window.location.protocol !== 'file:') {
+    if (!remoteHtml && typeof window !== 'undefined' && window.location.protocol !== 'file:') {
+      for (const localPath of ['./BowlingLeagueHelper.html', './standalone_template.html']) {
         try {
-          const resp = await fetch(`./standalone_template.html?t=${Date.now()}`, {
+          const resp = await fetch(`${localPath}?t=${Date.now()}`, {
             cache: 'no-store',
           });
           if (resp.ok) {
@@ -132,51 +113,87 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               candidate.includes(effectiveLatestVersion)
             ) {
               remoteHtml = candidate;
+              break;
             }
           }
         } catch {
-          // Ignore
+          // Try next local bundle
         }
       }
+    }
+    return remoteHtml;
+  };
 
-      if (hasNewUpdate && !remoteHtml) {
-        const msg = `Could not download v${effectiveLatestVersion} HTML bundle from GitHub. Verify the repository is Public and try again.`;
+  const handleUpdateAndRestart = async () => {
+    setIsUpdating(true);
+    setUpdateErrorHint(null);
+    try {
+      const remoteHtml = await fetchTargetRemoteHtml();
+
+      if (!hasNewUpdate) {
+        await downloadDesktopProgramHtmlFile(
+          appState,
+          effectiveLatestVersion,
+          remoteHtml
+        );
+        onShowToast(
+          `Downloaded ${DEFAULT_PROGRAM_HTML_FILENAME} (v${effectiveLatestVersion}) with all your league data embedded!`
+        );
+        return;
+      }
+
+      if (!remoteHtml) {
+        const msg = `Could not download v${effectiveLatestVersion} (${DEFAULT_PROGRAM_HTML_FILENAME}) from GitHub. Verify the repository is Public and try again.`;
         setUpdateErrorHint(msg);
         onShowToast(msg, true);
         return;
       }
 
+      // Install the new release directly into persistent browser IndexedDB runtime storage —
+      // zero file pickers, zero save-location prompts, and all league data stays untouched!
+      const savedInApp = await saveUpdatedRuntimeBundle(effectiveLatestVersion, remoteHtml);
+
+      if (savedInApp) {
+        onShowToast(`Installed v${effectiveLatestVersion}! Restarting BowlingLeagueHelper...`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 650);
+        return;
+      }
+
+      // Rare fallback only if browser blocks IndexedDB entirely
       const updatedState: AppState = {
         ...appState,
         version: effectiveLatestVersion,
       };
-
-      const res = await overwriteOrDownloadSingleHtmlFile(
-        updatedState,
-        effectiveLatestVersion,
-        remoteHtml
+      await downloadDesktopProgramHtmlFile(updatedState, effectiveLatestVersion, remoteHtml);
+      onShowToast(
+        `Downloaded ${DEFAULT_PROGRAM_HTML_FILENAME} (v${effectiveLatestVersion}) to your Downloads folder.`
       );
-
-      if (res.method === 'filesystem') {
-        setHasLinkedFile(true);
-        onShowToast(
-          `Updated ${res.filename} with v${effectiveLatestVersion}! Restarting...`
-        );
-        setTimeout(() => {
-          window.location.reload();
-        }, 900);
-      } else {
-        onShowToast(
-          hasNewUpdate
-            ? `Downloaded ${res.filename} (v${effectiveLatestVersion}). Replace your existing file with this copy and open it to launch in v${effectiveLatestVersion}.`
-            : `Saved ${res.filename} (v${effectiveLatestVersion}) with all league data intact!`
-        );
-      }
     } catch (err: unknown) {
-      const msg = (err as Error)?.message || 'Update cancelled.';
-      if (!msg.includes('Cancelled')) {
-        onShowToast(msg, true);
-      }
+      const msg = (err as Error)?.message || 'Update failed. Please try again.';
+      setUpdateErrorHint(msg);
+      onShowToast(msg, true);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDownloadPortableCopy = async () => {
+    setIsUpdating(true);
+    try {
+      const remoteHtml = await fetchTargetRemoteHtml();
+      const targetVer = remoteHtml ? effectiveLatestVersion : currentVersion;
+      const updatedState: AppState = {
+        ...appState,
+        version: targetVer,
+      };
+      await downloadDesktopProgramHtmlFile(updatedState, targetVer, remoteHtml);
+      onShowToast(
+        `Downloaded ${DEFAULT_PROGRAM_HTML_FILENAME} (v${targetVer}) with all saved league data.`
+      );
+    } catch {
+      onShowToast(`Could not download ${DEFAULT_PROGRAM_HTML_FILENAME}.`, true);
     } finally {
       setIsUpdating(false);
     }
@@ -203,10 +220,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-slate-800">
           <div>
             <h2 id="update-modal-title" className="text-lg font-bold tracking-tight">
-              Program Version Control, Single-File Updater & Patch Notes
+              Program Version Control, Auto-Updater & Patch Notes
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Update your single-HTML desktop program while keeping 100% of your saved scores, roster, and history.
+              1-click update right inside {DEFAULT_PROGRAM_HTML_FILENAME} while keeping 100% of your saved scores, roster, and history.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -290,7 +307,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             </div>
           )}
 
-          {/* Primary Overwrite & Restart Action Box */}
+          {/* Primary 1-Click Automatic Update & Restart Card */}
           <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-lg space-y-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
@@ -300,16 +317,14 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </h3>
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 {hasNewUpdate
-                  ? hasLinkedFile
-                    ? `Overwrites "${openedFilename}" in place at its remembered folder (keeping 100% of your saved leagues, scores, teams, and history) and restarts right back into the same file.`
-                    : `Updates "${openedFilename}" with 100% of your saved leagues, scores, teams, and history preserved and restarts. Select your "${openedFilename}" file once and the app remembers that location automatically for future updates.`
-                  : `Your program is up to date. You can save "${openedFilename}" with all current league data embedded inside.`}
+                  ? `Click Update and Restart to automatically install v${effectiveLatestVersion} and restart your BowlingLeagueHelper app right here—no choosing folders or replacing files required, and 100% of your leagues, scores, teams, and history stay intact.`
+                  : `Your BowlingLeagueHelper program is up to date. You can also download a fresh "${DEFAULT_PROGRAM_HTML_FILENAME}" copy anytime to share or move to another computer.`}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={handleApplyAndOverwriteHtml}
+                onClick={handleUpdateAndRestart}
                 disabled={isUpdating}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
               >
@@ -319,9 +334,21 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                     ? 'Updating & Restarting...'
                     : 'Update and Restart'
                   : isUpdating
-                  ? `Saving "${openedFilename}"...`
-                  : `Save "${openedFilename}"`}
+                  ? `Downloading ${DEFAULT_PROGRAM_HTML_FILENAME}...`
+                  : `Download ${DEFAULT_PROGRAM_HTML_FILENAME}`}
               </button>
+
+              {hasNewUpdate && (
+                <button
+                  type="button"
+                  onClick={handleDownloadPortableCopy}
+                  disabled={isUpdating}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download {DEFAULT_PROGRAM_HTML_FILENAME} Copy
+                </button>
+              )}
             </div>
           </div>
 

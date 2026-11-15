@@ -19,28 +19,42 @@ import {
 import { createInitialSeedState } from './seedData';
 import { generateStandaloneSingleHtmlBundle, getCurrentOpenedHtmlFilename } from './fileExport';
 import {
+  injectBootFromCacheFlag,
+  stripBootFromCacheFlag,
+} from './runtimeUpdater';
+import {
   compareSemverVersions,
   parseGithubRepoSpec,
   mergePatchNotesHistory,
 } from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.12 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.12');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.12');
+test('version is set to 1.0.13 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.13');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.13');
 });
 
-test('getCurrentOpenedHtmlFilename defaults to Bowling League Helper.html and preserves opened filenames', () => {
-  assert.equal(getCurrentOpenedHtmlFilename('/'), 'Bowling League Helper.html');
-  assert.equal(getCurrentOpenedHtmlFilename('/index.html'), 'Bowling League Helper.html');
+test('getCurrentOpenedHtmlFilename defaults to BowlingLeagueHelper.html and preserves opened filenames', () => {
+  assert.equal(getCurrentOpenedHtmlFilename('/'), 'BowlingLeagueHelper.html');
+  assert.equal(getCurrentOpenedHtmlFilename('/index.html'), 'BowlingLeagueHelper.html');
   assert.equal(
-    getCurrentOpenedHtmlFilename('/Users/bowler/Desktop/Bowling%20League%20Helper.html'),
-    'Bowling League Helper.html'
+    getCurrentOpenedHtmlFilename('/Users/bowler/Desktop/BowlingLeagueHelper.html'),
+    'BowlingLeagueHelper.html'
   );
   assert.equal(
     getCurrentOpenedHtmlFilename('/C:/Bowling/ThursdayLeague.html'),
     'ThursdayLeague.html'
   );
+});
+
+test('runtimeUpdater injects and strips cached runtime boot flag cleanly', () => {
+  const sampleHtml = '<!doctype html><html><head><title>App</title></head><body><div id="root"></div></body></html>';
+  const injected = injectBootFromCacheFlag(sampleHtml, '1.0.14');
+  assert.ok(injected.includes('id="bowling-runtime-boot-flag"'));
+  assert.ok(injected.includes('"1.0.14"'));
+  const stripped = stripBootFromCacheFlag(injected);
+  assert.ok(!stripped.includes('bowling-runtime-boot-flag'));
+  assert.equal(stripped, sampleHtml);
 });
 
 test('calculateBowlerHandicap computes 90% of 220 accurately for 3-game series and single game', () => {
@@ -350,14 +364,14 @@ test('compareSemverVersions and parseGithubRepoSpec accurately track GitHub vers
 
   const merged = mergePatchNotesHistory([
     {
-      version: '1.0.13',
+      version: '1.0.14',
       date: 'November 20, 2026',
       title: 'Remote GitHub Test Release',
       highlights: ['Tested live GitHub version.json update'],
       changes: [{ category: 'New Feature', description: 'Live GitHub update' }],
     },
   ]);
-  assert.equal(merged[0].version, '1.0.13');
+  assert.equal(merged[0].version, '1.0.14');
   assert.equal(merged[0].isLatest, true);
 });
 

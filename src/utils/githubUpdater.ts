@@ -87,8 +87,12 @@ export function getBuiltInFallbackManifest(): VersionManifest {
     title:
       latestRel?.title ||
       'Streamlined Workspace Organization, Instant Undo & Automatic Update Sync',
-    htmlBundlePath: 'Bowling_League_Helper_Latest.html',
-    fallbackHtmlPaths: ['public/standalone_template.html'],
+    htmlBundlePath: 'BowlingLeagueHelper.html',
+    fallbackHtmlPaths: [
+      'public/BowlingLeagueHelper.html',
+      'public/standalone_template.html',
+      'Bowling_League_Helper_Latest.html',
+    ],
     releases: PATCH_NOTES_HISTORY,
   };
 }
@@ -247,8 +251,10 @@ export async function fetchRemoteHtmlTemplateFromGithub(
 
   const candidatePaths = Array.from(
     new Set([
-      manifest?.htmlBundlePath || 'Bowling_League_Helper_Latest.html',
+      manifest?.htmlBundlePath || 'BowlingLeagueHelper.html',
+      'BowlingLeagueHelper.html',
       ...(manifest?.fallbackHtmlPaths || []),
+      'public/BowlingLeagueHelper.html',
       'public/standalone_template.html',
     ])
   );
@@ -258,6 +264,7 @@ export async function fetchRemoteHtmlTemplateFromGithub(
   const targetVer = manifest?.latestVersion || LATEST_AVAILABLE_VERSION;
 
   for (const branch of branchesToTry) {
+    let branchNotFound = false;
     for (const filePath of candidatePaths) {
       const cleanPath = filePath.replace(/^\/+/, '');
 
@@ -287,10 +294,14 @@ export async function fetchRemoteHtmlTemplateFromGithub(
           if (html.includes('id="root"') && html.includes('<script') && html.includes(targetVer)) {
             return html;
           }
+        } else if (resp.status === 404 && filePath === candidatePaths[0] && branch === 'master') {
+          branchNotFound = true;
         }
       } catch {
         // Silent fallback
       }
+
+      if (branchNotFound) break;
     }
   }
 

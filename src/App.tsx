@@ -30,6 +30,8 @@ import { ScheduleTab } from './components/ScheduleTab';
 import { UpdateModal } from './components/UpdateModal';
 import { PrintStandingSheet } from './components/PrintStandingSheet';
 import {
+  DEFAULT_PROGRAM_HTML_FILENAME,
+  downloadDesktopProgramHtmlFile,
   executeAutoBackupWrite,
   hasConnectedAutoBackupHandle,
   saveLeagueFileToComputer,
@@ -960,7 +962,25 @@ export default function App() {
           <div>
             Bowling League Helper · {appState.settings.leagueName || 'Thursday Night Rollers'} · Version {appState.version} · Auto-saved locally in browser memory
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await downloadDesktopProgramHtmlFile(
+                    appState,
+                    appState.version || LATEST_AVAILABLE_VERSION
+                  );
+                  showToast(`Downloaded ${res.filename} with all saved league data.`);
+                } catch {
+                  // Ignore
+                }
+              }}
+              className="font-semibold text-blue-700 hover:underline cursor-pointer"
+            >
+              Download {DEFAULT_PROGRAM_HTML_FILENAME}
+            </button>
+            <span>·</span>
             <button
               type="button"
               onClick={async () => {

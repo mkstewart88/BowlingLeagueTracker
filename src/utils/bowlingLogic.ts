@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.12';
-export const LATEST_AVAILABLE_VERSION = '1.0.12';
+export const CURRENT_APP_VERSION = '1.0.13';
+export const LATEST_AVAILABLE_VERSION = '1.0.13';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -67,10 +67,38 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.13',
+    date: 'November 14, 2026',
+    title: 'Zero-Prompt Automatic Self-Updater & Unified BowlingLeagueHelper.html',
+    isLatest: true,
+    highlights: [
+      'True 1-Click "Update and Restart" (Zero File Pickers): Clicking Update and Restart downloads the new release directly into persistent app storage and automatically restarts into the new version—no choosing files or save locations required.',
+      'Unified Filename Everywhere: Uses BowlingLeagueHelper.html consistently on GitHub, AI Studio web downloads, and inside the app footer and backup hub.',
+      '100% League Data Preserved: Scores, teams, rosters, brackets, dues, and season histories automatically stay intact across every update and restart.',
+    ],
+    changes: [
+      {
+        category: 'New Feature',
+        description:
+          'Added persistent IndexedDB runtime self-updating so BowlingLeagueHelper.html installs newer GitHub releases and boots directly into the new version on reload with zero save dialogs.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Standardized desktop bundle filename to BowlingLeagueHelper.html across GitHub releases, AI Studio hosting, Tab 5C backups, and app footer downloads.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Kept optional Download BowlingLeagueHelper.html copy action available without interrupting the 1-click Update and Restart experience.',
+      },
+    ],
+  },
+  {
     version: '1.0.12',
     date: 'November 14, 2026',
     title: 'Clean "Update and Restart" Button, Version-Free Filename & Remembered File Location',
-    isLatest: true,
+    isLatest: false,
     highlights: [
       'Clean "Update and Restart" Button: Simplified the update action button to read simply "Update and Restart" with zero version clutter.',
       'Consistent "Bowling League Helper.html" Filename: Removed version numbers from the saved desktop file name so restarting launches the exact same file name cleanly.',

@@ -9,10 +9,11 @@ import {
 } from '../utils/bowlingLogic';
 import {
   chooseAutoBackupLocation,
+  DEFAULT_PROGRAM_HTML_FILENAME,
   downloadBlob,
+  downloadDesktopProgramHtmlFile,
   executeAutoBackupWrite,
   getConnectedAutoBackupHandleName,
-  overwriteOrDownloadSingleHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import {
@@ -683,20 +684,20 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 type="button"
                 onClick={async () => {
                   try {
-                    const res = await overwriteOrDownloadSingleHtmlFile(
+                    const res = await downloadDesktopProgramHtmlFile(
                       appState,
                       LATEST_AVAILABLE_VERSION
                     );
                     onRecordBackupTimestamp('local', res.filename);
                     onShowToast(`Downloaded ${res.filename}! Double-click this file on any PC to run.`);
                   } catch {
-                    // Cancelled
+                    // Ignore
                   }
                 }}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                Download Single-File Desktop App (.html)
+                Download {DEFAULT_PROGRAM_HTML_FILENAME}
               </button>
             </div>
           </div>

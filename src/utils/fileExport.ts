@@ -4,6 +4,7 @@ import {
   buildTeamStandings,
   rankWeeklyBowlers,
 } from './bowlingLogic';
+import { loadUpdatedRuntimeBundle, stripBootFromCacheFlag } from './runtimeUpdater';
 
 function csvCell(value: unknown): string {
   const s = String(value ?? '');
@@ -221,15 +222,16 @@ function stripOldEmbeddedScripts(html: string): string {
     `${sOpen}[^>]*id=["']embedded-league-bootstrap["'][^>]*>[\\s\\S]*?${sClose}`,
     'gi'
   );
-  return html.replace(patternState, '').replace(patternBoot, '');
+  return stripBootFromCacheFlag(html).replace(patternState, '').replace(patternBoot, '');
 }
 
 /**
  * Builds the 100% interactive, full 5-tab Single-File HTML desktop application
  * by injecting the user's complete multi-league `AppState` into:
  *   1. A freshly fetched GitHub HTML bundle (`remoteHtmlTemplate`), OR
- *   2. The hosted `/standalone_template.html` bundle, OR
- *   3. The currently running single-file document's `<head>` when offline (`file://`).
+ *   2. Any newer installed runtime bundle stored in IndexedDB, OR
+ *   3. The hosted `/BowlingLeagueHelper.html` or `/standalone_template.html` bundle, OR
+ *   4. The currently running single-file document's `<head>` when offline (`file://`).
  */
 export async function buildInteractiveSingleHtmlFile(
   state: AppState,
@@ -241,51 +243,58 @@ export async function buildInteractiveSingleHtmlFile(
   const cHead = closeTag('head');
   const cHtml = closeTag('html');
 
-  // 1. If a newly downloaded GitHub HTML bundle was provided, inject the user's saved leagues into it!
-  if (remoteHtmlTemplate && remoteHtmlTemplate.includes('id="root"')) {
-    const cleaned = stripOldEmbeddedScripts(remoteHtmlTemplate);
+  const injectStateIntoTemplate = (templateHtml: string): string | null => {
+    if (!templateHtml.includes('id="root"')) return null;
+    const cleaned = stripOldEmbeddedScripts(templateHtml);
     const lastBodyIdx = cleaned.lastIndexOf(cBody);
-    if (lastBodyIdx !== -1) {
-      return (
-        cleaned.slice(0, lastBodyIdx) +
-        '\n' +
-        bootstrapBlock +
-        '\n' +
-        cleaned.slice(lastBodyIdx)
-      );
-    }
+    if (lastBodyIdx === -1) return null;
+    return (
+      cleaned.slice(0, lastBodyIdx) +
+      '\n' +
+      bootstrapBlock +
+      '\n' +
+      cleaned.slice(lastBodyIdx)
+    );
+  };
+
+  // 1. If a newly downloaded GitHub HTML bundle was provided, inject the user's saved leagues into it
+  if (remoteHtmlTemplate) {
+    const built = injectStateIntoTemplate(remoteHtmlTemplate);
+    if (built) return built;
   }
 
-  // 2. Try fetching the pre-compiled singlefile template when running over http/https
+  // 2. If running a cached runtime bundle in IndexedDB that matches/exceeds built-in DOM, use it
   try {
-    if (
-      typeof window !== 'undefined' &&
-      typeof fetch === 'function' &&
-      window.location.protocol !== 'file:'
-    ) {
-      const resp = await fetch(`/standalone_template.html?t=${Date.now()}`, { cache: 'no-store' });
-      if (resp.ok) {
-        const templateHtml = await resp.text();
-        if (templateHtml.includes('id="root"')) {
-          const cleaned = stripOldEmbeddedScripts(templateHtml);
-          const lastBodyIdx = cleaned.lastIndexOf(cBody);
-          if (lastBodyIdx !== -1) {
-            return (
-              cleaned.slice(0, lastBodyIdx) +
-              '\n' +
-              bootstrapBlock +
-              '\n' +
-              cleaned.slice(lastBodyIdx)
-            );
-          }
-        }
-      }
+    const cachedRuntime = await loadUpdatedRuntimeBundle();
+    if (cachedRuntime && cachedRuntime.html) {
+      const built = injectStateIntoTemplate(cachedRuntime.html);
+      if (built) return built;
     }
   } catch {
-    // Fall through to live DOM self-cloning when offline (file://)
+    // Ignore IndexedDB unavailability
   }
 
-  // 3. Offline / Desktop `file://` Mode: Clone the currently running single-file document's <head> bundle
+  // 3. Try fetching the pre-compiled singlefile template when running over http/https
+  if (
+    typeof window !== 'undefined' &&
+    typeof fetch === 'function' &&
+    window.location.protocol !== 'file:'
+  ) {
+    for (const templateUrl of ['/BowlingLeagueHelper.html', '/standalone_template.html']) {
+      try {
+        const resp = await fetch(`${templateUrl}?t=${Date.now()}`, { cache: 'no-store' });
+        if (resp.ok) {
+          const templateHtml = await resp.text();
+          const built = injectStateIntoTemplate(templateHtml);
+          if (built) return built;
+        }
+      } catch {
+        // Try next template path
+      }
+    }
+  }
+
+  // 4. Offline / Desktop `file://` Mode: Clone the currently running single-file document's <head> bundle
   if (typeof document !== 'undefined' && document.head) {
     const cleanHeadInner = stripOldEmbeddedScripts(document.head.innerHTML);
     return (
@@ -459,7 +468,7 @@ export async function executeAutoBackupWrite(
   return { wrote: false, targetName: '', method: 'skipped' };
 }
 
-export const DEFAULT_PROGRAM_HTML_FILENAME = 'Bowling League Helper.html';
+export const DEFAULT_PROGRAM_HTML_FILENAME = 'BowlingLeagueHelper.html';
 
 const HANDLE_DB_NAME = 'BowlingLeagueHelperFS';
 const HANDLE_STORE_NAME = 'handles';
@@ -586,7 +595,7 @@ export async function hasRememberedProgramHandle(): Promise<boolean> {
 
 /**
  * Extracts the exact `.html` filename currently open in the browser when launched from disk (`file://`),
- * falling back to `Bowling League Helper.html` (with no version numbers in the filename).
+ * falling back to `BowlingLeagueHelper.html` (with no spaces or version numbers).
  */
 export function getCurrentOpenedHtmlFilename(rawPathnameOverride?: string): string {
   if (typeof rawPathnameOverride === 'string') {
@@ -613,6 +622,25 @@ export function getCurrentOpenedHtmlFilename(rawPathnameOverride?: string): stri
     }
   }
   return DEFAULT_PROGRAM_HTML_FILENAME;
+}
+
+/**
+ * Immediately downloads a portable `BowlingLeagueHelper.html` copy containing the user's current leagues
+ * with zero save-location prompts.
+ */
+export async function downloadDesktopProgramHtmlFile(
+  state: AppState,
+  targetVersion: string,
+  remoteHtmlTemplate?: string | null
+): Promise<{ method: 'download'; filename: string }> {
+  const htmlContent = await buildInteractiveSingleHtmlFile(
+    state,
+    targetVersion,
+    remoteHtmlTemplate
+  );
+  const filename = DEFAULT_PROGRAM_HTML_FILENAME;
+  downloadBlob(new Blob([htmlContent], { type: 'text/html;charset=utf-8;' }), filename);
+  return { method: 'download', filename };
 }
 
 /**
