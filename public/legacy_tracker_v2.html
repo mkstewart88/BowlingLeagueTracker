@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101d35">
+<title>Thursday Night Rollers — Bowling League Tracker</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink:#17243a; --muted:#64748b; --line:#e2e8f0; --panel:#ffffff;
+  --page:#f3f6fb; --navy:#101d35; --navy-2:#1c2e4c; --blue:#2563eb;
+  --blue-dark:#1d4ed8; --green:#059669; --green-dark:#047857;
+  --amber:#b45309; --red:#dc2626; --red-dark:#b91c1c;
+  --shadow:0 12px 30px rgba(15,23,42,.07); --radius:16px;
+}
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--page); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.45; }
+button,input,select { font:inherit; }
+button { cursor:pointer; }
+button:disabled { cursor:not-allowed; opacity:.48; }
+:focus-visible { outline:3px solid rgba(37,99,235,.35); outline-offset:2px; }
+.shell { width:min(1260px, calc(100% - 36px)); margin:28px auto 56px; }
+.hero { position:relative; overflow:hidden; padding:28px 30px; color:#fff; background:linear-gradient(120deg,var(--navy),#1a3155 72%,#234675); border-radius:20px; box-shadow:var(--shadow); }
+.hero::after { content:""; position:absolute; width:280px; height:280px; right:-70px; top:-130px; border:1px solid rgba(255,255,255,.13); border-radius:50%; box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025); pointer-events:none; }
+.hero-top { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; position:relative; z-index:1; }
+.eyebrow { margin:0 0 8px; color:#a9c6f4; font-size:11px; font-weight:800; letter-spacing:.17em; text-transform:uppercase; }
+h1 { margin:0; font-size:clamp(25px,4vw,36px); line-height:1.12; letter-spacing:-.035em; }
+.hero-sub { margin:9px 0 0; color:#d2deef; font-size:14px; }
+.save-state { flex:none; display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(255,255,255,.08); color:#e4edf9; font-size:12px; font-weight:650; }
+.save-dot { width:8px; height:8px; background:#34d399; border-radius:50%; box-shadow:0 0 0 3px rgba(52,211,153,.15); }
+.hero-meta { display:grid; grid-template-columns:2fr 1fr 1.5fr; gap:12px; margin-top:25px; position:relative; z-index:1; }
+.field label,.field-label { display:block; margin:0 0 6px; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.hero .field label { color:#b9cbe2; }
+input[type="text"],input[type="number"],input[type="search"],select,textarea { width:100%; min-width:0; padding:10px 12px; color:var(--ink); background:#fff; border:1px solid #cbd5e1; border-radius:9px; outline:none; transition:border-color .15s,box-shadow .15s; }
+input:focus,select:focus,textarea:focus { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(59,130,246,.13); }
+.hero input { color:#fff; background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+.hero input::placeholder { color:#a9bad1; }
+.grid { display:grid; gap:18px; }
+.stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin:18px 0; }
+.stat { padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:var(--panel); box-shadow:0 3px 10px rgba(15,23,42,.025); }
+.stat-label { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+.stat-value { margin-top:4px; font-size:27px; font-weight:800; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+.stat-hint { margin-top:1px; color:var(--muted); font-size:11px; }
+.columns { grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr); align-items:start; }
+.card { min-width:0; padding:20px; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); box-shadow:0 4px 14px rgba(15,23,42,.035); }
+.card + .card { margin-top:18px; }
+.card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.card-head h2 { margin:0; font-size:17px; letter-spacing:-.02em; }
+.card-head p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+.kicker { color:var(--blue); font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
+.form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.form-grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.form-grid .full { grid-column:1/-1; }
+.field { min-width:0; }
+.helper { margin:5px 0 0; color:var(--muted); font-size:11px; }
+.settings-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:13px; margin-bottom:16px; background:#f5f8fc; border:1px solid #e7edf5; border-radius:12px; }
+.settings-strip .field label { font-size:10px; }
+.checkline { display:flex; align-items:center; gap:8px; margin:10px 0 0; color:#475569; font-size:12px; }
+.checkline input { width:16px; height:16px; accent-color:var(--blue); }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:9px 13px; border:1px solid transparent; border-radius:9px; font-size:12px; font-weight:750; transition:background .15s,border-color .15s,transform .15s; }
+.btn:active { transform:translateY(1px); }
+.btn-primary { color:white; background:var(--blue); }
+.btn-primary:hover { background:var(--blue-dark); }
+.btn-success { color:white; background:var(--green); }
+.btn-success:hover { background:var(--green-dark); }
+.btn-secondary { color:#334155; background:#f8fafc; border-color:#dbe3ed; }
+.btn-secondary:hover { background:#eef3f8; }
+.btn-danger { color:#b91c1c; background:#fff5f5; border-color:#fecaca; }
+.btn-danger:hover { color:white; background:var(--red); border-color:var(--red); }
+.btn-quiet { color:#475569; background:transparent; border-color:transparent; }
+.btn-quiet:hover { background:#f1f5f9; }
+.btn-block { width:100%; }
+.btn-small { min-height:30px; padding:5px 8px; font-size:11px; }
+.form-actions { display:flex; gap:9px; margin-top:16px; }
+.form-actions .btn-primary { flex:1; }
+.edit-banner { display:none; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; margin-bottom:12px; border:1px solid #bfdbfe; border-radius:9px; background:#eff6ff; color:#1e40af; font-size:12px; font-weight:700; }
+.edit-banner.show { display:flex; }
+.notice { padding:10px 12px; margin-top:12px; border:1px solid #dbeafe; border-radius:99px; background:#eff6ff; color:#1e40af; font-size:11px; }
+.list-tools { display:flex; gap:8px; margin-bottom:10px; }
+.list-tools input { flex:1; }
+.list-tools select { width:175px; }
+.scroll-list { max-height:430px; overflow:auto; border:1px solid var(--line); border-radius:11px; }
+.person-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 11px; border-bottom:1px solid #edf1f6; }
+.person-row:last-child { border-bottom:0; }
+.person-main { min-width:0; }
+.person-name { overflow-wrap:anywhere; font-size:13px; font-weight:750; }
+.person-meta { margin-top:2px; color:var(--muted); font-size:11px; }
+.person-score { margin-left:5px; color:#1e3a8a; font-size:12px; font-weight:850; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.person-actions { display:flex; flex:none; gap:4px; }
+.empty { padding:28px 16px; color:var(--muted); text-align:center; font-size:12px; }
+.badge { display:inline-flex; align-items:center; padding:3px 7px; border-radius:99px; background:#f1f5f9; color:#475569; font-size:10px; font-weight:800; }
+.badge.absent { background:#fff7ed; color:#9a3412; }
+.badge.sub { background:#f5f3ff; color:#6d28d9; }
+.chart-wrap { display:grid; gap:11px; }
+.bar-row { display:grid; grid-template-columns:minmax(95px,1.2fr) minmax(70px,2fr) 48px; gap:10px; align-items:center; }
+.bar-name { overflow:hidden; color:#334155; font-size:11px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+.bar-track { height:12px; overflow:hidden; border-radius:99px; background:#edf2f8; }
+.bar-fill { height:100%; min-width:0; border-radius:99px; background:linear-gradient(90deg,#60a5fa,#1d4ed8); }
+.bar-number { color:#334155; text-align:right; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
+.toolbar { display:flex; flex-wrap:wrap; gap:8px; }
+.roster-add { display:grid; grid-template-columns:1.1fr 1fr auto; gap:8px; margin-bottom:12px; }
+.roster-list { max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+.roster-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px solid #edf1f6; }
+.roster-row:last-child { border-bottom:0; }
+.roster-name { font-size:12px; font-weight:700; }
+.roster-team { color:var(--muted); font-size:11px; }
+.history-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:11px 0; border-bottom:1px solid #edf1f6; }
+.history-row:last-child { border-bottom:0; }
+.history-title { font-size:12px; font-weight:800; }
+.history-meta { color:var(--muted); font-size:11px; }
+.history-actions { display:flex; gap:5px; }
+details.card { padding:0; overflow:hidden; }
+details.card > summary { display:flex; justify-content:space-between; align-items:center; padding:17px 20px; cursor:pointer; list-style:none; font-size:14px; font-weight:800; }
+details.card > summary::-webkit-details-marker { display:none; }
+details.card > summary::after { content:"＋"; color:var(--muted); font-size:17px; }
+details.card[open] > summary::after { content:"−"; }
+.details-body { padding:0 20px 18px; }
+.footer-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-top:18px; padding:14px 2px; color:var(--muted); font-size:11px; }
+.toast { position:fixed; right:20px; bottom:20px; z-index:10; max-width:min(420px,calc(100vw - 40px)); padding:12px 15px; border-radius:11px; background:#17243a; color:white; box-shadow:0 12px 28px rgba(15,23,42,.22); font-size:12px; opacity:0; transform:translateY(10px); pointer-events:none; transition:opacity .2s,transform .2s; }
+.toast.show { opacity:1; transform:translateY(0); }
+.toast.error { background:#991b1b; }
+#print-area { display:none; }
+@media (max-width:900px) { .columns { grid-template-columns:1fr; } }
+@media (max-width:680px) {
+  .shell { width:min(100% - 20px,1260px); margin:10px auto 32px; }
+  .hero { padding:22px 18px; border-radius:15px; }
+  .hero-top { flex-direction:column; }
+  .hero-meta { grid-template-columns:1fr 1fr; }
+  .hero-meta .field:first-child { grid-column:1/-1; }
+  .stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+  .stat { padding:12px 13px; }
+  .stat-value { font-size:23px; }
+  .card { padding:15px; }
+  .settings-strip { grid-template-columns:1fr; }
+  .list-tools { flex-direction:column; }
+  .list-tools select { width:100%; }
+  .roster-add { grid-template-columns:1fr 1fr; }
+  .roster-add button { grid-column:1/-1; }
+}
+@media (max-width:430px) {
+  .form-grid,.form-grid.three { grid-template-columns:1fr; }
+  .form-grid .full { grid-column:auto; }
+  .person-row { align-items:flex-start; }
+  .person-actions { flex-direction:column; }
+  .bar-row { grid-template-columns:88px minmax(45px,1fr) 40px; gap:7px; }
+  .history-row { grid-template-columns:1fr; }
+}
+@media print {
+  @page { size:landscape; margin:0.42in; }
+  html,body { background:#fff !important; color:#111; padding:0; margin:0; }
+  .shell,#app-container,.toast { display:none !important; }
+  #print-area { display:block !important; color:#111; font-family:Arial,Helvetica,sans-serif; }
+  .print-head { padding-bottom:10px; margin-bottom:12px; text-align:center; border-bottom:2px solid #1e293b; }
+  .print-head h1 { font-size:24px; color:#17243a; }
+  .print-head p { margin:4px 0 0; color:#4b5563; font-size:11px; }
+  .print-note { margin:8px 0 12px; text-align:center; font-size:12px; font-weight:bold; }
+  .print-section-title { margin:12px 0 6px; font-size:14px; }
+  .print-table { width:100%; margin:0 0 14px; border-collapse:collapse; font-size:10px; break-inside:auto; }
+  .print-table th,.print-table td { padding:5px 6px; border:1px solid #7c8796; text-align:left; }
+  .print-table th { background:#e8edf4 !important; color:#1e293b; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .print-table tr { break-inside:avoid; }
+  .print-first { background:#fff4bf !important; font-weight:bold; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .print-team-head { background:#dbe5f2 !important; font-weight:bold; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .print-bottom { margin-top:14px; padding-top:8px; border-top:1px solid #aaa; text-align:center; font-size:10px; }
+}
+</style>
+</head>
+<body>
+<div class="shell" id="app-container">
+  <header class="hero">
+    <div class="hero-top">
+      <div>
+        <p class="eyebrow">League night · scorekeeping made simple</p>
+        <h1>🎳 Thursday Night Rollers</h1>
+        <p class="hero-sub">Enter scores, keep the roster straight, and produce standings in a few clicks.</p>
+      </div>
+      <div class="save-state" id="save-state" role="status" aria-live="polite"><span class="save-dot"></span><span id="save-label">Saved on this device</span></div>
+    </div>
+    <div class="hero-meta">
+      <div class="field"><label for="league-name">League name</label><input type="text" id="league-name" maxlength="80" value="Thursday Night Rollers"></div>
+      <div class="field"><label for="week-number">Week #</label><input type="text" id="week-number" maxlength="24" value="1" placeholder="e.g. 4"></div>
+      <div class="field"><label for="custom-csv">Results CSV filename (optional)</label><input type="text" id="custom-csv" maxlength="100" placeholder="Auto-generated when blank"></div>
+    </div>
+  </header>
+
+  <section class="grid stats" aria-label="Current week overview">
+    <div class="stat"><div class="stat-label">Players entered</div><div class="stat-value" id="stat-entered">0</div><div class="stat-hint">This week</div></div>
+    <div class="stat"><div class="stat-label">Highest total</div><div class="stat-value" id="stat-high">—</div><div class="stat-hint" id="stat-high-name">Waiting for scores</div></div>
+    <div class="stat"><div class="stat-label">Absent</div><div class="stat-value" id="stat-absent">0</div><div class="stat-hint">Roster players marked absent</div></div>
+    <div class="stat"><div class="stat-label">Still missing</div><div class="stat-value" id="stat-missing">0</div><div class="stat-hint">Players on the master roster</div></div>
+  </section>
+
+  <main class="grid columns">
+    <section>
+      <article class="card">
+        <div class="card-head">
+          <div><div class="kicker">Score entry</div><h2 id="entry-heading">Add a bowler</h2><p>Choose the week format, enter the score, and save.</p></div>
+          <span class="badge" id="entry-mode-badge">New entry</span>
+        </div>
+        <div class="settings-strip">
+          <div class="field"><label for="format-mode">Standings view</label><select id="format-mode"><option value="individual">Individual leaderboard</option><option value="team">Team standings</option></select></div>
+          <div class="field"><label for="entry-mode">Score entry</label><select id="entry-mode"><option value="single">Single game</option><option value="three">3-game series</option></select></div>
+          <div class="field"><label for="type-mode">Scoring</label><select id="type-mode"><option value="scratch">Scratch</option><option value="handicap">Handicap</option></select></div>
+        </div>
+        <div class="edit-banner" id="edit-banner"><span>Editing an existing entry — the saved score remains safe until you update it.</span><button type="button" class="btn btn-quiet btn-small" data-action="cancel-edit">Cancel</button></div>
+        <form id="score-form" novalidate>
+          <div class="form-grid">
+            <div class="field"><label for="bowler-name">Bowler name</label><input type="text" id="bowler-name" list="name-suggestions" maxlength="80" autocomplete="off" placeholder="Start typing a name" required><datalist id="name-suggestions"></datalist></div>
+            <div class="field"><label for="team-name">Team</label><input type="text" id="team-name" list="team-suggestions" maxlength="80" autocomplete="off" placeholder="Optional for individual view"><datalist id="team-suggestions"></datalist><p class="helper" id="team-helper">Required when Team Standings is selected.</p></div>
+          </div>
+          <div class="form-grid three" id="single-score-wrap" style="margin-top:12px">
+            <div class="field full"><label for="score">Game score</label><input type="number" id="score" min="0" max="300" step="1" inputmode="numeric" placeholder="e.g. 210"></div>
+          </div>
+          <div class="form-grid three" id="series-score-wrap" style="margin-top:12px;display:none">
+            <div class="field"><label for="g1">Game 1</label><input type="number" id="g1" min="0" max="300" step="1" inputmode="numeric" placeholder="180"></div>
+            <div class="field"><label for="g2">Game 2</label><input type="number" id="g2" min="0" max="300" step="1" inputmode="numeric" placeholder="200"></div>
+            <div class="field"><label for="g3">Game 3</label><input type="number" id="g3" min="0" max="300" step="1" inputmode="numeric" placeholder="215"></div>
+          </div>
+          <div class="form-grid" id="handicap-wrap" style="margin-top:12px;display:none">
+            <div class="field"><label for="hdcp">Handicap (total added to score)</label><input type="number" id="hdcp" min="0" step="1" inputmode="numeric" placeholder="e.g. 35"></div>
+          </div>
+          <label class="checkline"><input type="checkbox" id="is-sub"> Substitute player — do not add to the master roster</label>
+          <div class="form-actions"><button type="submit" class="btn btn-primary" id="save-score-btn">＋ Add score</button><button type="button" class="btn btn-secondary" data-action="cancel-edit" id="cancel-score-btn" style="display:none">Cancel</button></div>
+        </form>
+        <div class="notice">Scores and roster changes save automatically in this browser. Export a backup periodically to keep a separate copy.</div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><div><div class="kicker">Live entries</div><h2>Current week</h2><p>Review, edit, or remove a score without losing the original entry.</p></div><span class="badge" id="entered-badge">0 players</span></div>
+        <div class="list-tools"><input type="search" id="entered-search" placeholder="Search by bowler or team" aria-label="Search entered players"><select id="entered-sort" aria-label="Sort entries"><option value="entry">Entry order</option><option value="score">Highest score</option><option value="name">Name A–Z</option><option value="team">Team A–Z</option></select></div>
+        <div class="scroll-list" id="entered-list" aria-live="polite"><div class="empty">No scores entered yet.</div></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div><div class="kicker">Roster check</div><h2>Players still missing</h2><p>Select a name to fill it in, or mark the player absent.</p></div><span class="badge" id="missing-badge">0 missing</span></div>
+        <div class="scroll-list" id="missing-list"><div class="empty">Add players to the master roster to see who is missing.</div></div>
+      </article>
+    </section>
+
+    <section>
+      <article class="card">
+        <div class="card-head"><div><div class="kicker">At a glance</div><h2>Live leaderboard</h2><p>Top 10 current totals, updated as scores are entered.</p></div><span class="badge">Live</span></div>
+        <div class="chart-wrap" id="chart-bars"><div class="empty">Add scores to see the leaderboard chart.</div></div>
+      </article>
+
+      <details class="card" open>
+        <summary>Master roster <span class="badge" id="roster-badge">0 players</span></summary>
+        <div class="details-body">
+          <p class="helper" style="margin:0 0 12px">Players added with a score are remembered automatically unless marked as a substitute. You can also build the roster before league night.</p>
+          <form id="roster-form" class="roster-add">
+            <input type="text" id="roster-name" maxlength="80" placeholder="Player name" aria-label="New roster player name" required>
+            <input type="text" id="roster-team" maxlength="80" placeholder="Team (optional)" aria-label="New roster player team">
+            <button class="btn btn-secondary" type="submit">＋ Add player</button>
+          </form>
+          <div class="roster-list" id="roster-list"><div class="empty">Your master roster is empty.</div></div>
+        </div>
+      </details>
+
+      <article class="card">
+        <div class="card-head"><div><div class="kicker">League settings</div><h2>Scoring & print options</h2><p>Adjust validation and how results are presented.</p></div></div>
+        <div class="form-grid">
+          <div class="field"><label for="absent-score">Absent score (per game)</label><input type="number" id="absent-score" min="0" max="300" step="1" value="0"></div>
+          <div class="field"><label for="max-game-score">Maximum game score</label><input type="number" id="max-game-score" min="1" max="999" step="1" value="300"></div>
+          <div class="field"><label for="show-absent">Show absent in entry list</label><select id="show-absent"><option value="yes">Yes</option><option value="no">No</option></select></div>
+          <div class="field"><label for="highlight-first">Highlight 1st place</label><select id="highlight-first"><option value="yes">Yes</option><option value="no">No</option></select></div>
+          <div class="field full"><label for="show-team-total">Show team summary in printout</label><select id="show-team-total"><option value="yes">Yes</option><option value="no">No</option></select></div>
+          <div class="field full"><label for="top-note">Announcement at top of printout</label><input type="text" id="top-note" maxlength="180" placeholder="e.g. Position round next week"></div>
+          <div class="field full"><label for="bottom-note">Note at bottom of printout</label><input type="text" id="bottom-note" maxlength="180" placeholder="e.g. Please pay league dues by Friday"></div>
+        </div>
+        <p class="helper">Absent scores are applied per game: once for a single game, or three times for a 3-game series. Handicap is not applied to absent scores.</p>
+      </article>
+
+      <details class="card">
+        <summary>Backup & exports</summary>
+        <div class="details-body">
+          <div class="toolbar">
+            <button type="button" class="btn btn-secondary" data-action="export-backup">↓ Export full backup</button>
+            <button type="button" class="btn btn-secondary" data-action="import-backup">↑ Import backup</button>
+            <button type="button" class="btn btn-secondary" data-action="export-roster">↓ Export roster CSV</button>
+            <button type="button" class="btn btn-secondary" data-action="export-history">↓ Export season history</button>
+            <input type="file" id="backup-file" accept=".json,application/json" hidden>
+          </div>
+          <p class="helper">A full backup includes the current week, master roster, settings, and archived weeks. Importing a backup replaces the current data after confirmation.</p>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Season history <span class="badge" id="history-badge">0 weeks</span></summary>
+        <div class="details-body" id="history-list"><div class="empty">Completed weeks will appear here after you generate results.</div></div>
+      </details>
+
+      <article class="card">
+        <div class="card-head"><div><div class="kicker">Finish the week</div><h2>Generate official results</h2><p>Archive this week, export a results CSV, and open the print-ready standings.</p></div></div>
+        <button type="button" class="btn btn-success btn-block" data-action="finish-week">✓ Finish week & generate results</button>
+        <div class="toolbar" style="margin-top:9px">
+          <button type="button" class="btn btn-secondary" data-action="undo">↶ Undo last change</button>
+          <button type="button" class="btn btn-danger" data-action="new-week">Start new week</button>
+        </div>
+      </article>
+    </section>
+  </main>
+  <footer class="footer-row"><span>Thursday Night Rollers · Offline bowling league tracker</span><span>Data stays in this browser unless you export it.</span></footer>
+</div>
+
+<div id="print-area" aria-hidden="true"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'tnr_bowling_tracker_v3';
+  const LEGACY_KEYS = { bowlers:'bowlingDataV6', roster:'bowlingRosterV1', history:'bowlingSeasonHistoryV1' };
+  const DEFAULT_SETTINGS = {
+    leagueName:'Thursday Night Rollers', weekNumber:'1', customCsvName:'',
+    formatMode:'individual', entryMode:'single', scoringType:'scratch',
+    absentScore:0, maxGameScore:300, showAbsent:'yes', highlightFirst:'yes',
+    showTeamSummary:'yes', topNote:'', bottomNote:''
+  };
+  let app = { settings:{...DEFAULT_SETTINGS}, bowlers:[], roster:[], history:[], weekArchived:false, weekArchiveId:null };
+  let editingId = null;
+  let undoStack = [];
+  let toastTimer = null;
+  let storageAvailable = true;
+  let preventInitialOverwrite = false;
+
+  const $ = id => document.getElementById(id);
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const text = value => String(value ?? '').trim();
+  const keyName = value => text(value).toLocaleLowerCase();
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const validMode = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
+  const makeId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  const dateLabel = value => {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? 'Date unavailable' : d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+  };
+  const localDateStamp = () => {
+    const d=new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+
+  function toast(message, isError=false) {
+    const el = $('toast');
+    el.textContent = message;
+    el.classList.toggle('error',isError);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'),3200);
+  }
+
+  function setSaveState(ok, message) {
+    $('save-label').textContent = message || (ok ? 'Saved on this device' : 'Save issue — export a backup');
+    $('save-state').style.borderColor = ok ? 'rgba(255,255,255,.18)' : 'rgba(248,113,113,.65)';
+    $('save-state').querySelector('.save-dot').style.background = ok ? '#34d399' : '#f87171';
+  }
+
+  function normalizeSettings(raw={}) {
+    const s = {...DEFAULT_SETTINGS,...raw};
+    return {
+      leagueName:text(s.leagueName ?? s['league-name']) || DEFAULT_SETTINGS.leagueName,
+      weekNumber:text(s.weekNumber ?? s['week-number']),
+      customCsvName:text(s.customCsvName ?? s.customCSV ?? s['custom-csv']),
+      formatMode:validMode(s.formatMode ?? s['format-mode'],['individual','team'],'individual'),
+      entryMode:validMode(s.entryMode ?? s.entry ?? s['entry-mode'],['single','three'],'single'),
+      scoringType:validMode(s.scoringType ?? s.typeMode ?? s['type-mode'],['scratch','handicap'],'scratch'),
+      maxGameScore:clampInt(s.maxGameScore ?? s['max-game-score'],1,999,300),
+      absentScore:clampInt(s.absentScore ?? s['absent-score'],0,clampInt(s.maxGameScore ?? s['max-game-score'],1,999,300),0),
+      showAbsent:validMode(s.showAbsent ?? s['show-absent'],['yes','no'],'yes'),
+      highlightFirst:validMode(s.highlightFirst ?? s['highlight-first'],['yes','no'],'yes'),
+      showTeamSummary:validMode(s.showTeamSummary ?? s.showTeamTotal ?? s['show-team-total'],['yes','no'],'yes'),
+      topNote:text(s.topNote ?? s['top-note']), bottomNote:text(s.bottomNote ?? s['bottom-note'])
+    };
+  }
+
+  function clampInt(value,min,max,fallback) {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+  }
+
+  function normalizeBowler(raw, settings) {
+    if (!raw || typeof raw !== 'object') return null;
+    const name = text(raw.name);
+    if (!name) return null;
+    const entryMode = validMode(raw.entryMode ?? raw.entry,['single','three'],settings.entryMode);
+    const scoringType = validMode(raw.scoringType ?? raw.type,['scratch','handicap'],(num(raw.hdcp)>0 ? 'handicap' : settings.scoringType));
+    const g1 = Math.max(0,Math.round(num(raw.g1)));
+    const g2 = Math.max(0,Math.round(num(raw.g2)));
+    const g3 = Math.max(0,Math.round(num(raw.g3)));
+    const scratchScore = Math.max(0,Math.round(num(raw.scratchScore ?? raw.scratch_score ?? (entryMode==='three' ? g1+g2+g3 : raw.score))));
+    const handicap = raw.isAbsent ? 0 : Math.max(0,Math.round(num(raw.handicap ?? raw.hdcp)));
+    const isAbsent = Boolean(raw.isAbsent);
+    return {
+      id:text(raw.id) || makeId(), name, team:text(raw.team), entryMode, scoringType,
+      g1, g2, g3, scratchScore, handicap,
+      grandTotal:isAbsent ? scratchScore : scratchScore+handicap,
+      isAbsent, isSub:Boolean(raw.isSub), createdAt:raw.createdAt || new Date().toISOString()
+    };
+  }
+
+  function normalizeRoster(raw) {
+    if (!Array.isArray(raw)) return [];
+    const map = new Map();
+    raw.forEach(p => {
+      if (!p || typeof p !== 'object') return;
+      const name = text(p.name);
+      if (!name) return;
+      const key = keyName(name);
+      if (!map.has(key)) map.set(key,{id:text(p.id)||makeId(),name,team:text(p.team)});
+      else if (!map.get(key).team && text(p.team)) map.get(key).team = text(p.team);
+    });
+    return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  function normalizeHistory(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(x => x && typeof x === 'object' && Array.isArray(x.bowlers)).map(x => ({
+      id:text(x.id)||makeId(), league:text(x.league)||DEFAULT_SETTINGS.leagueName,
+      week:text(x.week), date:x.date || new Date().toISOString(),
+      settings:normalizeSettings(x.settings || {}),
+      bowlers:x.bowlers.map(b=>normalizeBowler(b,normalizeSettings(x.settings||{}))).filter(Boolean)
+    }));
+  }
+
+  function readJson(key) {
+    try { const raw=localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
+    catch (error) { console.warn(`Unable to read ${key}`,error); if(key===STORAGE_KEY) preventInitialOverwrite=true; return null; }
+  }
+
+  function legacySettings() {
+    const s={...DEFAULT_SETTINGS};
+    const map={
+      'league-name':['bowling_league-name','bowlingLeagueName'],
+      'week-number':['bowling_week-number','bowlingLeagueWeek'],
+      'custom-csv':['bowling_custom-csv','bowlingCustomCSV'],
+      'format-mode':['bowling_format-mode','bowlingFormat'],
+      'entry-mode':['bowling_entry-mode','bowlingEntry'],
+      'type-mode':['bowling_type-mode','bowlingType'],
+      'absent-score':['bowling_absent-score'], 'max-game-score':['bowling_max-game-score'],
+      'show-absent':['bowling_show-absent'], 'highlight-first':['bowling_highlight-first'],
+      'show-team-total':['bowling_show-team-total'], 'top-note':['bowling_top-note','bowlingTopNote'],
+      'bottom-note':['bowling_bottom-note','bowlingBottomNote']
+    };
+    const values={};
+    Object.entries(map).forEach(([id,keys])=>{
+      for(const k of keys){ const v=localStorage.getItem(k); if(v!==null){values[id]=v;break;} }
+    });
+    return normalizeSettings(values);
+  }
+
+  function loadApp() {
+    let raw = readJson(STORAGE_KEY);
+    if (raw && typeof raw === 'object') {
+      app.settings=normalizeSettings(raw.settings||{});
+      app.bowlers=Array.isArray(raw.bowlers)?raw.bowlers.map(b=>normalizeBowler(b,app.settings)).filter(Boolean):[];
+      app.roster=normalizeRoster(raw.roster);
+      app.history=normalizeHistory(raw.history);
+      app.weekArchived=Boolean(raw.weekArchived);
+      app.weekArchiveId=text(raw.weekArchiveId) || null;
+      if(app.weekArchiveId && !app.history.some(h=>h.id===app.weekArchiveId)) app.weekArchiveId=null;
+      if(app.weekArchived && !app.weekArchiveId){
+        const previous=app.history.slice().reverse().find(h=>h.league===app.settings.leagueName&&h.week===app.settings.weekNumber);
+        if(previous) app.weekArchiveId=previous.id;
+      }
+      return;
+    }
+    // Migrate data from the earlier Advanced Bowling League Tracker without deleting the old keys.
+    const oldBowlers=readJson(LEGACY_KEYS.bowlers);
+    const oldRoster=readJson(LEGACY_KEYS.roster);
+    const oldHistory=readJson(LEGACY_KEYS.history);
+    app.settings=legacySettings();
+    app.bowlers=Array.isArray(oldBowlers)?oldBowlers.map(b=>normalizeBowler(b,app.settings)).filter(Boolean):[];
+    app.roster=normalizeRoster(oldRoster);
+    app.history=normalizeHistory(oldHistory);
+    app.weekArchived=false;
+    app.weekArchiveId=null;
+  }
+
+  function persist(showMessage=false) {
+    try {
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(app));
+      storageAvailable=true;
+      setSaveState(true);
+      if(showMessage) toast('Saved on this device.');
+      return true;
+    } catch (error) {
+      storageAvailable=false;
+      setSaveState(false);
+      console.error('Local save failed',error);
+      if(showMessage) toast('Browser storage is unavailable or full. Export a backup to protect your data.',true);
+      return false;
+    }
+  }
+
+  function pushUndo() {
+    undoStack.push({bowlers:clone(app.bowlers),roster:clone(app.roster),history:clone(app.history),settings:clone(app.settings),weekArchived:app.weekArchived,weekArchiveId:app.weekArchiveId});
+    if(undoStack.length>30) undoStack.shift();
+  }
+
+  function undo() {
+    if(!undoStack.length){toast('There are no recent changes to undo.');return;}
+    const previous=undoStack.pop();
+    Object.assign(app,previous);
+    editingId=null;
+    syncSettingsToUI();
+    clearScoreForm();
+    saveAndRender();
+    toast('Last change undone.');
+  }
+
+  function settingsFromUI() {
+    return normalizeSettings({
+      leagueName:$('league-name').value,weekNumber:$('week-number').value,customCsvName:$('custom-csv').value,
+      formatMode:$('format-mode').value,entryMode:$('entry-mode').value,scoringType:$('type-mode').value,
+      absentScore:$('absent-score').value,maxGameScore:$('max-game-score').value,
+      showAbsent:$('show-absent').value,highlightFirst:$('highlight-first').value,
+      showTeamSummary:$('show-team-total').value,topNote:$('top-note').value,bottomNote:$('bottom-note').value
+    });
+  }
+
+  function syncSettingsToUI() {
+    const s=app.settings;
+    $('league-name').value=s.leagueName; $('week-number').value=s.weekNumber; $('custom-csv').value=s.customCsvName;
+    $('format-mode').value=s.formatMode; $('entry-mode').value=s.entryMode; $('type-mode').value=s.scoringType;
+    $('absent-score').value=s.absentScore; $('max-game-score').value=s.maxGameScore;
+    $('show-absent').value=s.showAbsent; $('highlight-first').value=s.highlightFirst;
+    $('show-team-total').value=s.showTeamSummary; $('top-note').value=s.topNote; $('bottom-note').value=s.bottomNote;
+    updateFormMode();
+  }
+
+  function saveSettingsFromUI() {
+    const previous=app.settings;
+    const next=settingsFromUI();
+    if(previous.leagueName!==next.leagueName || previous.weekNumber!==next.weekNumber) app.weekArchiveId=null;
+    if(JSON.stringify(previous)!==JSON.stringify(next)) app.weekArchived=false;
+    app.settings=next;
+    persist();
+    renderAll();
+  }
+
+  function updateFormMode() {
+    const series=$('entry-mode').value==='three';
+    $('single-score-wrap').style.display=series?'none':'grid';
+    $('series-score-wrap').style.display=series?'grid':'none';
+    $('handicap-wrap').style.display=$('type-mode').value==='handicap'?'grid':'none';
+    $('team-helper').textContent=$('format-mode').value==='team'?'Required for Team Standings.':'Optional for individual results; saved with the roster.';
+    $('score').max=$('max-game-score').value;
+    ['g1','g2','g3'].forEach(id=>$(id).max=$('max-game-score').value);
+    $('absent-score').max=$('max-game-score').value;
+  }
+
+  function saveAndRender() {
+    persist();
+    renderAll();
+  }
+
+  function currentFormValues() {
+    const name=text($('bowler-name').value);
+    const team=text($('team-name').value);
+    const entryMode=$('entry-mode').value;
+    const scoringType=$('type-mode').value;
+    if(!name){toast('Enter a bowler name.',true);$('bowler-name').focus();return null;}
+    if($('format-mode').value==='team' && !team){toast('Enter a team name for Team Standings.',true);$('team-name').focus();return null;}
+    const max=Number($('max-game-score').value);
+    if(!Number.isInteger(max)||max<1||max>999){toast('Maximum game score must be a whole number from 1 to 999.',true);$('max-game-score').focus();return null;}
+    let g1=0,g2=0,g3=0,scratchScore=0;
+    if(entryMode==='single'){
+      const raw=$('score').value.trim();
+      if(raw===''){toast('Enter a game score.',true);$('score').focus();return null;}
+      scratchScore=Number(raw);
+      if(!Number.isInteger(scratchScore)||scratchScore<0||scratchScore>max){toast(`Game score must be a whole number from 0 to ${max}.`,true);$('score').focus();return null;}
+    } else {
+      const ids=['g1','g2','g3'];
+      const values=ids.map(id=>$(id).value.trim());
+      if(values.some(v=>v==='')){toast('Enter all three game scores.',true);$(ids[values.findIndex(v=>v==='')]).focus();return null;}
+      const scores=values.map(Number);
+      const invalid=scores.findIndex(v=>!Number.isInteger(v)||v<0||v>max);
+      if(invalid!==-1){toast(`Game ${invalid+1} must be a whole number from 0 to ${max}.`,true);$(ids[invalid]).focus();return null;}
+      [g1,g2,g3]=scores; scratchScore=g1+g2+g3;
+    }
+    let handicap=0;
+    if(scoringType==='handicap'){
+      const raw=$('hdcp').value.trim();
+      if(raw===''){toast('Enter the handicap amount (use 0 when there is no handicap).',true);$('hdcp').focus();return null;}
+      handicap=Number(raw);
+      if(!Number.isInteger(handicap)||handicap<0||handicap>9999){toast('Handicap must be a whole number from 0 to 9,999.',true);$('hdcp').focus();return null;}
+    }
+    return {name,team,entryMode,scoringType,g1,g2,g3,scratchScore,handicap,grandTotal:scratchScore+handicap,isAbsent:false,isSub:$('is-sub').checked};
+  }
+
+  function clearScoreForm() {
+    editingId=null;
+    $('score-form').reset();
+    $('entry-heading').textContent='Add a bowler';
+    $('entry-mode-badge').textContent='New entry';
+    $('edit-banner').classList.remove('show');
+    $('save-score-btn').textContent='＋ Add score';
+    $('cancel-score-btn').style.display='none';
+    updateFormMode();
+  }
+
+  function saveScore(event) {
+    event.preventDefault();
+    const entry=currentFormValues();
+    if(!entry) return;
+    const existing=app.bowlers.find(b=>keyName(b.name)===keyName(entry.name)&&b.id!==editingId);
+    if(existing){toast(`${entry.name} is already entered this week. Edit the existing entry instead.`,true);$('bowler-name').focus();return;}
+    const editIndex=editingId?app.bowlers.findIndex(b=>b.id===editingId):-1;
+    if(editingId && editIndex<0){toast('That entry no longer exists. Reload the list and try again.',true);return;}
+    pushUndo();
+    const index=app.roster.findIndex(p=>keyName(p.name)===keyName(entry.name));
+    if(!entry.isSub){
+      if(index>=0){ if(entry.team) app.roster[index].team=entry.team; }
+      else app.roster.push({id:makeId(),name:entry.name,team:entry.team});
+    }
+    if(editingId){
+      const i=editIndex;
+      app.bowlers[i]={...app.bowlers[i],...entry,id:editingId,createdAt:app.bowlers[i].createdAt||new Date().toISOString()};
+      toast(`${entry.name}'s score updated.`);
+    } else {
+      app.bowlers.push({id:makeId(),...entry,createdAt:new Date().toISOString()});
+      toast(`${entry.name} added.`);
+    }
+    app.weekArchived=false;
+    clearScoreForm();
+    saveAndRender();
+    $('bowler-name').focus();
+  }
+
+  function editBowler(id) {
+    const b=app.bowlers.find(x=>x.id===id);
+    if(!b) return;
+    editingId=id;
+    $('format-mode').value=app.settings.formatMode;
+    $('entry-mode').value=b.entryMode;
+    $('type-mode').value=b.scoringType;
+    app.settings.entryMode=b.entryMode;
+    app.settings.scoringType=b.scoringType;
+    persist();
+    updateFormMode();
+    $('bowler-name').value=b.name; $('team-name').value=b.team;
+    $('is-sub').checked=b.isSub;
+    if(b.entryMode==='single') $('score').value=b.scratchScore;
+    else { $('g1').value=b.g1; $('g2').value=b.g2; $('g3').value=b.g3; }
+    if(b.scoringType==='handicap') $('hdcp').value=b.handicap;
+    $('entry-heading').textContent='Update bowler score';
+    $('entry-mode-badge').textContent='Editing';
+    $('edit-banner').classList.add('show');
+    $('save-score-btn').textContent='Save changes';
+    $('cancel-score-btn').style.display='inline-flex';
+    $('score-form').scrollIntoView({behavior:'smooth',block:'center'});
+    $('bowler-name').focus({preventScroll:true});
+  }
+
+  function deleteBowler(id) {
+    const b=app.bowlers.find(x=>x.id===id);
+    if(!b||!confirm(`Remove ${b.name} from this week?`)) return;
+    pushUndo();
+    app.bowlers=app.bowlers.filter(x=>x.id!==id);
+    app.weekArchived=false;
+    if(editingId===id) clearScoreForm();
+    saveAndRender();
+    toast(`${b.name} removed. You can undo this change.`);
+  }
+
+  function selectMissingPlayer(id) {
+    const p=app.roster.find(x=>x.id===id);
+    if(!p) return;
+    $('bowler-name').value=p.name; $('team-name').value=p.team||''; $('is-sub').checked=false;
+    $('bowler-name').focus();
+    $('score-form').scrollIntoView({behavior:'smooth',block:'center'});
+    const target=$('entry-mode').value==='three'?'g1':'score'; $(target).focus({preventScroll:true});
+  }
+
+  function markAbsent(id) {
+    const player=app.roster.find(x=>x.id===id);
+    if(!player) return;
+    if(app.bowlers.some(b=>keyName(b.name)===keyName(player.name))){toast(`${player.name} is already entered.`,true);return;}
+    if(app.settings.formatMode==='team'&&!player.team){toast(`Add a team to ${player.name} in the master roster before marking them absent.`,true);return;}
+    const perGame=Number(app.settings.absentScore);
+    const series=app.settings.entryMode==='three';
+    const scratch=perGame*(series?3:1);
+    pushUndo();
+    app.bowlers.push({id:makeId(),name:player.name,team:player.team||'',entryMode:app.settings.entryMode,scoringType:app.settings.scoringType,g1:series?perGame:0,g2:series?perGame:0,g3:series?perGame:0,scratchScore:scratch,handicap:0,grandTotal:scratch,isAbsent:true,isSub:false,createdAt:new Date().toISOString()});
+    app.weekArchived=false;
+    saveAndRender();
+    toast(`${player.name} marked absent.`);
+  }
+
+  function addRosterPlayer(event) {
+    event.preventDefault();
+    const name=text($('roster-name').value),team=text($('roster-team').value);
+    if(!name){toast('Enter a player name.',true);return;}
+    const existing=app.roster.find(p=>keyName(p.name)===keyName(name));
+    if(existing){
+      if(team && team!==existing.team){pushUndo();existing.team=team;}
+      toast(existing.name+' is already on the roster. Team assignment updated.');
+    } else {
+      pushUndo();
+      app.roster.push({id:makeId(),name,team});
+      toast(`${name} added to the master roster.`);
+    }
+    $('roster-name').value='';$('roster-team').value='';
+    app.roster.sort((a,b)=>a.name.localeCompare(b.name));
+    saveAndRender(); $('roster-name').focus();
+  }
+
+  function removeRosterPlayer(id) {
+    const p=app.roster.find(x=>x.id===id);
+    if(!p||!confirm(`Remove ${p.name} from the master roster? Existing weekly scores will not be deleted.`)) return;
+    pushUndo(); app.roster=app.roster.filter(x=>x.id!==id); saveAndRender();
+    toast(`${p.name} removed from the roster.`);
+  }
+
+  function updateRosterTeam(id, team) {
+    const p=app.roster.find(x=>x.id===id); if(!p) return;
+    const value=text(team); if(p.team===value) return;
+    pushUndo(); p.team=value;
+    const weekBowl=app.bowlers.find(b=>keyName(b.name)===keyName(p.name));
+    if(weekBowl && !weekBowl.team) weekBowl.team=value;
+    saveAndRender();
+  }
+
+  function rankEntries(entries) {
+    const active=entries.filter(b=>!b.isAbsent).slice().sort((a,b)=>b.grandTotal-a.grandTotal||a.name.localeCompare(b.name));
+    let rank=0,last=null;
+    active.forEach((b,i)=>{ if(last===null||b.grandTotal<last) rank=i+1; b.placement=rank; last=b.grandTotal; });
+    return active.concat(entries.filter(b=>b.isAbsent).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(b=>({...b,placement:null})));
+  }
+
+  function buildTeamStandings() {
+    const groups=new Map();
+    app.bowlers.forEach(b=>{
+      const name=b.team||'Unassigned';
+      if(!groups.has(name)) groups.set(name,{name,total:0,players:[]});
+      const g=groups.get(name);g.players.push(b);g.total+=b.grandTotal;
+    });
+    const teams=[...groups.values()].sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
+    let rank=0,last=null;
+    teams.forEach((t,i)=>{if(last===null||t.total<last)rank=i+1;t.placement=rank;last=t.total;t.players=rankEntries(t.players);});
+    return teams;
+  }
+
+  function getMissingRoster() {
+    const entered=new Set(app.bowlers.map(b=>keyName(b.name)));
+    return app.roster.filter(p=>!entered.has(keyName(p.name))).sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  function renderStats() {
+    const active=app.bowlers.filter(b=>!b.isAbsent);
+    const missing=getMissingRoster();
+    const leader=active.slice().sort((a,b)=>b.grandTotal-a.grandTotal)[0];
+    $('stat-entered').textContent=app.bowlers.length;
+    $('stat-high').textContent=leader?leader.grandTotal:'—';
+    $('stat-high-name').textContent=leader?leader.name:'Waiting for scores';
+    $('stat-absent').textContent=app.bowlers.filter(b=>b.isAbsent).length;
+    $('stat-missing').textContent=missing.length;
+    $('entered-badge').textContent=`${app.bowlers.length} player${app.bowlers.length===1?'':'s'}`;
+    $('missing-badge').textContent=`${missing.length} missing`;
+    $('roster-badge').textContent=`${app.roster.length} players`;
+    $('history-badge').textContent=`${app.history.length} week${app.history.length===1?'':'s'}`;
+  }
+
+  function renderEntered() {
+    const q=keyName($('entered-search').value);
+    const sort=$('entered-sort').value;
+    let rows=app.bowlers.filter(b=>!(b.isAbsent&&app.settings.showAbsent==='no')&&(!q||keyName(b.name).includes(q)||keyName(b.team).includes(q)));
+    if(sort==='score') rows.sort((a,b)=>b.grandTotal-a.grandTotal||a.name.localeCompare(b.name));
+    else if(sort==='name') rows.sort((a,b)=>a.name.localeCompare(b.name));
+    else if(sort==='team') rows.sort((a,b)=>(a.team||'').localeCompare(b.team||'')||a.name.localeCompare(b.name));
+    else rows=rows.slice().reverse();
+    $('entered-list').innerHTML=rows.length?rows.map(b=>`
+      <div class="person-row">
+        <div class="person-main"><div class="person-name">${esc(b.team?`[${b.team}] `:'')}${esc(b.name)} <span class="person-score">${b.isAbsent?'ABS':b.grandTotal}</span></div>
+          <div class="person-meta">${b.entryMode==='three'?`3-game series · ${b.g1} / ${b.g2} / ${b.g3}`:'Single game'}${b.scoringType==='handicap'&&!b.isAbsent?` · +${b.handicap} handicap`:''} ${b.isSub?'<span class="badge sub">Sub</span>':''} ${b.isAbsent?'<span class="badge absent">Absent</span>':''}</div>
+        </div>
+        <div class="person-actions"><button class="btn btn-secondary btn-small" data-action="edit" data-id="${esc(b.id)}">Edit</button><button class="btn btn-danger btn-small" data-action="delete" data-id="${esc(b.id)}">Delete</button></div>
+      </div>`).join(''):'<div class="empty">No matching entries.</div>';
+  }
+
+  function renderMissing() {
+    const missing=getMissingRoster();
+    $('missing-list').innerHTML=missing.length?missing.map(p=>`
+      <div class="person-row"><div class="person-main"><div class="person-name">${esc(p.name)}</div><div class="person-meta">${esc(p.team||'Team not assigned')}</div></div>
+        <div class="person-actions"><button class="btn btn-secondary btn-small" data-action="select-player" data-id="${esc(p.id)}">Enter score</button><button class="btn btn-quiet btn-small" data-action="absent" data-id="${esc(p.id)}" title="Mark absent">Absent</button></div>
+      </div>`).join(''):'<div class="empty">All roster players have been entered. 🎳</div>';
+  }
+
+  function renderChart() {
+    const leaders=app.bowlers.filter(b=>!b.isAbsent).slice().sort((a,b)=>b.grandTotal-a.grandTotal||a.name.localeCompare(b.name)).slice(0,10);
+    const max=Math.max(1,...leaders.map(b=>b.grandTotal));
+    $('chart-bars').innerHTML=leaders.length?leaders.map((b,i)=>`
+      <div class="bar-row"><div class="bar-name" title="${esc(b.name)}">${i+1}. ${esc(b.name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(0,Math.min(100,(b.grandTotal/max)*100))}%"></div></div><div class="bar-number">${b.grandTotal}</div></div>`).join(''):'<div class="empty">Add scores to see the leaderboard chart.</div>';
+  }
+
+  function renderRoster() {
+    $('roster-list').innerHTML=app.roster.length?app.roster.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`
+      <div class="roster-row"><div><div class="roster-name">${esc(p.name)}</div><div class="roster-team">${esc(p.team||'No team assigned')}</div></div>
+      <div class="person-actions"><button type="button" class="btn btn-secondary btn-small" data-action="use-roster" data-id="${esc(p.id)}">Use</button><button type="button" class="btn btn-danger btn-small" data-action="remove-roster" data-id="${esc(p.id)}">Remove</button></div></div>`).join(''):'<div class="empty">Your master roster is empty. Add your bowlers above, or enter a score and they will be remembered automatically.</div>';
+    const teams=[...new Set(app.roster.map(p=>p.team).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    $('team-suggestions').innerHTML=teams.map(t=>`<option value="${esc(t)}"></option>`).join('');
+    $('name-suggestions').innerHTML=app.roster.map(p=>`<option value="${esc(p.name)}"></option>`).join('');
+  }
+
+  function renderHistory() {
+    $('history-list').innerHTML=app.history.length?app.history.slice().reverse().map(h=>`
+      <div class="history-row"><div><div class="history-title">${esc(h.league)}${h.week?` · Week ${esc(h.week)}`:''}</div><div class="history-meta">${dateLabel(h.date)} · ${h.bowlers.length} player entries · ${h.bowlers.filter(b=>b.isAbsent).length} absent</div></div>
+      <div class="history-actions"><button type="button" class="btn btn-secondary btn-small" data-action="load-history" data-id="${esc(h.id)}">Load</button><button type="button" class="btn btn-danger btn-small" data-action="delete-history" data-id="${esc(h.id)}">Delete</button></div></div>`).join(''):'<div class="empty">Completed weeks will appear here after you generate results.</div>';
+  }
+
+  function renderAll() {
+    renderStats();renderEntered();renderMissing();renderChart();renderRoster();renderHistory();
+    const undoBtn=document.querySelector('[data-action="undo"]'); if(undoBtn) undoBtn.disabled=undoStack.length===0;
+    updateFormMode();
+  }
+
+  function csvCell(value) {
+    const s=String(value??'');
+    return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  }
+
+  function safeFilename(value,fallback) {
+    let name=text(value).replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').replace(/\s+/g,'_').replace(/_+/g,'_').replace(/^\.+|\.+$/g,'');
+    if(!name) name=fallback;
+    return name;
+  }
+
+  function makeResultsCSV() {
+    const ranked=rankEntries(app.bowlers);
+    const teams=buildTeamStandings();
+    const teamRanks=new Map(teams.map(t=>[t.name,t.placement]));
+    const rows=[['Individual Place','Team Place','Team','Bowler','Entry Type','Game 1','Game 2','Game 3','Scratch Score','Handicap','Grand Total','Status']];
+    ranked.forEach(b=>rows.push([
+      b.placement??'',teamRanks.get(b.team||'Unassigned')??'',b.team||'',b.name,b.entryMode==='three'?'3-game series':'Single game',
+      b.entryMode==='three'&&!b.isAbsent?b.g1:'',b.entryMode==='three'&&!b.isAbsent?b.g2:'',b.entryMode==='three'&&!b.isAbsent?b.g3:'',
+      b.isAbsent?'':b.scratchScore,b.isAbsent?0:b.handicap,b.grandTotal,b.isAbsent?'Absent':'Entered'
+    ]));
+    return '\uFEFF'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+  }
+
+  function downloadBlob(blob,filename) {
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+
+  function downloadResultsCSV() {
+    const s=app.settings;
+    const date=localDateStamp();
+    const league=safeFilename(s.leagueName,'Bowling_League');
+    const week=safeFilename(s.weekNumber,'Week');
+    let filename=s.customCsvName?safeFilename(s.customCsvName,'Bowling_Results'):((league+(s.weekNumber?`_Week_${week}`:'')+`_${date}`));
+    if(!filename.toLowerCase().endsWith('.csv')) filename+='.csv';
+    downloadBlob(new Blob([makeResultsCSV()],{type:'text/csv;charset=utf-8;'}),filename);
+  }
+
+  function exportRoster() {
+    const rows=[['Name','Team'],...app.roster.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>[p.name,p.team||''])];
+    const csv='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
+    downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8;'}),'Bowling_League_Roster.csv');
+  }
+
+  function exportBackup() {
+    persist();
+    const file={app:'Thursday Night Rollers Bowling Tracker',schemaVersion:3,exportedAt:new Date().toISOString(),...clone(app)};
+    downloadBlob(new Blob([JSON.stringify(file,null,2)],{type:'application/json'}),`Bowling_League_Backup_${localDateStamp()}.json`);
+    toast('Full backup exported.');
+  }
+
+  function exportHistory() {
+    downloadBlob(new Blob([JSON.stringify(app.history,null,2)],{type:'application/json'}),'Bowling_Season_History.json');
+    toast('Season history exported.');
+  }
+
+  function validateBackup(data) {
+    if(!data||typeof data!=='object'||!Array.isArray(data.bowlers)||!Array.isArray(data.roster)) throw new Error('The file must contain bowlers and roster arrays.');
+    if(data.bowlers.length>1000||data.roster.length>2000) throw new Error('The backup contains an unexpectedly large number of records.');
+    const settings=normalizeSettings(data.settings||data.config||{});
+    const bowlers=data.bowlers.map(b=>normalizeBowler(b,settings)).filter(Boolean);
+    const ids=new Set();const names=new Set();
+    bowlers.forEach(b=>{if(ids.has(b.id)) b.id=makeId();ids.add(b.id);const k=keyName(b.name);if(names.has(k)) throw new Error(`Duplicate player entry: ${b.name}`);names.add(k);});
+    const history=normalizeHistory(data.history);
+    const archiveId=text(data.weekArchiveId)||null;
+    const weekArchiveId=archiveId&&history.some(h=>h.id===archiveId)?archiveId:null;
+    return {settings,bowlers,roster:normalizeRoster(data.roster),history,weekArchived:Boolean(data.weekArchived&&weekArchiveId),weekArchiveId};
+  }
+
+  function importBackupFile(file) {
+    if(!file) return;
+    if(file.size>12*1024*1024){toast('Backup file is larger than 12 MB.',true);return;}
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const incoming=validateBackup(JSON.parse(String(reader.result)));
+        if(!confirm('Import this backup and replace the current week, roster, settings, and season history?')) return;
+        pushUndo();Object.assign(app,incoming);editingId=null;syncSettingsToUI();clearScoreForm();saveAndRender();toast('Backup restored successfully.');
+      }catch(error){toast(`Could not import backup: ${error.message||'Invalid file.'}`,true);}
+      finally{$('backup-file').value='';}
+    };
+    reader.onerror=()=>{toast('The backup file could not be read.',true);$('backup-file').value='';};
+    reader.readAsText(file);
+  }
+
+  function archiveCurrentWeek() {
+    if(!app.bowlers.length) return false;
+    if(app.weekArchived) return false;
+    const snapshot={id:app.weekArchiveId||makeId(),league:app.settings.leagueName,week:app.settings.weekNumber,date:new Date().toISOString(),settings:clone(app.settings),bowlers:clone(app.bowlers)};
+    const existingIndex=app.history.findIndex(h=>h.id===snapshot.id);
+    if(existingIndex>=0) app.history[existingIndex]=snapshot;
+    else app.history.push(snapshot);
+    app.weekArchiveId=snapshot.id;
+    app.weekArchived=true;
+    return true;
+  }
+
+  function finishWeek() {
+    if(!app.bowlers.length){toast('Enter at least one bowler before generating results.',true);return;}
+    const missing=getMissingRoster().length;
+    const absent=app.bowlers.filter(b=>b.isAbsent).length;
+    const teams=new Set(app.bowlers.map(b=>b.team).filter(Boolean)).size;
+    const summary=`${app.bowlers.length} entries\n${absent} absent\n${missing} roster players missing\n${teams} teams represented\n\nArchive this week, export results, and open the print view?`;
+    if(!confirm(summary)) return;
+    if(!app.weekArchived) pushUndo();
+    archiveCurrentWeek();
+    persist();renderAll();
+    downloadResultsCSV();
+    preparePrint();
+  }
+
+  function printTable(headers, rows, className='') {
+    return `<table class="print-table ${className}"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  }
+
+  function printScoreCells(b) {
+    if(b.isAbsent) return `<td>${b.entryMode==='three'?'3-game series':'Single game'}</td><td>ABSENT</td><td>—</td><td>—</td><td>—</td><td>0</td><td><strong>${b.grandTotal}</strong></td><td>Absent</td>`;
+    const first=b.entryMode==='three'?b.g1:b.scratchScore;
+    return `<td>${b.entryMode==='three'?'3-game series':'Single game'}</td><td>${first}</td><td>${b.entryMode==='three'?b.g2:'—'}</td><td>${b.entryMode==='three'?b.g3:'—'}</td><td>${b.scratchScore}</td><td>${b.scoringType==='handicap'?b.handicap:'—'}</td><td><strong>${b.grandTotal}</strong></td><td>${b.isSub?'Substitute':'Entered'}</td>`;
+  }
+
+  function preparePrint() {
+    const s=app.settings;
+    const meta=[s.weekNumber?`Week ${s.weekNumber}`:'',`Generated ${new Date().toLocaleDateString()}`].filter(Boolean).join(' · ');
+    let html=`<div class="print-head"><h1>${esc(s.leagueName||'Bowling League Results')}</h1><p>${esc(meta)}</p></div>`;
+    if(s.topNote) html+=`<div class="print-note">${esc(s.topNote)}</div>`;
+    const headers=['Place','Bowler','Team','Entry','Game 1 / Score','Game 2','Game 3','Scratch','Handicap','Total','Status'];
+    if(s.formatMode==='individual'){
+      const ranked=rankEntries(app.bowlers);
+      const rows=ranked.map(b=>`<tr class="${s.highlightFirst==='yes'&&b.placement===1?'print-first':''}"><td>${b.placement??'—'}</td><td>${esc(b.name)}</td><td>${esc(b.team||'—')}</td>${printScoreCells(b)}</tr>`);
+      html+=`<h2 class="print-section-title">Individual standings</h2>${printTable(headers,rows)}`;
+    } else {
+      const teams=buildTeamStandings();
+      if(s.showTeamSummary==='yes'){
+        const summaryRows=teams.map(t=>`<tr class="${s.highlightFirst==='yes'&&t.placement===1?'print-first':''}"><td>${t.placement}</td><td>${esc(t.name)}</td><td>${t.players.length}</td><td>${t.total}</td></tr>`);
+        html+=`<h2 class="print-section-title">Team standings</h2>${printTable(['Place','Team','Players','Team total'],summaryRows)}`;
+      }
+      teams.forEach(t=>{
+        const teamHeaders=['Bowler','Entry','Game 1 / Score','Game 2','Game 3','Scratch','Handicap','Total','Status'];
+        const teamRows=t.players.map(b=>`<tr class="${s.highlightFirst==='yes'&&t.placement===1?'print-first':''}"><td>${esc(b.name)}</td>${printScoreCells(b)}</tr>`);
+        html+=`<h2 class="print-section-title">${t.placement}. ${esc(t.name)} — ${t.total} total</h2>${printTable(teamHeaders,teamRows)}`;
+      });
+    }
+    if(s.bottomNote) html+=`<div class="print-bottom">${esc(s.bottomNote)}</div>`;
+    $('print-area').innerHTML=html;
+    $('print-area').setAttribute('aria-hidden','false');
+    setTimeout(()=>window.print(),250);
+  }
+
+  function startNewWeek() {
+    if(!confirm('Start a new week? If this week has scores and has not been archived, it will be saved to Season History first. The master roster and league settings will remain.')) return;
+    pushUndo();
+    archiveCurrentWeek();
+    app.bowlers=[];app.weekArchived=false;app.weekArchiveId=null;
+    app.settings.weekNumber='';app.settings.topNote='';app.settings.bottomNote='';
+    editingId=null;syncSettingsToUI();clearScoreForm();saveAndRender();toast('New week started. Master roster and league settings were kept.');
+  }
+
+  function loadHistory(id) {
+    const h=app.history.find(x=>x.id===id);if(!h)return;
+    if(!confirm(`Load ${h.league}${h.week?` — Week ${h.week}`:''} into the current week? Current scores will be replaced.`))return;
+    pushUndo();app.bowlers=clone(h.bowlers);app.settings=normalizeSettings(h.settings||app.settings);app.settings.leagueName=h.league||app.settings.leagueName;app.settings.weekNumber=h.week||app.settings.weekNumber;app.weekArchived=true;app.weekArchiveId=h.id;
+    editingId=null;syncSettingsToUI();clearScoreForm();saveAndRender();toast('Archived week loaded.');
+  }
+
+  function deleteHistory(id) {
+    const h=app.history.find(x=>x.id===id);if(!h||!confirm(`Delete the archived week ${h.week||''}?`))return;
+    pushUndo();app.history=app.history.filter(x=>x.id!==id);
+    if(app.weekArchiveId===id){app.weekArchiveId=null;app.weekArchived=false;}
+    saveAndRender();toast('Archived week deleted.');
+  }
+
+  function handleAction(button) {
+    const action=button.dataset.action,id=button.dataset.id;
+    switch(action){
+      case 'edit':editBowler(id);break;
+      case 'delete':deleteBowler(id);break;
+      case 'select-player':selectMissingPlayer(id);break;
+      case 'absent':markAbsent(id);break;
+      case 'use-roster':selectMissingPlayer(id);break;
+      case 'remove-roster':removeRosterPlayer(id);break;
+      case 'cancel-edit':clearScoreForm();break;
+      case 'undo':undo();break;
+      case 'finish-week':finishWeek();break;
+      case 'new-week':startNewWeek();break;
+      case 'export-backup':exportBackup();break;
+      case 'import-backup':$('backup-file').click();break;
+      case 'export-roster':exportRoster();break;
+      case 'export-history':exportHistory();break;
+      case 'load-history':loadHistory(id);break;
+      case 'delete-history':deleteHistory(id);break;
+    }
+  }
+
+  function bindEvents() {
+    $('score-form').addEventListener('submit',saveScore);
+    $('roster-form').addEventListener('submit',addRosterPlayer);
+    $('format-mode').addEventListener('change',saveSettingsFromUI);
+    $('entry-mode').addEventListener('change',saveSettingsFromUI);
+    $('type-mode').addEventListener('change',saveSettingsFromUI);
+    ['league-name','week-number','custom-csv','absent-score','max-game-score','show-absent','highlight-first','show-team-total','top-note','bottom-note'].forEach(id=>{
+      $(id).addEventListener('change',()=>{
+        const candidate=settingsFromUI();
+        if(id==='absent-score'&&(Number($(id).value)<0||Number($(id).value)>candidate.maxGameScore||!Number.isInteger(Number($(id).value)))){toast('Absent score must be a whole number within the game score limit.',true);$(id).value=app.settings.absentScore;return;}
+        if(id==='max-game-score'&&(Number($(id).value)<1||Number($(id).value)>999||!Number.isInteger(Number($(id).value)))){toast('Maximum game score must be a whole number from 1 to 999.',true);$(id).value=app.settings.maxGameScore;return;}
+        const previous=app.settings;
+        if(previous.leagueName!==candidate.leagueName || previous.weekNumber!==candidate.weekNumber) app.weekArchiveId=null;
+        if(JSON.stringify(previous)!==JSON.stringify(candidate)) app.weekArchived=false;
+        app.settings=candidate;
+        if(app.settings.absentScore>app.settings.maxGameScore){app.settings.absentScore=app.settings.maxGameScore;$('absent-score').value=app.settings.absentScore;}
+        persist();renderAll();
+      });
+    });
+    $('entered-search').addEventListener('input',renderEntered);
+    $('entered-sort').addEventListener('change',renderEntered);
+    $('backup-file').addEventListener('change',e=>importBackupFile(e.target.files?.[0]));
+    document.addEventListener('click',e=>{const button=e.target.closest('[data-action]');if(button)handleAction(button);});
+    document.addEventListener('keydown',e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){e.preventDefault();undo();}
+    });
+    window.addEventListener('beforeunload',()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(app));}catch(_){}});
+  }
+
+  function init() {
+    try { loadApp(); } catch(error) { console.error(error);toast('Saved data could not be loaded. Export or inspect the previous browser data before clearing anything.',true); }
+    syncSettingsToUI();bindEvents();renderAll();
+    if(!preventInitialOverwrite) persist();
+    else { setSaveState(false,'Saved data needs attention — export/import a backup'); toast('The saved app data could not be parsed. It was left untouched; import a valid backup to continue.',true); }
+    if(!storageAvailable) setSaveState(false);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

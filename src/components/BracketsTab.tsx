@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppState, LeagueSettings } from '../types/bowling';
 import { buildEightPlayerBracket } from '../utils/bowlingLogic';
 import { downloadBlob } from '../utils/fileExport';
-import { Shuffle, Trophy, Download, Users, CheckSquare } from 'lucide-react';
+import { Shuffle, Trophy, Download, Users, Sparkles, GitBranch } from 'lucide-react';
 
 interface BracketsTabProps {
   appState: AppState;
@@ -11,6 +11,8 @@ interface BracketsTabProps {
   onShowToast: (msg: string, isError?: boolean) => void;
 }
 
+type BracketSubTab = 'tree' | 'side_pots' | 'payouts';
+
 export const BracketsTab: React.FC<BracketsTabProps> = ({
   appState,
   onUpdateSettings,
@@ -18,21 +20,21 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
   onShowToast,
 }) => {
   const { settings, bowlers, bracketEntrantIds } = appState;
+  const [subTab, setSubTab] = useState<BracketSubTab>('tree');
   const [bracketMode, setBracketMode] = useState<'handicap' | 'scratch'>('handicap');
-  const [subView, setSubView] = useState<'tree' | 'opponents' | 'payouts'>('tree');
   const [seedOrder, setSeedOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
+  const [mysteryTargetScore, setMysteryTargetScore] = useState<number>(188);
+  const [mysteryGameNum, setMysteryGameNum] = useState<1 | 2 | 3>(2);
 
   const activeBowlers = bowlers.filter((b) => !b.isAbsent);
   const selectedBowlers = activeBowlers.filter((b) =>
     bracketEntrantIds.includes(b.id)
   );
 
-  // Re-order according to current shuffle seed
   const orderedEntrants = seedOrder
     .map((idx) => selectedBowlers[idx])
     .filter(Boolean);
 
-  // Also build a second rotated bracket so multiple brackets can be viewed
   const rotatedEntrants = [...orderedEntrants.slice(2), ...orderedEntrants.slice(0, 2)];
 
   const bracket1 = buildEightPlayerBracket(
@@ -71,6 +73,12 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
     }
     setSeedOrder(indices);
     onShowToast('Shuffled 8-player bracket pairings.');
+  };
+
+  const handleDrawMysteryNumber = () => {
+    const drawn = 135 + Math.floor(Math.random() * 115);
+    setMysteryTargetScore(drawn);
+    onShowToast(`Drew Mystery Score Target: ${drawn} for Game ${mysteryGameNum}!`);
   };
 
   const handleExportBracketCsv = () => {
@@ -120,162 +128,163 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
 
   const bracketsList = [bracket1, bracket2].filter(Boolean);
 
+  // Side Pot Calculations (Game 1, Game 2, Game 3 High Scratch & High Handicap)
+  const getGameWinner = (gameIdx: 1 | 2 | 3, withHdcp: boolean) => {
+    if (activeBowlers.length === 0) return null;
+    const scored = activeBowlers.map((b) => {
+      const perGmHdcp = b.entryMode === 'three' ? Math.round(b.handicap / 3) : b.handicap;
+      const raw =
+        b.entryMode === 'three'
+          ? gameIdx === 1
+            ? b.g1
+            : gameIdx === 2
+            ? b.g2
+            : b.g3
+          : b.scratchScore;
+      return {
+        bowler: b,
+        score: withHdcp ? raw + perGmHdcp : raw,
+      };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0] || null;
+  };
+
+  // Mystery Score closest match
+  const mysteryMatches = activeBowlers
+    .map((b) => {
+      const raw =
+        b.entryMode === 'three'
+          ? mysteryGameNum === 1
+            ? b.g1
+            : mysteryGameNum === 2
+            ? b.g2
+            : b.g3
+          : b.scratchScore;
+      return {
+        bowler: b,
+        gameScore: raw,
+        diff: Math.abs(raw - mysteryTargetScore),
+      };
+    })
+    .sort((a, b) => a.diff - b.diff);
+
+  const sidePotFee = settings.sidePotEntryFee ?? 5;
+  const totalSidePotPool = activeBowlers.length * sidePotFee;
+
   return (
     <div className="space-y-6">
-      {/* Top Bracket Control Bar */}
-      <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">
-            8-Player Tournament Brackets (Handicap & Scratch)
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Automatically resolves Game 1 Quarterfinals → Game 2 Semifinals → Game 3 Championship Finals from your entered scores.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
-            <button
-              type="button"
-              onClick={() => setBracketMode('handicap')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                bracketMode === 'handicap'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Handicap Bracket
-            </button>
-            <button
-              type="button"
-              onClick={() => setBracketMode('scratch')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                bracketMode === 'scratch'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Scratch Bracket
-            </button>
-          </div>
-
+      {/* Clear Sub-Tab Bar for Tab 3 */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Brackets and Side Pots Sections">
           <button
             type="button"
-            onClick={handleShuffleSeeds}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-          >
-            <Shuffle className="w-3.5 h-3.5" />
-            Shuffle Bracket Draw
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportBracketCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export Brackets CSV
-          </button>
-        </div>
-      </section>
-
-      {/* Sub-Navigation & Prize Rules Strip */}
-      <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
-          <button
-            type="button"
-            onClick={() => setSubView('tree')}
-            className={`px-3.5 py-1.5 rounded-md font-bold transition-colors cursor-pointer ${
-              subView === 'tree'
-                ? 'bg-blue-700 text-white'
-                : 'text-slate-700 hover:text-slate-900'
+            role="tab"
+            aria-selected={subTab === 'tree'}
+            onClick={() => setSubTab('tree')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+              subTab === 'tree'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
-            View Brackets Tree
+            <GitBranch className="w-4 h-4" />
+            <span>3A. 8-Bowler Tournament Brackets</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setSubView('opponents')}
-            className={`px-3.5 py-1.5 rounded-md font-bold transition-colors cursor-pointer ${
-              subView === 'opponents'
-                ? 'bg-blue-700 text-white'
-                : 'text-slate-700 hover:text-slate-900'
+            role="tab"
+            aria-selected={subTab === 'side_pots'}
+            onClick={() => setSubTab('side_pots')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+              subTab === 'side_pots'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
-            Opponent View
+            <Sparkles className="w-4 h-4" />
+            <span>3B. High-Game & Mystery Side Pots</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setSubView('payouts')}
-            className={`px-3.5 py-1.5 rounded-md font-bold transition-colors cursor-pointer ${
-              subView === 'payouts'
-                ? 'bg-blue-700 text-white'
-                : 'text-slate-700 hover:text-slate-900'
+            role="tab"
+            aria-selected={subTab === 'payouts'}
+            onClick={() => setSubTab('payouts')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+              subTab === 'payouts'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
-            Payouts & Entrants ({selectedBowlers.length} Entered)
+            <Users className="w-4 h-4" />
+            <span>3C. Bracket Entrants & Payouts ({selectedBowlers.length})</span>
           </button>
         </div>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="brk-fee" className="font-semibold text-slate-600">
-              Entry ($):
-            </label>
-            <input
-              id="brk-fee"
-              type="number"
-              min={1}
-              max={100}
-              value={settings.bracketEntryFee}
-              onChange={(e) =>
-                onUpdateSettings({ bracketEntryFee: Math.max(1, Number(e.target.value) || 5) })
-              }
-              className="w-14 px-2 py-1 border border-slate-300 rounded font-mono tabular-nums text-center"
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="brk-1st" className="font-semibold text-slate-600">
-              1st Place ($):
-            </label>
-            <input
-              id="brk-1st"
-              type="number"
-              min={1}
-              max={500}
-              value={settings.bracketFirstPlacePayout}
-              onChange={(e) =>
-                onUpdateSettings({
-                  bracketFirstPlacePayout: Math.max(1, Number(e.target.value) || 25),
-                })
-              }
-              className="w-16 px-2 py-1 border border-slate-300 rounded font-mono tabular-nums text-center"
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="brk-2nd" className="font-semibold text-slate-600">
-              2nd Place ($):
-            </label>
-            <input
-              id="brk-2nd"
-              type="number"
-              min={0}
-              max={500}
-              value={settings.bracketSecondPlacePayout}
-              onChange={(e) =>
-                onUpdateSettings({
-                  bracketSecondPlacePayout: Math.max(0, Number(e.target.value) || 10),
-                })
-              }
-              className="w-16 px-2 py-1 border border-slate-300 rounded font-mono tabular-nums text-center"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* SUBVIEW 1: Visual 3-Round Bracket Trees (Game 1 -> Game 2 -> Game 3 -> Winner Payouts) */}
-      {subView === 'tree' && (
+      {/* ===================================================================== */}
+      {/* SUB-TAB 3A: 8-BOWLER TOURNAMENT BRACKETS                              */}
+      {/* ===================================================================== */}
+      {subTab === 'tree' && (
         <div className="space-y-6">
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                8-Player Tournament Brackets (Handicap & Scratch)
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Automatically resolves Game 1 Quarterfinals → Game 2 Semifinals → Game 3 Championship Finals from your entered scores.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setBracketMode('handicap')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                    bracketMode === 'handicap'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Handicap Bracket
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBracketMode('scratch')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                    bracketMode === 'scratch'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Scratch Bracket
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleShuffleSeeds}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                Shuffle Bracket Draw
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportBracketCsv}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Brackets CSV
+              </button>
+            </div>
+          </section>
+
           {bracketsList.map((brk) => {
             if (!brk) return null;
             return (
@@ -292,14 +301,12 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                       8 Bowlers · Entry ${brk.entryFee} · 1st Place ${brk.firstPrize} · 2nd Place ${brk.secondPrize}
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-red-700 font-mono">
-                    ** FINISHED **
+                  <span className="text-xs font-bold text-emerald-800 font-mono">
+                    Champion: {brk.champion.name} (${brk.champion.payout})
                   </span>
                 </div>
 
-                {/* 4-Column Visual Bracket Tree */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-w-[780px] text-xs font-mono tabular-nums">
-                  {/* Column 1: Game 1 (Quarterfinals - 8 Slots) */}
                   <div className="space-y-3">
                     <div className="font-sans font-bold text-slate-700 text-center pb-1 border-b border-slate-200">
                       Game 1 (Quarterfinals)
@@ -336,7 +343,6 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                     })}
                   </div>
 
-                  {/* Column 2: Game 2 (Semifinals - 4 Winners) */}
                   <div className="flex flex-col justify-around space-y-4">
                     <div className="font-sans font-bold text-slate-700 text-center pb-1 border-b border-slate-200">
                       Game 2 (Semifinals)
@@ -371,7 +377,6 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                     })}
                   </div>
 
-                  {/* Column 3: Game 3 (Championship Final - 2 Finalists) */}
                   <div className="flex flex-col justify-center space-y-4">
                     <div className="font-sans font-bold text-slate-700 text-center pb-1 border-b border-slate-200">
                       Game 3 (Finals)
@@ -402,7 +407,6 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Column 4: Final Bracket Payout Results */}
                   <div className="flex flex-col justify-center space-y-4">
                     <div className="font-sans font-bold text-slate-700 text-center pb-1 border-b border-slate-200">
                       Bracket Winners & Payout
@@ -425,55 +429,170 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
         </div>
       )}
 
-      {/* SUBVIEW 2: Opponent Matchup Table View */}
-      {subView === 'opponents' && bracket1 && (
-        <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-          <div className="px-5 py-4 border-b border-slate-200">
-            <h3 className="text-sm font-bold text-slate-900">
-              Head-to-Head Opponent Matrix ({bracket1.title})
-            </h3>
-            <p className="text-xs text-slate-500">
-              Shows each bowler's Round 1 opponent, score needed to advance, and final elimination round.
-            </p>
-          </div>
-          <table className="w-full text-left border-collapse text-xs font-mono tabular-nums">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-sans">
-                <th className="py-2.5 px-4 font-bold">Match #</th>
-                <th className="py-2.5 px-3 font-bold">Bowler A</th>
-                <th className="py-2.5 px-3 font-bold text-right">G1 Total</th>
-                <th className="py-2.5 px-3 font-bold">Bowler B</th>
-                <th className="py-2.5 px-3 font-bold text-right">G1 Total</th>
-                <th className="py-2.5 px-4 font-bold">Advancing Winner</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200/70">
-              {bracket1.quarterfinals.map((qf) => (
-                <tr key={qf.slotIndex} className="hover:bg-slate-50">
-                  <td className="py-2.5 px-4 font-bold">Pair #{qf.slotIndex}</td>
-                  <td className="py-2.5 px-3 font-sans font-semibold text-slate-900">
-                    {qf.playerA.name} (+{qf.playerA.hdcpPerGame})
-                  </td>
-                  <td className="py-2.5 px-3 text-right font-bold">{qf.playerA.g1Score}</td>
-                  <td className="py-2.5 px-3 font-sans font-semibold text-slate-900">
-                    {qf.playerB.name} (+{qf.playerB.hdcpPerGame})
-                  </td>
-                  <td className="py-2.5 px-3 text-right font-bold">{qf.playerB.g1Score}</td>
-                  <td className="py-2.5 px-4 font-sans font-bold text-emerald-700">
-                    {qf.round1Winner.name} ({qf.round1Winner.g1Total})
-                  </td>
-                </tr>
+      {/* ===================================================================== */}
+      {/* SUB-TAB 3B: HIGH-GAME JACKPOTS & MYSTERY SCORE SIDE POTS              */}
+      {/* ===================================================================== */}
+      {subTab === 'side_pots' && (
+        <div className="space-y-6">
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-600" />
+                  Weekly High-Game Side Pots (Game 1, Game 2 & Game 3 Winners)
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Automatically finds the highest Scratch and Handicap game winner for each game of the night.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                <label htmlFor="side-pot-fee-input" className="font-bold text-slate-700">
+                  Side Pot Entry ($):
+                </label>
+                <input
+                  id="side-pot-fee-input"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={sidePotFee}
+                  onChange={(e) =>
+                    onUpdateSettings({ sidePotEntryFee: Math.max(1, Number(e.target.value) || 5) })
+                  }
+                  className="w-14 px-2 py-1 bg-white border border-slate-300 rounded font-mono text-center"
+                />
+                <span className="text-slate-500">
+                  (Total Pool: <strong>${totalSidePotPool}</strong>)
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {([1, 2, 3] as const).map((gmNum) => {
+                const scrWin = getGameWinner(gmNum, false);
+                const hdcpWin = getGameWinner(gmNum, true);
+                const perGamePrize = Math.round(totalSidePotPool / 3);
+                return (
+                  <div
+                    key={gmNum}
+                    className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="text-sm font-bold text-slate-900">Game {gmNum} High Pot</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700">
+                        ~${perGamePrize} Pot
+                      </span>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between">
+                        <div>
+                          <div className="text-[11px] text-slate-500">Scratch Winner</div>
+                          <div className="font-bold text-slate-900">
+                            {scrWin?.bowler.name || '—'}
+                          </div>
+                        </div>
+                        <span className="text-base font-mono font-bold text-slate-900">
+                          {scrWin?.score || '—'}
+                        </span>
+                      </div>
+                      <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg flex items-center justify-between">
+                        <div>
+                          <div className="text-[11px] text-blue-700 font-semibold">Handicap Winner</div>
+                          <div className="font-bold text-slate-900">
+                            {hdcpWin?.bowler.name || '—'}
+                          </div>
+                        </div>
+                        <span className="text-base font-mono font-bold text-blue-700">
+                          {hdcpWin?.score || '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Mystery Score / Lucky Number Pot */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-700" />
+                  Mystery Score / Lucky Number Jackpot Drawer
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Draw a random Mystery Score (or type the number pulled from your league's pill bottle) to see who hit or came closest!
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <select
+                  value={mysteryGameNum}
+                  onChange={(e) => setMysteryGameNum(Number(e.target.value) as 1 | 2 | 3)}
+                  aria-label="Select Mystery Game Number"
+                  className="px-2.5 py-1.5 font-bold bg-slate-50 border border-slate-300 rounded-lg"
+                >
+                  <option value={1}>Game 1</option>
+                  <option value={2}>Game 2</option>
+                  <option value={3}>Game 3</option>
+                </select>
+                <input
+                  type="number"
+                  min={100}
+                  max={300}
+                  value={mysteryTargetScore}
+                  onChange={(e) => setMysteryTargetScore(Number(e.target.value) || 180)}
+                  aria-label="Mystery Score Target"
+                  className="w-20 px-2.5 py-1.5 font-mono font-bold text-center bg-white border border-slate-300 rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={handleDrawMysteryNumber}
+                  className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg cursor-pointer"
+                >
+                  Draw Random Mystery Score
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {mysteryMatches.slice(0, 3).map((m, idx) => (
+                <div
+                  key={m.bowler.id}
+                  className={`p-3.5 border rounded-xl flex items-center justify-between text-xs ${
+                    m.diff === 0
+                      ? 'bg-emerald-50 border-emerald-300'
+                      : idx === 0
+                      ? 'bg-blue-50/60 border-blue-200'
+                      : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div>
+                    <div className="font-bold text-slate-900">
+                      #{idx + 1} {m.bowler.name}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {m.diff === 0
+                        ? 'EXACT MYSTERY SCORE HIT!'
+                        : `Off by ${m.diff} pin(s) in Game ${mysteryGameNum}`}
+                    </div>
+                  </div>
+                  <span className="text-base font-mono font-bold text-slate-900">
+                    {m.gameScore}
+                  </span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </section>
+            </div>
+          </section>
+        </div>
       )}
 
-      {/* SUBVIEW 3: Entrants Selector & Payout Summary */}
-      {subView === 'payouts' && (
+      {/* ===================================================================== */}
+      {/* SUB-TAB 3C: BRACKET ENTRANTS & PAYOUT SUMMARY                         */}
+      {/* ===================================================================== */}
+      {subTab === 'payouts' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
                   Select Bowlers Entered in Weekly Brackets ({selectedBowlers.length} Active)
@@ -482,7 +601,42 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                   Check or uncheck bowlers to include them in this week's 8-player bracket draw.
                 </p>
               </div>
+              <div className="flex items-center gap-2 text-xs">
+                <label htmlFor="brk-1st" className="font-semibold text-slate-600">
+                  1st ($):
+                </label>
+                <input
+                  id="brk-1st"
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={settings.bracketFirstPlacePayout}
+                  onChange={(e) =>
+                    onUpdateSettings({
+                      bracketFirstPlacePayout: Math.max(1, Number(e.target.value) || 25),
+                    })
+                  }
+                  className="w-16 px-2 py-1 border border-slate-300 rounded font-mono text-center"
+                />
+                <label htmlFor="brk-2nd" className="font-semibold text-slate-600">
+                  2nd ($):
+                </label>
+                <input
+                  id="brk-2nd"
+                  type="number"
+                  min={0}
+                  max={500}
+                  value={settings.bracketSecondPlacePayout}
+                  onChange={(e) =>
+                    onUpdateSettings({
+                      bracketSecondPlacePayout: Math.max(0, Number(e.target.value) || 10),
+                    })
+                  }
+                  className="w-16 px-2 py-1 border border-slate-300 rounded font-mono text-center"
+                />
+              </div>
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {activeBowlers.map((b) => {
                 const isChecked = bracketEntrantIds.includes(b.id);

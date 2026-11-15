@@ -21,11 +21,16 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   seasonName: 'Fall / Winter 2026-2027',
   weekNumber: '4',
   totalWeeks: 31,
+  bowlersPerTeam: 4,
   customCsvName: '',
   formatMode: 'individual',
   entryMode: 'three',
   scoringType: 'handicap',
+  absentRuleType: 'fixed',
   absentScore: 150,
+  absentPenaltyPins: 10,
+  absentPercent: 90,
+  vacantScore: 150,
   maxGameScore: 300,
   showAbsent: 'yes',
   highlightFirst: 'yes',
@@ -34,14 +39,21 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   bottomNote: 'Please turn in weekly envelopes and dues to the League Secretary.',
   handicapBasis: 220,
   handicapPercent: 90,
+  maxHandicapPerGame: 0,
   autoCalculateHandicap: 'yes',
   pointSystem: '7pt',
+  customPointsPerGame: 2,
+  customPointsPerSeries: 1,
   weeklyDuesPerBowler: 22,
   lineageCostPerBowler: 12,
+  secretaryFeePerBowler: 1,
   startingLane: 1,
   bracketEntryFee: 5,
   bracketFirstPlacePayout: 25,
   bracketSecondPlacePayout: 10,
+  sidePotEntryFee: 5,
+  honorGameThreshold: 215,
+  honorSeriesThreshold: 625,
   autoBackupEnabled: true,
   autoBackupInterval: 'on_finish_week',
   autoBackupFormat: 'json',
@@ -54,35 +66,34 @@ export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
     version: '1.0.07',
     date: 'November 14, 2026',
-    title: 'Multi-League Database Manager, Auto-Backup Scheduler & Full Suite',
+    title: 'Multi-League Database Manager, Team Consistency Bar Charts & Sub-Tab Workspace',
     isLatest: true,
     highlights: [
-      'Added Multi-League Database Manager: Create, switch between, and manage multiple leagues inside the same single HTML program.',
-      'Added Automatic Backup Scheduler with optional folder/file location picker (.json or .html) and 1-click full restore if browser history is cleared or a new PC is needed.',
-      'Added 8-Player Handicap & Scratch Tournament Brackets (Game 1 Quarterfinals → Game 2 Semifinals → Game 3 Finals with automatic $25 / $10 payouts).',
-      'Added Team vs. Team Lane Pair Recap Sheet Mode (Scratch Total, Handicap, Total w/ HDCP, HDCP Won/Lost, Team Points Won, and Opponent Points).',
-      'Added USBC Book Average & Automatic Handicap Calculator (configurable e.g. 90% of 220) plus Season Highs & Customizable CSV Builder.',
+      'Added Clean Sub-Tab Navigation across all 5 primary sections so every task has its own uncluttered screen.',
+      'Added Team Performance & Consistency Analyzer with multi-week bar charts of total team scores per week.',
+      'Added League-Agnostic Rule Engine: Customize Absentee Rules (Fixed vs. Average Minus X Pins), Handicap Caps, Custom Match Points, and Prize Fund Payouts.',
+      'Added Multi-League Database Manager & Automatic Backup Scheduler with 1-click restore from a single .json or .html file.',
     ],
     changes: [
       {
         category: 'New Feature',
         description:
-          'Multi-League Switcher & Master Bowler Database Manager: Track Bowler Counts (Active, Inactive, Total, Duplicates across leagues) and League Counts.',
+          'Team Performance Bar Chart & Consistency Table: Compare weekly team totals across the season and identify the most consistent teams by variance and spread.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Organized all 5 primary tabs into dedicated, easy-to-read Sub-Tabs so score entry, rosters, rules, charts, brackets, dues, and backups are never crowded together.',
+      },
+      {
+        category: 'League Rules',
+        description:
+          'League-Agnostic Customization: Supports Fixed Absent Score or USBC Average-Minus-Pins rule, custom points per game/series, any team size, and any starting lane.',
       },
       {
         category: 'Data & Backup',
         description:
-          'Auto-Backup Scheduler & Universal Import: Schedule automatic backups (every score change, 5m, 15m, 30m, or on Finish Week) to an optional computer location and restore 100% of all leagues from a single .json or .html file.',
-      },
-      {
-        category: 'League Rules',
-        description:
-          'Added 8-Player Elimination Brackets with automatic Game 1 / Game 2 / Game 3 advancement, opponent view, and payout summaries.',
-      },
-      {
-        category: 'League Rules',
-        description:
-          'Added Team vs. Team Lane Pair Recap Sheet view with 7-Point, 8-Point (2-2-2+2), 5-Point, and 4-Point matchup rows.',
+          'Auto-Backup Scheduler & Universal Import: Schedule automatic backups and restore 100% of all leagues from a single .json or .html file.',
       },
     ],
   },
@@ -145,23 +156,60 @@ export const PATCH_NOTES_HISTORY: PatchRelease[] = [
 
 /**
  * Pure function: Calculates a bowler's single-game and series handicap
- * using standard USBC / BLS formula: floor((Basis - Average) * (Percent / 100))
+ * using standard USBC / league formula: floor((Basis - Average) * (Percent / 100))
+ * with optional maximum handicap per game cap.
  */
 export function calculateBowlerHandicap(
   average: number,
   basis: number,
   percent: number,
-  entryMode: 'single' | 'three'
+  entryMode: 'single' | 'three',
+  maxPerGameCap = 0
 ): { perGame: number; totalHandicap: number } {
   if (!Number.isFinite(average) || average <= 0 || average >= basis) {
     return { perGame: 0, totalHandicap: 0 };
   }
   const rawDiff = basis - average;
-  const perGame = Math.max(0, Math.floor(rawDiff * (percent / 100) + 1e-9));
+  let perGame = Math.max(0, Math.floor(rawDiff * (percent / 100) + 1e-9));
+  if (maxPerGameCap > 0) {
+    perGame = Math.min(perGame, maxPerGameCap);
+  }
   const multiplier = entryMode === 'three' ? 3 : 1;
   return {
     perGame,
     totalHandicap: perGame * multiplier,
+  };
+}
+
+/**
+ * Pure function: Calculates a bowler's per-game absent score based on the league's configured rule
+ * ('fixed' e.g. 150, 'avg_minus_pins' e.g. Book Avg - 10, or 'avg_percent' e.g. 90% of Book Avg).
+ */
+export function computeBowlerAbsentScore(
+  bookAverage: number | undefined,
+  settings: LeagueSettings
+): { perGame: number; totalSeries: number; ruleDescription: string } {
+  const rule = settings.absentRuleType || 'fixed';
+  const fallbackFixed = settings.absentScore ?? 150;
+  const avg = bookAverage && bookAverage > 0 ? bookAverage : fallbackFixed;
+  let perGame = fallbackFixed;
+  let ruleDescription = `Fixed ${fallbackFixed}/gm`;
+
+  if (rule === 'avg_minus_pins') {
+    const penalty = settings.absentPenaltyPins ?? 10;
+    perGame = Math.max(0, avg - penalty);
+    ruleDescription = `Avg (${avg}) - ${penalty} = ${perGame}/gm`;
+  } else if (rule === 'avg_percent') {
+    const pct = settings.absentPercent ?? 90;
+    perGame = Math.max(0, Math.floor(avg * (pct / 100)));
+    ruleDescription = `${pct}% of Avg (${avg}) = ${perGame}/gm`;
+  }
+
+  const multiplier = settings.entryMode === 'three' ? 3 : 1;
+  return {
+    perGame,
+    totalSeries: perGame * multiplier,
+    ruleDescription,
   };
 }
 
@@ -188,6 +236,10 @@ export interface PlayerSeasonStats {
   highScratchSeries: number;
   highHandicapGame: number;
   highHandicapSeries: number;
+  maxPinsOverAverageGame: number;
+  maxPinsOverAverageSeries: number;
+  honorGamesCount: number;
+  honorSeriesCount: number;
   weeklySeriesHistory: { week: string; scratch: number; grand: number; average: number }[];
 }
 
@@ -219,7 +271,6 @@ export function computeSeasonPlayerStats(
     }
   >();
 
-  // Seed from master roster
   roster.forEach((r, idx) => {
     const key = r.name.trim().toLowerCase();
     if (!key) return;
@@ -283,6 +334,8 @@ export function computeSeasonPlayerStats(
     }
   }
 
+  const honorGameMin = settings.honorGameThreshold ?? 215;
+  const honorSeriesMin = settings.honorSeriesThreshold ?? 625;
   const results: PlayerSeasonStats[] = [];
 
   for (const p of playerMap.values()) {
@@ -294,6 +347,11 @@ export function computeSeasonPlayerStats(
     let highScratchSeries = 0;
     let highHandicapGame = 0;
     let highHandicapSeries = 0;
+    let maxPinsOverAverageGame = 0;
+    let maxPinsOverAverageSeries = 0;
+    let honorGamesCount = 0;
+    let honorSeriesCount = 0;
+
     const weeklySeriesHistory: { week: string; scratch: number; grand: number; average: number }[] =
       [];
 
@@ -305,9 +363,20 @@ export function computeSeasonPlayerStats(
       totalGrandPins += w.grand;
 
       const perGameHdcp = Math.round(w.hdcp / gamesInWeek);
-      const maxGameScratch =
-        w.entryMode === 'three' ? Math.max(w.g1, w.g2, w.g3) : w.scratch;
+      const gamesArr = w.entryMode === 'three' ? [w.g1, w.g2, w.g3] : [w.scratch];
+      const maxGameScratch = Math.max(...gamesArr);
       const maxGameHdcp = maxGameScratch + perGameHdcp;
+
+      for (const gm of gamesArr) {
+        if (gm >= honorGameMin) honorGamesCount++;
+        const diffGm = gm - (p.bookAvg || 165);
+        if (diffGm > maxPinsOverAverageGame) maxPinsOverAverageGame = diffGm;
+      }
+
+      if (w.scratch >= honorSeriesMin) honorSeriesCount++;
+      const expectedSeries = (p.bookAvg || 165) * gamesInWeek;
+      const diffSer = w.scratch - expectedSeries;
+      if (diffSer > maxPinsOverAverageSeries) maxPinsOverAverageSeries = diffSer;
 
       if (maxGameScratch > highScratchGame) highScratchGame = maxGameScratch;
       if (w.scratch > highScratchSeries) highScratchSeries = w.scratch;
@@ -336,7 +405,8 @@ export function computeSeasonPlayerStats(
       currentAverage,
       settings.handicapBasis,
       settings.handicapPercent,
-      settings.entryMode
+      settings.entryMode,
+      settings.maxHandicapPerGame || 0
     );
 
     results.push({
@@ -358,6 +428,10 @@ export function computeSeasonPlayerStats(
       highScratchSeries,
       highHandicapGame,
       highHandicapSeries,
+      maxPinsOverAverageGame,
+      maxPinsOverAverageSeries,
+      honorGamesCount,
+      honorSeriesCount,
       weeklySeriesHistory,
     });
   }
@@ -368,6 +442,195 @@ export function computeSeasonPlayerStats(
       b.totalGrandPins - a.totalGrandPins ||
       a.name.localeCompare(b.name)
   );
+}
+
+/**
+ * Pure function: Computes week-by-week Team Performance & Consistency metrics across the season
+ * so users can visualize a Bar Chart of total team scores per week and identify the most consistent teams.
+ */
+export interface TeamWeeklyPerformancePoint {
+  weekLabel: string;
+  scratchTotal: number;
+  handicapTotal: number;
+  grandTotal: number;
+  bowlerCount: number;
+}
+
+export interface SeasonTeamPerformanceRow {
+  teamName: string;
+  weeksPlayed: number;
+  weeklyScores: TeamWeeklyPerformancePoint[];
+  seasonScratchPins: number;
+  seasonHandicapPins: number;
+  seasonGrandPins: number;
+  weeklyAverageGrand: number;
+  weeklyAverageScratch: number;
+  highWeekGrand: number;
+  lowWeekGrand: number;
+  highLowSpread: number; // Lower spread = more consistent week to week
+  stdDeviation: number; // Standard deviation of weekly grand totals
+  consistencyScore: number; // 0-100 rating (100 = zero variance)
+  consistencyRank: number;
+}
+
+export interface SeasonTeamPerformanceSummary {
+  weekLabels: string[];
+  teams: SeasonTeamPerformanceRow[];
+  mostConsistentTeam: SeasonTeamPerformanceRow | null;
+  highestAverageTeam: SeasonTeamPerformanceRow | null;
+  highestSingleWeekTeam: { teamName: string; weekLabel: string; score: number } | null;
+}
+
+export function computeSeasonTeamPerformance(
+  history: ArchivedWeek[],
+  currentBowlers: BowlerEntry[],
+  settings: LeagueSettings,
+  includeCurrentWeek = true
+): SeasonTeamPerformanceSummary {
+  const allWeeks: { weekLabel: string; bowlers: BowlerEntry[] }[] = history.map((h, idx) => ({
+    weekLabel: h.week ? `Week ${h.week}` : `Week ${idx + 1}`,
+    bowlers: h.bowlers || [],
+  }));
+
+  if (includeCurrentWeek && currentBowlers.length > 0) {
+    const currentWeekLabel = settings.weekNumber ? `Week ${settings.weekNumber}` : 'Current Week';
+    const alreadyInHistory = history.some(
+      (h) => h.week === settings.weekNumber && h.league === settings.leagueName
+    );
+    if (!alreadyInHistory) {
+      allWeeks.push({
+        weekLabel: currentWeekLabel,
+        bowlers: currentBowlers,
+      });
+    }
+  }
+
+  const weekLabels = allWeeks.map((w) => w.weekLabel);
+  const teamNamesSet = new Set<string>();
+
+  for (const wk of allWeeks) {
+    for (const b of wk.bowlers) {
+      const tName = (b.team || '').trim() || 'Unassigned';
+      teamNamesSet.add(tName);
+    }
+  }
+
+  const teamRows: SeasonTeamPerformanceRow[] = [];
+  let highestSingleWeekTeam: { teamName: string; weekLabel: string; score: number } | null = null;
+
+  for (const teamName of [...teamNamesSet].sort()) {
+    const weeklyScores: TeamWeeklyPerformancePoint[] = [];
+
+    for (const wk of allWeeks) {
+      const teamBowlers = wk.bowlers.filter(
+        (b) => ((b.team || '').trim() || 'Unassigned') === teamName
+      );
+      if (teamBowlers.length === 0) continue;
+
+      let scratchTotal = 0;
+      let handicapTotal = 0;
+      let grandTotal = 0;
+
+      for (const b of teamBowlers) {
+        scratchTotal += b.scratchScore;
+        handicapTotal += b.isAbsent ? 0 : b.handicap;
+        grandTotal += b.grandTotal;
+      }
+
+      weeklyScores.push({
+        weekLabel: wk.weekLabel,
+        scratchTotal,
+        handicapTotal,
+        grandTotal,
+        bowlerCount: teamBowlers.length,
+      });
+
+      if (!highestSingleWeekTeam || grandTotal > highestSingleWeekTeam.score) {
+        highestSingleWeekTeam = {
+          teamName,
+          weekLabel: wk.weekLabel,
+          score: grandTotal,
+        };
+      }
+    }
+
+    const weeksPlayed = weeklyScores.length;
+    const seasonScratchPins = weeklyScores.reduce((acc, w) => acc + w.scratchTotal, 0);
+    const seasonHandicapPins = weeklyScores.reduce((acc, w) => acc + w.handicapTotal, 0);
+    const seasonGrandPins = weeklyScores.reduce((acc, w) => acc + w.grandTotal, 0);
+
+    const weeklyAverageGrand =
+      weeksPlayed > 0 ? Math.round(seasonGrandPins / weeksPlayed) : 0;
+    const weeklyAverageScratch =
+      weeksPlayed > 0 ? Math.round(seasonScratchPins / weeksPlayed) : 0;
+
+    const grandValues = weeklyScores.map((w) => w.grandTotal);
+    const highWeekGrand = grandValues.length > 0 ? Math.max(...grandValues) : 0;
+    const lowWeekGrand = grandValues.length > 0 ? Math.min(...grandValues) : 0;
+    const highLowSpread = highWeekGrand - lowWeekGrand;
+
+    let stdDeviation = 0;
+    if (grandValues.length > 1) {
+      const mean = seasonGrandPins / grandValues.length;
+      const variance =
+        grandValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+        grandValues.length;
+      stdDeviation = Math.round(Math.sqrt(variance) * 10) / 10;
+    }
+
+    // Consistency score: 100 minus coefficient of variation scaled so typical bowling team variance (15-60 pins) maps to 75%-99%
+    const coeffVarPct =
+      weeklyAverageGrand > 0 ? (stdDeviation / weeklyAverageGrand) * 100 : 0;
+    const consistencyScore =
+      weeksPlayed > 0
+        ? Math.max(50, Math.min(100, Math.round((100 - coeffVarPct * 4) * 10) / 10))
+        : 0;
+
+    teamRows.push({
+      teamName,
+      weeksPlayed,
+      weeklyScores,
+      seasonScratchPins,
+      seasonHandicapPins,
+      seasonGrandPins,
+      weeklyAverageGrand,
+      weeklyAverageScratch,
+      highWeekGrand,
+      lowWeekGrand,
+      highLowSpread,
+      stdDeviation,
+      consistencyScore,
+      consistencyRank: 1,
+    });
+  }
+
+  // Assign consistencyRank (lowest stdDeviation / spread among teams with >= 1 week)
+  const byConsistency = [...teamRows].sort(
+    (a, b) =>
+      a.stdDeviation - b.stdDeviation ||
+      a.highLowSpread - b.highLowSpread ||
+      b.seasonGrandPins - a.seasonGrandPins
+  );
+  byConsistency.forEach((row, idx) => {
+    row.consistencyRank = idx + 1;
+  });
+
+  // Sort main list by Season Grand Pins descending
+  teamRows.sort(
+    (a, b) => b.seasonGrandPins - a.seasonGrandPins || a.teamName.localeCompare(b.teamName)
+  );
+
+  const mostConsistentTeam = byConsistency[0] || null;
+  const highestAverageTeam =
+    [...teamRows].sort((a, b) => b.weeklyAverageGrand - a.weeklyAverageGrand)[0] || null;
+
+  return {
+    weekLabels,
+    teams: teamRows,
+    mostConsistentTeam,
+    highestAverageTeam,
+    highestSingleWeekTeam,
+  };
 }
 
 /**
@@ -402,7 +665,6 @@ export function rankWeeklyBowlers(entries: BowlerEntry[]): BowlerEntry[] {
 
 /**
  * Pure function: Builds team standings for the current week with game-by-game breakdowns
- * (both Scratch per game and Handicap per game for the BLS Recap Sheet).
  */
 export interface TeamStandingRow {
   placement: number;
@@ -494,8 +756,8 @@ export function buildTeamStandings(entries: BowlerEntry[]): TeamStandingRow[] {
 }
 
 /**
- * Pure function: Calculates BLS Head-to-Head Matchup Points (7-pt, 8-pt, 5-pt, or 4-pt system)
- * between two teams, including per-game Won/Lost/Tie indicators for the BLS Recap Sheet.
+ * Pure function: Calculates Head-to-Head Matchup Points (7pt, 8pt, 9pt, 5pt, 4pt, or custom)
+ * between two teams.
  */
 export interface MatchupPointsResult {
   teamAPoints: number;
@@ -512,10 +774,32 @@ export interface MatchupPointsResult {
 export function calculateMatchupPoints(
   teamA: TeamStandingRow,
   teamB: TeamStandingRow,
-  system: '7pt' | '8pt' | '5pt' | '4pt'
+  system: LeagueSettings['pointSystem'],
+  customGamePts = 2,
+  customSeriesPts = 1
 ): MatchupPointsResult {
-  const gamePts = system === '7pt' || system === '8pt' ? 2 : 1;
-  const seriesPts = system === '8pt' || system === '5pt' ? 2 : 1;
+  let gamePts = 2;
+  let seriesPts = 1;
+
+  if (system === '7pt') {
+    gamePts = 2;
+    seriesPts = 1;
+  } else if (system === '8pt') {
+    gamePts = 2;
+    seriesPts = 2;
+  } else if (system === '9pt') {
+    gamePts = 2;
+    seriesPts = 3;
+  } else if (system === '5pt') {
+    gamePts = 1;
+    seriesPts = 2;
+  } else if (system === '4pt') {
+    gamePts = 1;
+    seriesPts = 1;
+  } else if (system === 'custom') {
+    gamePts = customGamePts;
+    seriesPts = customSeriesPts;
+  }
 
   const evalGame = (a: number, b: number, pts: number) => {
     if (a > b) return { aPts: pts, bPts: 0, flagA: 'W' as const, flagB: 'L' as const };
@@ -545,10 +829,7 @@ export function calculateMatchupPoints(
 }
 
 /**
- * Pure function: Generates an 8-Player Single-Elimination Bowling Bracket (BLS style)
- * Game 1 = Quarterfinals (8 players -> 4 winners)
- * Game 2 = Semifinals (4 winners -> 2 finalists)
- * Game 3 = Championship Final (2 finalists -> 1st Place & 2nd Place Payout)
+ * Pure function: Generates an 8-Player Single-Elimination Bowling Bracket
  */
 export function buildEightPlayerBracket(
   entrants: BowlerEntry[],
@@ -562,7 +843,6 @@ export function buildEightPlayerBracket(
   const valid = entrants.filter((b) => !b.isAbsent);
   if (valid.length < 2) return null;
 
-  // Fill up to 8 slots (repeating or padding with BYE if < 8)
   const slots: BowlerEntry[] = [];
   for (let i = 0; i < 8; i++) {
     if (i < valid.length) {
@@ -645,17 +925,14 @@ export function buildEightPlayerBracket(
     });
   }
 
-  // Semifinal 1: Winner of QF 0 vs QF 1 in Game 2
   const sf1A = r1Winners[0];
   const sf1B = r1Winners[1];
   const sf1Winner = getGameTotal(sf1A, 2) >= getGameTotal(sf1B, 2) ? sf1A : sf1B;
 
-  // Semifinal 2: Winner of QF 2 vs QF 3 in Game 2
   const sf2A = r1Winners[2];
   const sf2B = r1Winners[3];
   const sf2Winner = getGameTotal(sf2A, 2) >= getGameTotal(sf2B, 2) ? sf2A : sf2B;
 
-  // Finals in Game 3
   const finalAG3 = getGameTotal(sf1Winner, 3);
   const finalBG3 = getGameTotal(sf2Winner, 3);
   const champ = finalAG3 >= finalBG3 ? sf1Winner : sf2Winner;
@@ -698,7 +975,6 @@ export function buildEightPlayerBracket(
 
 /**
  * Pure function: Generates a full round-robin lane assignment schedule
- * using standard circle-method rotation across lane pairs.
  */
 export function generateRoundRobinSchedule(
   teams: string[],
@@ -784,6 +1060,7 @@ export interface TreasurySummary {
   collectedGrossDues: number;
   outstandingArrears: number;
   houseLineageCut: number;
+  secretarySalaryCut: number;
   netPrizeFundContribution: number;
   strikePotCollected: number;
   highGamePotCollected: number;
@@ -800,6 +1077,7 @@ export function calculateTreasurySummary(
   let collectedGrossDues = 0;
   let strikePotCollected = 0;
   let highGamePotCollected = 0;
+  const sidePotFee = settings.sidePotEntryFee ?? 5;
 
   for (const player of roster) {
     const rec = duesMap[player.id];
@@ -814,14 +1092,18 @@ export function calculateTreasurySummary(
       collectedGrossDues += paidAmt;
     }
 
-    if (rec?.sidePotStrike) strikePotCollected += 5;
-    if (rec?.sidePotHighGame) highGamePotCollected += 5;
+    if (rec?.sidePotStrike) strikePotCollected += sidePotFee;
+    if (rec?.sidePotHighGame) highGamePotCollected += sidePotFee;
   }
 
   const expectedGrossDues = totalActiveBowlers * settings.weeklyDuesPerBowler;
   const outstandingArrears = Math.max(0, expectedGrossDues - collectedGrossDues);
   const houseLineageCut = paidCount * settings.lineageCostPerBowler;
-  const netPrizeFundContribution = Math.max(0, collectedGrossDues - houseLineageCut);
+  const secretarySalaryCut = paidCount * (settings.secretaryFeePerBowler ?? 0);
+  const netPrizeFundContribution = Math.max(
+    0,
+    collectedGrossDues - houseLineageCut - secretarySalaryCut
+  );
 
   return {
     totalActiveBowlers,
@@ -831,6 +1113,7 @@ export function calculateTreasurySummary(
     collectedGrossDues,
     outstandingArrears,
     houseLineageCut,
+    secretarySalaryCut,
     netPrizeFundContribution,
     strikePotCollected,
     highGamePotCollected,
@@ -838,12 +1121,7 @@ export function calculateTreasurySummary(
 }
 
 /**
- * Pure function: Extracts and validates a complete AppState from EITHER:
- * 1. A standard .json Master League Backup file
- * 2. A standalone Single-HTML program file (<script id="embedded-league-state" type="application/json">...</script>)
- * 3. A legacy V1/V2 JSON backup file
- * Ensures 100% of bowlers, master roster, archived weeks, dues, schedule, brackets, and settings are restored
- * if browser history is cleared or the user moves to a new PC.
+ * Pure function: Extracts and validates a complete AppState from EITHER a .json or .html backup
  */
 export function parseUniversalBackupPayload(
   rawText: string,
@@ -853,15 +1131,21 @@ export function parseUniversalBackupPayload(
   let jsonString = trimmed;
   let sourceType: 'json' | 'html_bundle' = 'json';
 
-  // Detect if the user imported a Single-File HTML program (.html)
-  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.includes('embedded-league-state')) {
+  if (
+    trimmed.startsWith('<!DOCTYPE') ||
+    trimmed.startsWith('<html') ||
+    trimmed.includes('embedded-league-state')
+  ) {
     const match = trimmed.match(
       /<script[^>]*id=["']embedded-league-state["'][^>]*>([\s\S]*?)<\/script>/i
     );
     if (!match || !match[1]) {
       throw new Error('The selected HTML file does not contain an embedded league backup payload.');
     }
-    jsonString = match[1].replace(/<\\\/script>/gi, '</script>').trim();
+    jsonString = match[1]
+      .replace(/<\\\/script>/gi, '</script>')
+      .replace(/\\u003c\//gi, '</')
+      .trim();
     sourceType = 'html_bundle';
   }
 
@@ -870,7 +1154,6 @@ export function parseUniversalBackupPayload(
     throw new Error('Backup file is not a valid JSON object.');
   }
 
-  // Support both full v4 schema and legacy V1/V2 schemas
   const rawBowlers: BowlerEntry[] = Array.isArray(parsed.bowlers) ? parsed.bowlers : [];
   const rawRoster: RosterPlayer[] = Array.isArray(parsed.roster)
     ? parsed.roster.map((r: RosterPlayer | string, idx: number) =>
@@ -880,7 +1163,11 @@ export function parseUniversalBackupPayload(
       )
     : [];
 
-  if (!Array.isArray(parsed.bowlers) && !Array.isArray(parsed.roster) && !Array.isArray(parsed.history)) {
+  if (
+    !Array.isArray(parsed.bowlers) &&
+    !Array.isArray(parsed.roster) &&
+    !Array.isArray(parsed.history)
+  ) {
     throw new Error('File does not contain valid bowlers, roster, or season history data.');
   }
 
@@ -909,7 +1196,11 @@ export function parseUniversalBackupPayload(
     bracketEntrantIds: rawBrackets,
     weekArchived: Boolean(parsed.weekArchived),
     weekArchiveId: parsed.weekArchiveId || null,
-    activeLeagueId: parsed.activeLeagueId || parsed.settings?.leagueId || fallbackState.activeLeagueId || 'thursday-night-rollers',
+    activeLeagueId:
+      parsed.activeLeagueId ||
+      parsed.settings?.leagueId ||
+      fallbackState.activeLeagueId ||
+      'thursday-night-rollers',
     allLeaguesRegistry:
       parsed.allLeaguesRegistry && typeof parsed.allLeaguesRegistry === 'object'
         ? parsed.allLeaguesRegistry
@@ -920,7 +1211,13 @@ export function parseUniversalBackupPayload(
     ? Object.keys(restoredState.allLeaguesRegistry).length
     : 1;
   const duesCount = Object.keys(rawDues).length;
-  const summary = `Restored ${sourceType === 'html_bundle' ? 'Single-HTML Program' : 'Master Backup'} (${leagueCount} ${leagueCount === 1 ? 'league' : 'leagues'}): ${rawBowlers.length} active scores, ${rawRoster.length} roster bowlers, ${rawHistory.length} archived weeks, ${duesCount} dues records, and ${rawSchedule.length} lane matchups.`;
+  const summary = `Restored ${
+    sourceType === 'html_bundle' ? 'Single-HTML Program' : 'Master Backup'
+  } (${leagueCount} ${leagueCount === 1 ? 'league' : 'leagues'}): ${
+    rawBowlers.length
+  } active scores, ${rawRoster.length} roster bowlers, ${
+    rawHistory.length
+  } archived weeks, ${duesCount} dues records, and ${rawSchedule.length} lane matchups.`;
 
   return { restoredState, sourceType, summary };
 }
@@ -938,10 +1235,6 @@ export interface MasterDatabaseMetrics {
   daysSinceAutoBackup: string;
 }
 
-/**
- * Pure function: Computes Master Bowler Database Manager summary statistics across all leagues
- * in the program (Bowler Count, League Count, Cross-League Duplicates, and Days Since Backup).
- */
 export function computeMasterDatabaseMetrics(
   leaguesMap: Record<string, Omit<AppState, 'allLeaguesRegistry'>>,
   lastLocalBackupAt?: string | null,
@@ -1013,5 +1306,3 @@ export function computeMasterDatabaseMetrics(
     daysSinceAutoBackup: formatDaysSince(lastAutoBackupAt),
   };
 }
-
-

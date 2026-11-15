@@ -1,46 +1,21 @@
-# Dependencies & Package Locks
-node_modules/
-bun.lock
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-# Build & Compiler Outputs
-build/
-dist/
-coverage/
-.vite/
-*.tsbuildinfo
-
-# Environment Variables (keep .env.example)
-.env*
-!.env.example
-
-# OS & Editor Files
-.DS_Store
-Thumbs.db
-*.log
-.idea/
-.vscode/
-
-# AI Studio & Browser Verification Artifacts (kept locally, excluded from GitHub)
+# AI Studio Exclusive Files & Folders (excluded from GitHub, kept in workspace)
 .aistudio/
+public/assets/aistudio/
+metadata.json
 .playwright-cli/
 playwright-report/
 test-results/
+verify_*.png
 
-# Uploaded Reference Pastes, Scratch Docs & Legacy Comparison Files (kept locally, excluded from GitHub)
-public/assets/aistudio/
-public/legacy_tracker.html
-public/legacy_tracker_v2.html
-BOWLING_APP_DOCUMENTATION.md
+# Dependencies & Local Secret Env Files (keep .env.example and all source/compiled files)
+node_modules/
+.env
+.env.local
+.env.*.local
+!.env.example
 
-# Local User League Backups, Standalone Build Template & Exported Spreadsheets
-public/standalone_template.html
-*_Backup_*.json
-*_AutoBackup_*.json
-*_AutoBackup_*.html
-*_Data_*.json
-Bowling_League_Tracker_v*.html
-Bowling_League_Helper_v*.html
+# OS / Editor Temp Files
+.DS_Store
+Thumbs.db
+*.log
 

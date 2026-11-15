@@ -11,6 +11,7 @@ import {
   CURRENT_APP_VERSION,
   DEFAULT_SETTINGS,
   LATEST_AVAILABLE_VERSION,
+  computeBowlerAbsentScore,
   generateRoundRobinSchedule,
   parseUniversalBackupPayload,
 } from './utils/bowlingLogic';
@@ -284,9 +285,10 @@ export default function App() {
     }
 
     pushUndoState(appState);
-    const perGame = appState.settings.absentScore || 0;
+    const absCalc = computeBowlerAbsentScore(player.bookAverage, appState.settings);
     const isThree = appState.settings.entryMode === 'three';
-    const scratch = isThree ? perGame * 3 : perGame;
+    const perGame = absCalc.perGame;
+    const scratch = absCalc.totalSeries;
 
     const absentEntry: BowlerEntry = {
       id: makeId(),
@@ -310,7 +312,7 @@ export default function App() {
       bowlers: [...prev.bowlers, absentEntry],
       weekArchived: false,
     }));
-    showToast(`Marked ${player.name} as Absent (${scratch} pts).`);
+    showToast(`Marked ${player.name} as Absent (${scratch} pts — ${absCalc.ruleDescription}).`);
   };
 
   const handleAddRosterPlayer = (name: string, team: string, bookAvg = 165) => {

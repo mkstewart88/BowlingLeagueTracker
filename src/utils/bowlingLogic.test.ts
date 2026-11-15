@@ -10,6 +10,8 @@ import {
   calculateTreasurySummary,
   parseUniversalBackupPayload,
   computeMasterDatabaseMetrics,
+  computeSeasonTeamPerformance,
+  computeBowlerAbsentScore,
   CURRENT_APP_VERSION,
   LATEST_AVAILABLE_VERSION,
   DEFAULT_SETTINGS,
@@ -162,7 +164,6 @@ test('buildTeamStandings and calculateMatchupPoints compute 7-point and 8-point 
   assert.equal(matchup7.teamBPoints, 2);
 
   const matchup8 = calculateMatchupPoints(teams[0], teams[1], '8pt');
-  // 2 pts G1 + 0 pts G2 + 2 pts G3 + 2 pts Series = 6 pts vs 2 pts
   assert.equal(matchup8.teamAPoints, 6);
   assert.equal(matchup8.teamBPoints, 2);
   assert.deepEqual(matchup8.wonFlagsA, ['W', 'L', 'W', 'W']);
@@ -237,6 +238,7 @@ test('calculateTreasurySummary splits house lineage and prize fund accurately', 
     ...DEFAULT_SETTINGS,
     weeklyDuesPerBowler: 22,
     lineageCostPerBowler: 12,
+    secretaryFeePerBowler: 0,
   });
 
   assert.equal(summary.expectedGrossDues, 44);
@@ -247,6 +249,39 @@ test('calculateTreasurySummary splits house lineage and prize fund accurately', 
   assert.equal(summary.strikePotCollected, 5);
 });
 
+test('computeSeasonTeamPerformance and computeBowlerAbsentScore calculate weekly team consistency and league-agnostic absent scores', () => {
+  const seed = createInitialSeedState();
+  const teamPerf = computeSeasonTeamPerformance(
+    seed.history,
+    seed.bowlers,
+    seed.settings,
+    true
+  );
+
+  assert.equal(teamPerf.weekLabels.length, 4);
+  assert.equal(teamPerf.teams.length, 4);
+  assert.ok(teamPerf.mostConsistentTeam);
+  assert.equal(teamPerf.mostConsistentTeam.consistencyRank, 1);
+
+  const absFixed = computeBowlerAbsentScore(180, {
+    ...DEFAULT_SETTINGS,
+    absentRuleType: 'fixed',
+    absentScore: 150,
+    entryMode: 'three',
+  });
+  assert.equal(absFixed.perGame, 150);
+  assert.equal(absFixed.totalSeries, 450);
+
+  const absMinusPins = computeBowlerAbsentScore(180, {
+    ...DEFAULT_SETTINGS,
+    absentRuleType: 'avg_minus_pins',
+    absentPenaltyPins: 10,
+    entryMode: 'three',
+  });
+  assert.equal(absMinusPins.perGame, 170);
+  assert.equal(absMinusPins.totalSeries, 510);
+});
+
 test('parseUniversalBackupPayload and computeMasterDatabaseMetrics preserve all leagues across JSON and Single-HTML backups', () => {
   const seed = createInitialSeedState();
   assert.ok(seed.allLeaguesRegistry);
@@ -255,9 +290,8 @@ test('parseUniversalBackupPayload and computeMasterDatabaseMetrics preserve all 
   const metrics = computeMasterDatabaseMetrics(seed.allLeaguesRegistry, null, null);
   assert.equal(metrics.totalLeagues, 3);
   assert.equal(metrics.activeLeagues, 3);
-  assert.equal(metrics.duplicateBowlersCount, 2); // Walter Sobchak & Jesus Quintana bowl in 2 leagues
+  assert.equal(metrics.duplicateBowlersCount, 2);
 
-  // Simulate exporting a Single-HTML standalone bundle and importing it on a new PC with cleared browser history
   const htmlBundle = generateStandaloneSingleHtmlBundle(seed, '1.0.07');
   const emptyFallback = { ...seed, bowlers: [], roster: [], history: [], allLeaguesRegistry: {} };
 

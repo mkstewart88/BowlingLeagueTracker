@@ -1,9 +1,24 @@
-import { AppState, BowlerEntry } from '../types/bowling';
+import { AppState } from '../types/bowling';
 import { buildTeamStandings, rankWeeklyBowlers } from './bowlingLogic';
 
 function csvCell(value: unknown): string {
   const s = String(value ?? '');
   return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// Runtime tag builders so the single-file HTML bundler never sees literal closing script/head tags inside JS strings
+function openTag(name: string): string {
+  return String.fromCharCode(60) + name;
+}
+
+function closeTag(name: string): string {
+  return String.fromCharCode(60, 47) + name + String.fromCharCode(62);
+}
+
+function safeSerializeJsonForHtml(data: unknown): string {
+  const raw = JSON.stringify(data);
+  // Escape any "</" sequences inside JSON strings so HTML parser never mistakes them for closing tags
+  return raw.replace(new RegExp(String.fromCharCode(60, 47), 'g'), '\\u003c/');
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -115,161 +130,133 @@ export function exportMasterLeagueBackupJson(state: AppState): string {
   return filename;
 }
 
-/**
- * Generates a 100% self-contained, offline-ready Single HTML file (`Bowling_League_Tracker.html`)
- * that embeds the user's current `AppState` inside so that when the user downloads or overwrites
- * their desktop `.html` file, 100% of their league data, roster, history, and updated version
- * are preserved inside that single file!
- */
-export function generateStandaloneSingleHtmlBundle(
-  state: AppState,
-  targetVersion: string
-): string {
+function buildBootstrapScriptBlock(state: AppState, targetVersion: string): string {
   const updatedState: AppState = {
     ...state,
     version: targetVersion,
   };
-  const serializedState = JSON.stringify(updatedState).replace(/<\/script>/gi, '<\\/script>');
+  const serializedState = safeSerializeJsonForHtml(updatedState);
+  const sOpen = openTag('script');
+  const sClose = closeTag('script');
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${updatedState.settings.leagueName || 'Bowling League Helper'} — v${targetVersion} Standalone</title>
-<style>
-  :root {
-    --ink: #0f172a; --muted: #475569; --line: #cbd5e1; --panel: #ffffff;
-    --page: #f1f5f9; --navy: #0f172a; --blue: #1d4ed8; --green: #047857;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 24px; background: var(--page); color: var(--ink); font-family: system-ui, -apple-system, sans-serif; }
-  .container { max-width: 1180px; margin: 0 auto; background: var(--panel); padding: 28px; border-radius: 12px; border: 1px solid var(--line); }
-  h1 { margin: 0 0 6px; font-size: 26px; }
-  .meta { color: var(--muted); font-size: 14px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-variant-numeric: tabular-nums; font-size: 14px; }
-  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
-  th { background: #f8fafc; font-weight: 700; }
-  .btn { display: inline-block; padding: 10px 16px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-right: 8px; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <h1>🎳 ${updatedState.settings.leagueName || 'Bowling League Helper'} (v${targetVersion} Standalone Edition)</h1>
-    <div class="meta">
-      Season: ${updatedState.settings.seasonName} · Current Week: ${updatedState.settings.weekNumber} · Roster: ${updatedState.roster.length} Bowlers · Archived Weeks: ${updatedState.history.length}
-    </div>
-    <p>This single-file desktop program contains your complete embedded league backup and automatically syncs with your browser storage on open.</p>
-    <div>
-      <button class="btn" onclick="window.print()">Print Current Standings</button>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Bowler</th>
-          <th>Team</th>
-          <th>G1</th>
-          <th>G2</th>
-          <th>G3</th>
-          <th>Scratch</th>
-          <th>Hdcp</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${updatedState.bowlers
-          .map(
-            (b) => `<tr>
-          <td><strong>${b.name}</strong></td>
-          <td>${b.team || '—'}</td>
-          <td>${b.isAbsent ? 'ABS' : b.g1}</td>
-          <td>${b.isAbsent ? 'ABS' : b.g2}</td>
-          <td>${b.isAbsent ? 'ABS' : b.g3}</td>
-          <td>${b.scratchScore}</td>
-          <td>${b.handicap}</td>
-          <td><strong>${b.grandTotal}</strong></td>
-        </tr>`
-          )
-          .join('')}
-      </tbody>
-    </table>
-  </div>
-  <script id="embedded-league-state" type="application/json">${serializedState}</script>
-  <script>
-    (function() {
-      try {
-        var raw = document.getElementById('embedded-league-state').textContent;
-        var parsed = JSON.parse(raw);
-        localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(parsed));
-        localStorage.setItem('bowling_league_helper_state_v4', JSON.stringify(parsed));
-        localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(parsed));
-        console.log('Successfully synced embedded league state v' + parsed.version + ' to localStorage.');
-      } catch (e) {
-        console.error('Could not sync embedded state:', e);
-      }
-    })();
-  </script>
-</body>
-</html>`;
+  return (
+    `${sOpen} id="embedded-league-state" type="application/json">${serializedState}${sClose}\n` +
+    `${sOpen} id="embedded-league-bootstrap">\n` +
+    `(function() {\n` +
+    `  try {\n` +
+    `    var el = document.getElementById('embedded-league-state');\n` +
+    `    if (!el) return;\n` +
+    `    var parsed = JSON.parse(el.textContent);\n` +
+    `    var existingRaw = localStorage.getItem('bowling_league_helper_state_v5');\n` +
+    `    if (!existingRaw) {\n` +
+    `      localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(parsed));\n` +
+    `      localStorage.setItem('bowling_league_helper_state_v4', JSON.stringify(parsed));\n` +
+    `      localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(parsed));\n` +
+    `    } else {\n` +
+    `      var existing = JSON.parse(existingRaw);\n` +
+    `      if (parsed.version && parsed.version !== existing.version) {\n` +
+    `        existing.version = parsed.version;\n` +
+    `        localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(existing));\n` +
+    `      }\n` +
+    `    }\n` +
+    `  } catch (e) {\n` +
+    `    console.warn('Embedded state bootstrap warning:', e);\n` +
+    `  }\n` +
+    `})();\n` +
+    `${sClose}`
+  );
+}
+
+export function generateStandaloneSingleHtmlBundle(
+  state: AppState,
+  targetVersion: string
+): string {
+  const bootstrapBlock = buildBootstrapScriptBlock(state, targetVersion);
+  const cHead = closeTag('head');
+  const cBody = closeTag('body');
+  const cHtml = closeTag('html');
+
+  return (
+    `<!DOCTYPE html>\n<html lang="en">\n<head>\n` +
+    `<meta charset="utf-8">\n` +
+    `<title>${state.settings.leagueName || 'Bowling League Helper'} — v${targetVersion}</title>\n` +
+    `${cHead}\n<body>\n` +
+    `<div id="root"></div>\n` +
+    `${bootstrapBlock}\n` +
+    `${cBody}\n${cHtml}`
+  );
+}
+
+function stripOldEmbeddedScripts(html: string): string {
+  const sOpen = openTag('script');
+  const sClose = closeTag('script');
+  const patternState = new RegExp(
+    `${sOpen}[^>]*id=["']embedded-league-state["'][^>]*>[\\s\\S]*?${sClose}`,
+    'gi'
+  );
+  const patternBoot = new RegExp(
+    `${sOpen}[^>]*id=["']embedded-league-bootstrap["'][^>]*>[\\s\\S]*?${sClose}`,
+    'gi'
+  );
+  return html.replace(patternState, '').replace(patternBoot, '');
 }
 
 /**
  * Builds the 100% interactive, full 5-tab Single-File HTML desktop application (`Bowling_League_Helper_v1.0.06.html`)
- * by injecting the user's complete multi-league `AppState` into the compiled `vite-plugin-singlefile` bundle!
- * When double-clicked on any Windows/Mac desktop, it opens the complete interactive program offline with zero setup.
+ * by injecting the user's complete multi-league `AppState` into the compiled `vite-plugin-singlefile` bundle.
+ * Works both when hosted on the web AND when running offline from a local Desktop `.html` file (`file://`).
  */
 export async function buildInteractiveSingleHtmlFile(
   state: AppState,
   targetVersion: string
 ): Promise<string> {
-  const updatedState: AppState = {
-    ...state,
-    version: targetVersion,
-  };
-  const serializedState = JSON.stringify(updatedState).replace(/<\/script>/gi, '<\\/script>');
+  const bootstrapBlock = buildBootstrapScriptBlock(state, targetVersion);
+  const cBody = closeTag('body');
+  const cHead = closeTag('head');
+  const cHtml = closeTag('html');
 
-  const bootstrapBlock = `<script id="embedded-league-state" type="application/json">${serializedState}</script>
-<script id="embedded-league-bootstrap">
-(function() {
+  // 1. Try fetching the pre-compiled singlefile template when running over http/https
   try {
-    var raw = document.getElementById('embedded-league-state').textContent;
-    var parsed = JSON.parse(raw);
-    var existingRaw = localStorage.getItem('bowling_league_helper_state_v5');
-    if (!existingRaw) {
-      localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(parsed));
-      localStorage.setItem('bowling_league_helper_state_v4', JSON.stringify(parsed));
-      localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(parsed));
-    } else {
-      var existing = JSON.parse(existingRaw);
-      if (parsed.version && parsed.version !== existing.version) {
-        existing.version = parsed.version;
-        localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(existing));
-      }
-    }
-  } catch (e) {
-    console.warn('Embedded state bootstrap warning:', e);
-  }
-})();
-</script>`;
-
-  try {
-    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+    if (
+      typeof window !== 'undefined' &&
+      typeof fetch === 'function' &&
+      window.location.protocol !== 'file:'
+    ) {
       const resp = await fetch('/standalone_template.html', { cache: 'no-store' });
       if (resp.ok) {
         const templateHtml = await resp.text();
-        if (templateHtml.includes('<div id="root">') && templateHtml.includes('<script')) {
-          const cleaned = templateHtml
-            .replace(/<script[^>]*id=["']embedded-league-state["'][^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<script[^>]*id=["']embedded-league-bootstrap["'][^>]*>[\s\S]*?<\/script>/gi, '');
-          return cleaned.replace('</head>', `${bootstrapBlock}\n</head>`);
+        if (templateHtml.includes('id="root"')) {
+          const cleaned = stripOldEmbeddedScripts(templateHtml);
+          const lastBodyIdx = cleaned.lastIndexOf(cBody);
+          if (lastBodyIdx !== -1) {
+            return (
+              cleaned.slice(0, lastBodyIdx) +
+              '\n' +
+              bootstrapBlock +
+              '\n' +
+              cleaned.slice(lastBodyIdx)
+            );
+          }
         }
       }
     }
   } catch {
-    // Fall through to offline/fallback bundle
+    // Fall through to live DOM self-cloning when offline (file://)
   }
 
-  return generateStandaloneSingleHtmlBundle(state, targetVersion);
+  // 2. Offline / Desktop `file://` Mode: Clone the currently running single-file document's <head> bundle
+  if (typeof document !== 'undefined' && document.head) {
+    const cleanHeadInner = stripOldEmbeddedScripts(document.head.innerHTML);
+    return (
+      `<!DOCTYPE html>\n<html lang="en">\n<head>\n` +
+      cleanHeadInner +
+      `\n${cHead}\n<body>\n  <div id="root"></div>\n  ` +
+      bootstrapBlock +
+      `\n${cBody}\n${cHtml}`
+    );
+  }
+
+  return bootstrapBlock;
 }
 
 // Persistent session handle for optional user-selected Auto-Backup location
@@ -355,8 +342,6 @@ export async function chooseAutoBackupLocation(
     }
   }
 
-  // Fallback when running inside an iframe or browser without File System Access API:
-  // Trigger immediate download to user's Downloads / configured browser save folder
   downloadBlob(
     new Blob([content], {
       type: format === 'html' ? 'text/html;charset=utf-8;' : 'application/json',
@@ -462,7 +447,6 @@ export async function overwriteOrDownloadSingleHtmlFile(
       await writable.close();
       return { method: 'filesystem', filename: handle.name || defaultFilename };
     } catch (err: unknown) {
-      // If user cancelled picker or security error inside cross-origin iframe, fall back to direct download
       const errorName = (err as { name?: string })?.name;
       if (errorName === 'AbortError') {
         throw new Error('Cancelled file selection.');
@@ -530,4 +514,3 @@ export async function saveLeagueFileToComputer(
   downloadBlob(new Blob([payload], { type: 'application/json' }), suggestedName);
   return { method: 'download', filename: suggestedName };
 }
-
