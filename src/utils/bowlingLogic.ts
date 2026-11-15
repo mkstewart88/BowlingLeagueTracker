@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.09';
-export const LATEST_AVAILABLE_VERSION = '1.0.09';
+export const CURRENT_APP_VERSION = '1.0.10';
+export const LATEST_AVAILABLE_VERSION = '1.0.10';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -67,10 +67,37 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.10',
+    date: 'November 14, 2026',
+    title: 'Clear Framed Section Borders & Color-Coded Headers Across All 5 Tabs',
+    isLatest: true,
+    highlights: [
+      'Distinct Framed Section Borders Across Every Tab: Upgraded every section container across Tabs 1–5 with crisp 2px borders, elevated frame contrast, and color-tinted header bands so each section stands out at a glance.',
+      'Color-Coded Section Headers & Rule Groups: Separated League Rules (Tab 1D), Team Performance & Averages (Tab 2), Brackets & Side Pots (Tab 3), Dues & Prize Fund (Tab 4), and Multi-League & Backups (Tab 5) into individually framed panels.',
+      'High-Contrast Dark Sub-Tab Bar: Added a dark slate sub-tab navigation bar at the top of each workspace to clearly anchor sub-sections above the framed content panels.',
+    ],
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Added 2px structural borders and color-tinted top header bands (Blue, Emerald, Amber, Slate) to every frame across all 5 tabs for instant visual separation.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Split League Rules & Sheet Options (Tab 1D) into 4 individually framed cards with distinct colored headers instead of a single combined box.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Upgraded sub-tab bars and KPI metric cards with distinct borders and surface tints so every frame is easy to distinguish.',
+      },
+    ],
+  },
+  {
     version: '1.0.09',
     date: 'November 14, 2026',
     title: 'Natural Instant Undo, Streamlined Non-Duplicated Tabs & Automatic Update Sync',
-    isLatest: true,
     highlights: [
       'Natural Undo Placement & Toast Undo Button: Added an instant "Undo" button right inside the bottom notification banner AND directly above the Currently Entered bowler list and Score Entry form.',
       'Eliminated Duplicate Controls & Legacy Comparison Clutter: Removed the V1/V2 comparison view, consolidated League Officers & Birthdays into the Master Roster tab, and kept all Backup/Download actions cleanly in Tab 5C.',

@@ -292,18 +292,18 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+    <div className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
       {/* Top Lane Pair & Opponent Selector Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+      <div className="bg-blue-50/90 border-b-2 border-blue-200 px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="lane-pair-select" className="text-xs font-bold text-slate-700">
+          <label htmlFor="lane-pair-select" className="text-xs font-bold text-blue-950">
             Lane Pair Matchup:
           </label>
           <select
             id="lane-pair-select"
             value={selectedPairIdx}
             onChange={(e) => setSelectedPairIdx(Number(e.target.value))}
-            className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-lg"
+            className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-white border-2 border-slate-300 rounded-lg"
           >
             {pairs.map((p, idx) => (
               <option key={idx} value={idx}>
@@ -312,7 +312,7 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
             ))}
           </select>
 
-          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+          <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer">
             <input
               type="checkbox"
               checked={needsMakeup}
@@ -332,7 +332,7 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
               })
             }
             aria-label="Point System Rule"
-            className="px-2.5 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg"
+            className="px-2.5 py-1.5 text-xs font-semibold bg-white border-2 border-slate-300 rounded-lg"
           >
             <option value="7pt">7-Point System (2-2-2 + 1)</option>
             <option value="8pt">8-Point System (2-2-2 + 2)</option>
@@ -351,34 +351,35 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
         </div>
       </div>
 
-      {/* Team A / Team B Tab Switcher */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveSide('A')}
-          className={`px-5 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-            activeSide === 'A'
-              ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
-              : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
-          }`}
-        >
-          Lane {currentPair.oddLane}: {currentPair.teamA.name} ({matchup.teamAPoints} pts)
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSide('B')}
-          className={`px-5 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-            activeSide === 'B'
-              ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
-              : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
-          }`}
-        >
-          Lane {currentPair.evenLane}: {currentPair.teamB.name} ({activeSide === 'A' ? matchup.teamBPoints : matchup.teamAPoints} pts)
-        </button>
-      </div>
+      <div className="p-5 space-y-4">
+        {/* Team A / Team B Tab Switcher */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveSide('A')}
+            className={`px-5 py-2 rounded-lg text-xs font-bold border-2 transition-colors cursor-pointer ${
+              activeSide === 'A'
+                ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
+                : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+            }`}
+          >
+            Lane {currentPair.oddLane}: {currentPair.teamA.name} ({matchup.teamAPoints} pts)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSide('B')}
+            className={`px-5 py-2 rounded-lg text-xs font-bold border-2 transition-colors cursor-pointer ${
+              activeSide === 'B'
+                ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
+                : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+            }`}
+          >
+            Lane {currentPair.evenLane}: {currentPair.teamB.name} ({activeSide === 'A' ? matchup.teamBPoints : matchup.teamAPoints} pts)
+          </button>
+        </div>
 
-      {/* Team Recap Spreadsheet Grid */}
-      <div className="overflow-x-auto border border-slate-300 rounded-lg">
+        {/* Team Recap Spreadsheet Grid */}
+        <div className="overflow-x-auto border-2 border-slate-300 rounded-lg">
         <table className="w-full text-left border-collapse text-xs font-mono tabular-nums">
           <thead>
             <tr className="bg-blue-800 text-white font-sans">
@@ -641,6 +642,7 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
             </tr>
           </tfoot>
         </table>
+      </div>
       </div>
     </div>
   );

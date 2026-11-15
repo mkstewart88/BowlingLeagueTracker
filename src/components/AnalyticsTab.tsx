@@ -301,8 +301,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Clear Sub-Tab Navigation Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      {/* High-Contrast Framed Sub-Tab Navigation Bar */}
+      <div className="bg-slate-800 border-2 border-slate-700 rounded-xl p-2 shadow-sm flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Standings and Analytics Sections">
           <button
             type="button"
@@ -311,8 +311,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             onClick={() => setSubTab('team_performance')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'team_performance'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <BarChart3 className="w-4 h-4" />
@@ -326,8 +326,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             onClick={() => setSubTab('bowler_averages')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'bowler_averages'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Users className="w-4 h-4" />
@@ -341,8 +341,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             onClick={() => setSubTab('season_highs')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'season_highs'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Trophy className="w-4 h-4" />
@@ -356,8 +356,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             onClick={() => setSubTab('archived_weeks')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'archived_weeks'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <History className="w-4 h-4" />
@@ -372,20 +372,20 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {subTab === 'team_performance' && (
         <div className="space-y-6">
           {/* Section Header & Controls */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-blue-700" />
                 Team Performance & Season Consistency Analyzer
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 Compare total team scores per week across {teamPerf.weekLabels.length} weeks to identify the most consistent teams in {settings.leagueName}.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               {/* Toggle Grand Total vs Scratch */}
-              <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
+              <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-300 text-xs font-bold">
                 <button
                   type="button"
                   onClick={() => setTeamScoreType('grand')}
@@ -438,8 +438,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
           {/* 4 Summary Callout Cards: Most Consistent Team, Highest Weekly Average, High Single Week, Active Weeks */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4">
-              <div className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+            <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                 #1 Most Consistent Team
               </div>
@@ -453,8 +453,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-slate-500">Highest Team Weekly Average</div>
+            <div className="bg-blue-50/70 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-blue-900">Highest Team Weekly Average</div>
               <div className="text-xl font-bold text-blue-700 font-mono tabular-nums mt-1">
                 {teamPerf.highestAverageTeam
                   ? `${
@@ -469,44 +469,45 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-slate-500">Highest Single-Week Team Total</div>
+            <div className="bg-amber-50/70 border-2 border-amber-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-amber-900">Highest Single-Week Team Total</div>
               <div className="text-xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                 {teamPerf.highestSingleWeekTeam?.score || '—'}
               </div>
-              <div className="text-xs text-slate-600 mt-0.5 truncate">
+              <div className="text-xs text-slate-700 mt-0.5 truncate">
                 {teamPerf.highestSingleWeekTeam
                   ? `${teamPerf.highestSingleWeekTeam.teamName} (${teamPerf.highestSingleWeekTeam.weekLabel})`
                   : '—'}
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-slate-500">Weeks Tracked in Chart</div>
+            <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-slate-700">Weeks Tracked in Chart</div>
               <div className="text-xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                 {teamPerf.weekLabels.length} Weeks
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-600 mt-0.5">
                 {teamPerf.teams.length} competing teams
               </div>
             </div>
           </section>
 
           {/* Visual Bar Chart of Total Team Scores Per Week */}
-          <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-blue-50/90 border-b-2 border-blue-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
                   Bar Chart: Total Team Scores Per Week ({teamScoreType === 'grand' ? 'With Handicap' : 'Scratch'})
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Each bar shows the team's weekly pin total compared against their season weekly average (vertical marker line). Narrower bars around the marker indicate higher week-to-week consistency.
                 </p>
               </div>
-              <div className="text-xs font-semibold text-slate-600">
+              <div className="text-xs font-bold text-blue-900 bg-white border border-blue-200 px-3 py-1 rounded-md">
                 Vertical Line = Team Season Weekly Average
               </div>
             </div>
+            <div className="p-6">
 
             {visibleTeamsForChart.length === 0 ? (
               <div className="py-12 text-center text-xs text-slate-400">
@@ -525,7 +526,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   return (
                     <div
                       key={team.teamName}
-                      className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3"
+                      className="p-4 bg-slate-50 border-2 border-slate-300 rounded-xl space-y-3"
                     >
                       <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                         <div>
@@ -570,7 +571,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                   {val} pins
                                 </span>
                               </div>
-                              <div className="w-full h-6 bg-white border border-slate-200 rounded-md overflow-hidden relative flex items-center">
+                              <div className="w-full h-6 bg-white border border-slate-300 rounded-md overflow-hidden relative flex items-center">
                                 <div
                                   className={`h-full ${barColor} transition-all rounded-r`}
                                   style={{ width: `${pct}%` }}
@@ -592,16 +593,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 })}
               </div>
             )}
+            </div>
           </section>
 
           {/* Team Consistency & Week-by-Week Comparison Table */}
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <section className="bg-white border-2 border-emerald-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-emerald-50/90 px-5 py-4 border-b-2 border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
                   Season Team Consistency & Weekly Totals Table
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Smaller High–Low Spread and lower Standard Deviation (± Pins) indicate a more dependable, consistent team week after week.
                 </p>
               </div>
@@ -670,14 +672,14 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </section>
 
           {/* Current Week Head-to-Head Matchup Points */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-100 border-b-2 border-slate-300 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Swords className="w-4 h-4 text-slate-700" />
                   Current Week Head-to-Head Team Point Splits
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Supports any league point system (7-Pt, 8-Pt, 9-Pt, 5-Pt, 4-Pt, or Custom Points)
                 </p>
               </div>
@@ -689,7 +691,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   })
                 }
                 aria-label="League Point System"
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-300 rounded-lg"
+                className="px-3 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-lg"
               >
                 <option value="7pt">7-Point (2 per Game + 1 Series)</option>
                 <option value="8pt">8-Point (2 per Game + 2 Series)</option>
@@ -702,6 +704,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               </select>
             </div>
 
+            <div className="p-5">
             {headToHeadPairs.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-400">
                 Enter scores for at least 2 teams to view Head-to-Head matchup points.
@@ -711,26 +714,27 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 {headToHeadPairs.map((pair, idx) => (
                   <div
                     key={idx}
-                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2"
+                    className="p-4 bg-slate-50 border-2 border-slate-200 rounded-lg space-y-2"
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-slate-900">
                       <span>
                         {pair.teamA.name} ({pair.teamA.total})
                       </span>
-                      <span className="font-mono tabular-nums px-2.5 py-1 bg-white border border-slate-200 rounded text-blue-700">
+                      <span className="font-mono tabular-nums px-2.5 py-1 bg-white border border-slate-300 rounded text-blue-700">
                         {pair.result.teamAPoints} pts — {pair.result.teamBPoints} pts
                       </span>
                       <span>
                         {pair.teamB.name} ({pair.teamB.total})
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-500 font-mono tabular-nums text-center">
+                    <div className="text-[11px] text-slate-600 font-mono tabular-nums text-center">
                       {pair.result.breakdown}
                     </div>
                   </div>
                 ))}
               </div>
             )}
+            </div>
           </section>
         </div>
       )}
@@ -741,7 +745,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {subTab === 'bowler_averages' && (
         <div className="space-y-6">
           {/* Handicap Formula & Custom CSV Builder Header */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
@@ -863,8 +867,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </section>
 
           {/* Individual Bowler Progression Chart */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-emerald-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-emerald-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <TrendingUp className="w-4 h-4 text-blue-600" />
@@ -1053,13 +1057,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </section>
 
           {/* Complete Season Book Average Table */}
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
                   Complete Season Book Average & Handicap Sheet ({filteredStats.length} Bowlers)
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Click any row to view that bowler's chart above.
                 </p>
               </div>
@@ -1070,7 +1074,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter bowler or team..."
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg"
+                  className="pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
                 />
               </div>
             </div>
@@ -1152,18 +1156,18 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'season_highs' && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-amber-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-amber-50/90 px-5 py-4 border-b-2 border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-600" />
                   Season High Scores & Prize Qualification Board
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Tracks individual high scratch & handicap achievements, Most Improved Bowler, and Pins Over Average.
                 </p>
               </div>
-              <label className="inline-flex items-center gap-2 text-xs text-slate-800 font-bold cursor-pointer bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+              <label className="inline-flex items-center gap-2 text-xs text-slate-800 font-bold cursor-pointer bg-white px-3 py-2 rounded-lg border border-amber-300">
                 <input
                   type="checkbox"
                   checked={oneAwardPerBowlerRule}
@@ -1174,9 +1178,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="text-xs font-semibold text-slate-500">High Scratch Series</div>
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="p-4 bg-slate-50 border-2 border-slate-300 rounded-xl">
+                <div className="text-xs font-bold text-slate-600">High Scratch Series</div>
                 <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                   {awards.highScratchSeries.value || '—'}
                 </div>
@@ -1188,8 +1192,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="text-xs font-semibold text-slate-500">High Scratch Game</div>
+              <div className="p-4 bg-slate-50 border-2 border-slate-300 rounded-xl">
+                <div className="text-xs font-bold text-slate-600">High Scratch Game</div>
                 <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                   {awards.highScratchGame.value || '—'}
                 </div>
@@ -1201,8 +1205,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="text-xs font-semibold text-slate-500">High Handicap Series</div>
+              <div className="p-4 bg-blue-50/60 border-2 border-blue-300 rounded-xl">
+                <div className="text-xs font-bold text-blue-900">High Handicap Series</div>
                 <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                   {awards.highHandicapSeries.value || '—'}
                 </div>
@@ -1214,8 +1218,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="text-xs font-semibold text-slate-500">High Handicap Game</div>
+              <div className="p-4 bg-blue-50/60 border-2 border-blue-300 rounded-xl">
+                <div className="text-xs font-bold text-blue-900">High Handicap Game</div>
                 <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                   {awards.highHandicapGame.value || '—'}
                 </div>
@@ -1227,8 +1231,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-                <div className="text-xs font-semibold text-emerald-800">Most Improved Average</div>
+              <div className="p-4 bg-emerald-50/80 border-2 border-emerald-300 rounded-xl">
+                <div className="text-xs font-bold text-emerald-900">Most Improved Average</div>
                 <div className="text-2xl font-bold text-emerald-900 font-mono tabular-nums mt-1">
                   {awards.mostImproved.value >= 0
                     ? `+${awards.mostImproved.value}`
@@ -1245,8 +1249,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl">
-                <div className="text-xs font-semibold text-amber-900">Most Pins Over Average (Game)</div>
+              <div className="p-4 bg-amber-50/80 border-2 border-amber-300 rounded-xl">
+                <div className="text-xs font-bold text-amber-900">Most Pins Over Average (Game)</div>
                 <div className="text-2xl font-bold text-amber-950 font-mono tabular-nums mt-1">
                   +{awards.mostPinsOverGame.value || 0} <span className="text-xs font-normal">pins</span>
                 </div>
@@ -1263,14 +1267,14 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </section>
 
           {/* Customizable Honor Score Milestone Qualification Table */}
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <section className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-blue-50/90 px-5 py-4 border-b-2 border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Award className="w-4 h-4 text-blue-700" />
                   Customizable Honor Scores & Milestone Tracker
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Set your league's custom Honor Game and Honor Series thresholds (e.g. 200+ Game / 600+ Series, or 225+ / 650+)
                 </p>
               </div>
@@ -1360,17 +1364,18 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {/* SUB-TAB 2D: ARCHIVED WEEKS HISTORY                                    */}
       {/* ===================================================================== */}
       {subTab === 'archived_weeks' && (
-        <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-          <div className="border-b border-slate-100 pb-3">
+        <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <History className="w-5 h-5 text-blue-700" />
               Archived Season Weeks ({history.length} Weeks Saved)
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-600 mt-0.5">
               Click "Load Week into View" to inspect or reprint any past week's standing sheet.
             </p>
           </div>
 
+          <div className="p-5">
           {history.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400">
               No archived weeks yet. Click "FINISH WEEK & GENERATE CSV + PRINTOUT" on Tab 1 to archive the active week.
@@ -1383,13 +1388,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 .map((h) => (
                   <div
                     key={h.id}
-                    className="p-4 border border-slate-200 rounded-xl flex items-center justify-between gap-3 bg-slate-50/50 hover:bg-slate-50"
+                    className="p-4 border-2 border-slate-300 rounded-xl flex items-center justify-between gap-3 bg-slate-50 hover:bg-blue-50/40 transition-colors"
                   >
                     <div>
                       <div className="text-sm font-bold text-slate-900">
                         {h.league} · Week {h.week}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-600 mt-0.5">
                         {h.bowlers.length} bowlers entered · Saved {new Date(h.date).toLocaleDateString()}
                       </div>
                     </div>
@@ -1413,6 +1418,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 ))}
             </div>
           )}
+          </div>
         </section>
       )}
 

@@ -108,8 +108,8 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Clear Sub-Tab Bar for Tab 4 */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      {/* High-Contrast Framed Sub-Tab Bar for Tab 4 */}
+      <div className="bg-slate-800 border-2 border-slate-700 rounded-xl p-2 shadow-sm flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Treasurer and Dues Sections">
           <button
             type="button"
@@ -118,8 +118,8 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
             onClick={() => setSubTab('weekly_dues')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'weekly_dues'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <ClipboardList className="w-4 h-4" />
@@ -133,8 +133,8 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
             onClick={() => setSubTab('prize_list')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'prize_list'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Calculator className="w-4 h-4" />
@@ -148,7 +148,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'weekly_dues' && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
                 Weekly Bowler Dues, Alley Lineage & Envelope Reconciliation
@@ -237,59 +237,59 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
           </section>
 
           <section className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-slate-500">Collected Gross Dues</div>
+            <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-slate-600">Collected Gross Dues</div>
               <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
                 ${summary.collectedGrossDues.toFixed(2)}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-600 mt-0.5">
                 of ${summary.expectedGrossDues.toFixed(2)} ({summary.paidCount}/{summary.totalActiveBowlers} paid)
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-slate-500">Alley Lineage Cut</div>
+            <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-slate-600">Alley Lineage Cut</div>
               <div className="text-2xl font-bold text-slate-800 font-mono tabular-nums mt-1">
                 ${summary.houseLineageCut.toFixed(2)}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-600 mt-0.5">
                 ${settings.lineageCostPerBowler}/bowler to center
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-emerald-700">Net Prize Fund Added</div>
+            <div className="bg-emerald-50/80 border-2 border-emerald-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-emerald-900">Net Prize Fund Added</div>
               <div className="text-2xl font-bold text-emerald-800 font-mono tabular-nums mt-1">
                 ${summary.netPrizeFundContribution.toFixed(2)}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-emerald-800 mt-0.5">
                 After lineage & ${summary.secretarySalaryCut} sec fee
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-amber-800">Outstanding Arrears</div>
+            <div className="bg-amber-50/80 border-2 border-amber-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-amber-900">Outstanding Arrears</div>
               <div className="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-1">
                 ${summary.outstandingArrears.toFixed(2)}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-amber-800 mt-0.5">
                 {summary.owesCount} bowler(s) owing
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="text-xs font-semibold text-blue-700">Side Pots Collected</div>
+            <div className="bg-blue-50/80 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
+              <div className="text-xs font-bold text-blue-900">Side Pots Collected</div>
               <div className="text-2xl font-bold text-blue-800 font-mono tabular-nums mt-1">
                 ${(summary.strikePotCollected + summary.highGamePotCollected).toFixed(2)}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-blue-800 mt-0.5">
                 Strike: ${summary.strikePotCollected} · High Gm: ${summary.highGamePotCollected}
               </div>
             </div>
           </section>
 
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="px-5 py-4 border-b border-slate-200">
+          <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300">
               <h3 className="text-sm font-bold text-slate-900">
                 Week {settings.weekNumber || '4'} Bowler Dues & Envelope Checklist
               </h3>
@@ -428,14 +428,14 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
       {/* SUB-TAB 4B: END-OF-SEASON PRIZE FUND & PAYOUT CALCULATOR              */}
       {/* ===================================================================== */}
       {subTab === 'prize_list' && (
-        <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <section className="bg-white border-2 border-emerald-300 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-emerald-50/90 px-6 py-4 border-b-2 border-emerald-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-700" />
                 End-of-Season Prize Fund & Team Payout Calculator
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 Projects your league's full-season net prize fund over {settings.totalWeeks} weeks and calculates team & per-bowler payouts.
               </p>
             </div>
@@ -444,7 +444,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
               <select
                 value={prizeDistMode}
                 onChange={(e) => setPrizeDistMode(e.target.value as 'place_pct' | 'equal_point')}
-                className="px-3 py-1.5 font-bold bg-slate-50 border border-slate-300 rounded-lg"
+                className="px-3 py-1.5 font-bold bg-white border border-emerald-300 rounded-lg"
               >
                 <option value="place_pct">Championship Placement Curve (1st Heavy)</option>
                 <option value="equal_point">Balanced Graduated Split (Closer Tiers)</option>
@@ -452,9 +452,10 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
             </div>
           </div>
 
+          <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-              <div className="text-xs font-bold text-emerald-800">Projected Season Prize Pool</div>
+            <div className="p-4 bg-emerald-50/80 border-2 border-emerald-300 rounded-xl">
+              <div className="text-xs font-bold text-emerald-900">Projected Season Prize Pool</div>
               <div className="text-2xl font-bold font-mono text-emerald-950 mt-1">
                 ${projectedSeasonPrizeFund.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </div>
@@ -463,28 +464,28 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="text-xs font-semibold text-slate-500">Season Alley Lineage Total</div>
+            <div className="p-4 bg-slate-50 border-2 border-slate-300 rounded-xl">
+              <div className="text-xs font-bold text-slate-700">Season Alley Lineage Total</div>
               <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
                 ${(summary.houseLineageCut * (settings.totalWeeks || 31)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-600 mt-0.5">
                 ${summary.houseLineageCut}/wk × {settings.totalWeeks} weeks
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="text-xs font-semibold text-slate-500">Bowlers Per Team Setting</div>
+            <div className="p-4 bg-blue-50/70 border-2 border-blue-300 rounded-xl">
+              <div className="text-xs font-bold text-blue-900">Bowlers Per Team Setting</div>
               <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
                 {settings.bowlersPerTeam ?? 4} Bowlers / Team
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-blue-800 mt-0.5">
                 Used to split team prize into individual shares
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          <div className="overflow-x-auto border-2 border-slate-300 rounded-xl">
             <table className="w-full text-left border-collapse text-xs font-mono tabular-nums">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-sans">
@@ -522,6 +523,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
           </div>
         </section>
       )}

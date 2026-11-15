@@ -174,8 +174,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Clear Sub-Tab Bar for Tab 3 */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      {/* High-Contrast Framed Sub-Tab Bar for Tab 3 */}
+      <div className="bg-slate-800 border-2 border-slate-700 rounded-xl p-2 shadow-sm flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Brackets and Side Pots Sections">
           <button
             type="button"
@@ -184,8 +184,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
             onClick={() => setSubTab('tree')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'tree'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <GitBranch className="w-4 h-4" />
@@ -199,8 +199,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
             onClick={() => setSubTab('side_pots')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'side_pots'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Sparkles className="w-4 h-4" />
@@ -214,8 +214,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
             onClick={() => setSubTab('payouts')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'payouts'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Users className="w-4 h-4" />
@@ -229,7 +229,7 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'tree' && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
                 8-Player Tournament Brackets (Handicap & Scratch)
@@ -290,22 +290,23 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
             return (
               <section
                 key={brk.id}
-                className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4 overflow-x-auto"
+                className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm"
               >
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div className="bg-blue-50/90 px-5 py-4 border-b-2 border-blue-200 flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-blue-800">
+                    <h3 className="text-base font-bold text-blue-900">
                       {brk.title} — Week {settings.weekNumber || '4'}
                     </h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-600">
                       8 Bowlers · Entry ${brk.entryFee} · 1st Place ${brk.firstPrize} · 2nd Place ${brk.secondPrize}
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-emerald-800 font-mono">
+                  <span className="text-xs font-bold text-emerald-900 bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-md font-mono">
                     Champion: {brk.champion.name} (${brk.champion.payout})
                   </span>
                 </div>
 
+                <div className="p-5 overflow-x-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-w-[780px] text-xs font-mono tabular-nums">
                   <div className="space-y-3">
                     <div className="font-sans font-bold text-slate-700 text-center pb-1 border-b border-slate-200">
@@ -423,6 +424,7 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                     </div>
                   </div>
                 </div>
+                </div>
               </section>
             );
           })}
@@ -434,8 +436,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'side_pots' && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-amber-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-amber-200 pb-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-600" />
@@ -513,14 +515,14 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
           </section>
 
           {/* Mystery Score / Lucky Number Pot */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-blue-200 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-700" />
                   Mystery Score / Lucky Number Jackpot Drawer
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Draw a random Mystery Score (or type the number pulled from your league's pill bottle) to see who hit or came closest!
                 </p>
               </div>
@@ -558,19 +560,19 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
               {mysteryMatches.slice(0, 3).map((m, idx) => (
                 <div
                   key={m.bowler.id}
-                  className={`p-3.5 border rounded-xl flex items-center justify-between text-xs ${
+                  className={`p-3.5 border-2 rounded-xl flex items-center justify-between text-xs ${
                     m.diff === 0
                       ? 'bg-emerald-50 border-emerald-300'
                       : idx === 0
-                      ? 'bg-blue-50/60 border-blue-200'
-                      : 'bg-slate-50 border-slate-200'
+                      ? 'bg-blue-50/60 border-blue-300'
+                      : 'bg-slate-50 border-slate-300'
                   }`}
                 >
                   <div>
                     <div className="font-bold text-slate-900">
                       #{idx + 1} {m.bowler.name}
                     </div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-[11px] text-slate-600">
                       {m.diff === 0
                         ? 'EXACT MYSTERY SCORE HIT!'
                         : `Off by ${m.diff} pin(s) in Game ${mysteryGameNum}`}
@@ -591,8 +593,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'payouts' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="lg:col-span-7 bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-blue-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
                   Select Bowlers Entered in Weekly Brackets ({selectedBowlers.length} Active)
@@ -669,8 +671,8 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
+          <div className="lg:col-span-5 bg-white border-2 border-emerald-300 rounded-xl p-5 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 border-b-2 border-emerald-100 pb-3">
               Weekly Bracket Payout Summary
             </h3>
             <div className="space-y-3 text-xs">
@@ -679,7 +681,7 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
                 return (
                   <div
                     key={brk.id}
-                    className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2"
+                    className="p-3.5 bg-emerald-50/50 border-2 border-emerald-200 rounded-lg space-y-2"
                   >
                     <div className="font-bold text-slate-900">{brk.title}</div>
                     <div className="flex items-center justify-between">

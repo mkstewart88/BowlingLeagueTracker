@@ -741,9 +741,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-200/70 text-slate-900 flex flex-col font-sans">
       {/* Top Bar Contract: 3 Zones separated by gap-8 (Single-Line Brand, 5 Nav Links, 1 Primary Action) */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 px-6 py-3.5 sticky top-0 z-40 print:hidden">
+      <header className="bg-slate-900 text-white border-b-2 border-slate-800 px-6 py-3.5 sticky top-0 z-40 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-8">
           {/* Zone 1: Single-line Brand Title */}
           <a
@@ -836,7 +836,7 @@ export default function App() {
       </header>
 
       {/* Mobile Tab Bar (Shown on screens < md) */}
-      <div className="md:hidden bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-1 overflow-x-auto print:hidden">
+      <div className="md:hidden bg-white border-b-2 border-slate-300 px-3 py-2 flex items-center gap-1 overflow-x-auto print:hidden">
         <button
           type="button"
           onClick={() => switchTab('entry')}
@@ -950,9 +950,9 @@ export default function App() {
       </main>
 
       {/* Bottom Quick-Week Jumper Strip + Clean Footer */}
-      <footer className="max-w-7xl w-full mx-auto px-6 py-4 border-t border-slate-200 text-xs text-slate-500 space-y-3 print:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3.5 py-2">
-          <div className="flex items-center gap-2 font-bold text-slate-700">
+      <footer className="max-w-7xl w-full mx-auto px-6 py-4 border-t-2 border-slate-300 text-xs text-slate-600 space-y-3 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-white border-2 border-slate-300 rounded-xl px-4 py-2.5 shadow-xs">
+          <div className="flex items-center gap-2 font-bold text-slate-800">
             <Calendar className="w-3.5 h-3.5 text-blue-700" />
             <span>Quick Week Navigation ({appState.settings.seasonName}):</span>
           </div>
@@ -962,18 +962,18 @@ export default function App() {
                 key={h.id}
                 type="button"
                 onClick={() => handleLoadArchivedWeek(h.id)}
-                className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold cursor-pointer transition-colors"
+                className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-semibold cursor-pointer transition-colors"
               >
                 Week {h.week}
               </button>
             ))}
-            <span className="px-2.5 py-1 rounded bg-emerald-700 text-white font-bold">
+            <span className="px-2.5 py-1 rounded-md bg-emerald-700 text-white font-bold">
               Week {appState.settings.weekNumber || '4'} (Active)
             </span>
             <button
               type="button"
               onClick={handleStartNewWeek}
-              className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-semibold cursor-pointer transition-colors"
+              className="px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 font-semibold cursor-pointer transition-colors"
             >
               Advance to Week {(Number(appState.settings.weekNumber) || 4) + 1} →
             </button>

@@ -25,9 +25,9 @@ import {
 } from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.09 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.09');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.09');
+test('version is set to 1.0.10 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.10');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.10');
 });
 
 test('calculateBowlerHandicap computes 90% of 220 accurately for 3-game series and single game', () => {
@@ -337,14 +337,14 @@ test('compareSemverVersions and parseGithubRepoSpec accurately track GitHub vers
 
   const merged = mergePatchNotesHistory([
     {
-      version: '1.0.09',
+      version: '1.0.11',
       date: 'November 20, 2026',
       title: 'Remote GitHub Test Release',
       highlights: ['Tested live GitHub version.json update'],
       changes: [{ category: 'New Feature', description: 'Live GitHub update' }],
     },
   ]);
-  assert.equal(merged[0].version, '1.0.09');
+  assert.equal(merged[0].version, '1.0.11');
   assert.equal(merged[0].isLatest, true);
 });
 

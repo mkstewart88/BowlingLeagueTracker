@@ -206,8 +206,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
         }}
       />
 
-      {/* Clean 3-Part Sub-Tab Navigation Bar for Tab 5 */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      {/* High-Contrast Framed 3-Part Sub-Tab Navigation Bar for Tab 5 */}
+      <div className="bg-slate-800 border-2 border-slate-700 rounded-xl p-2 shadow-sm flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Schedule and League Hub Sections">
           <button
             type="button"
@@ -216,8 +216,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             onClick={() => setSubTab('leagues')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'leagues'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Database className="w-4 h-4" />
@@ -231,8 +231,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             onClick={() => setSubTab('schedule')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'schedule'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <Calendar className="w-4 h-4" />
@@ -246,8 +246,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             onClick={() => setSubTab('backups')}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'backups'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300/70'
+                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
             }`}
           >
             <HardDrive className="w-4 h-4" />
@@ -260,23 +260,24 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
       {/* SUB-TAB 5A: MANAGE MULTIPLE LEAGUES & MASTER DATABASE                 */}
       {/* ===================================================================== */}
       {subTab === 'leagues' && (
-        <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <section className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-blue-50/90 px-6 py-4 border-b-2 border-blue-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Database className="w-5 h-5 text-blue-700" />
                 Master Bowler & Multi-League Database Manager
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 Manage multiple bowling leagues inside this single program and switch between them with 1 click.
               </p>
             </div>
           </div>
 
+          <div className="p-6 space-y-6">
           {/* 3 Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
-              <div className="bg-blue-100/80 border-b border-blue-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
+            <div className="bg-slate-50 border-2 border-blue-300 rounded-lg overflow-hidden shadow-xs">
+              <div className="bg-blue-100 border-b-2 border-blue-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
                 Bowler Count (All Leagues)
               </div>
               <div className="p-4 space-y-2 text-xs font-mono tabular-nums">
@@ -301,8 +302,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
-              <div className="bg-blue-100/80 border-b border-blue-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
+            <div className="bg-slate-50 border-2 border-emerald-300 rounded-lg overflow-hidden shadow-xs">
+              <div className="bg-emerald-100 border-b-2 border-emerald-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
                 League Count
               </div>
               <div className="p-4 space-y-2 text-xs font-mono tabular-nums">
@@ -327,8 +328,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
-              <div className="bg-blue-100/80 border-b border-blue-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
+            <div className="bg-slate-50 border-2 border-amber-300 rounded-lg overflow-hidden shadow-xs">
+              <div className="bg-amber-100 border-b-2 border-amber-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
                 Database & Backup Status
               </div>
               <div className="p-4 space-y-2.5 text-xs text-center">
@@ -354,7 +355,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               <div className="text-xs font-bold text-slate-800">
                 All Leagues Inside This Program (Click to Switch Active League)
               </div>
-              <div className="divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden bg-white">
+              <div className="divide-y divide-slate-200 border-2 border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs">
                 {Object.entries(leaguesMap).map(([id, lg]) => {
                   const isCurrent =
                     id === (appState.activeLeagueId || settings.leagueId || 'thursday-night-rollers');
@@ -422,7 +423,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
 
             <form
               onSubmit={handleCreateLeagueSubmit}
-              className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3"
+              className="lg:col-span-5 bg-slate-50 border-2 border-slate-300 rounded-lg p-5 space-y-3 shadow-xs"
             >
               <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-blue-700" />
@@ -477,6 +478,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               </button>
             </form>
           </div>
+          </div>
         </section>
       )}
 
@@ -485,7 +487,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'schedule' && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
                 Round-Robin Lane Schedule & Position Round Generator
@@ -553,14 +555,14 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
           </section>
 
           {/* Position Round Preview */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <section className="bg-white border-2 border-amber-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-amber-200 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Trophy className="w-4 h-4 text-amber-600" />
                   Automatic Position Round Pairings (1st vs 2nd, 3rd vs 4th)
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600">
                   Generated live from your current team standings starting on Lane {settings.startingLane}
                 </p>
               </div>
@@ -570,7 +572,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               {positionRoundPairs.map((pair, idx) => (
                 <div
                   key={idx}
-                  className="p-4 bg-amber-50/50 border border-amber-200 rounded-lg flex items-center justify-between"
+                  className="p-4 bg-amber-50/70 border-2 border-amber-300 rounded-lg flex items-center justify-between"
                 >
                   <div>
                     <div className="text-xs font-bold text-amber-900 font-mono">
@@ -580,7 +582,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                       #{idx * 2 + 1} {pair.teamA} <span className="text-slate-400 font-normal">vs.</span> #{idx * 2 + 2} {pair.teamB}
                     </div>
                   </div>
-                  <span className="text-xs font-semibold text-amber-800">
+                  <span className="text-xs font-bold text-amber-900 bg-white border border-amber-300 px-2.5 py-1 rounded">
                     Position Round
                   </span>
                 </div>
@@ -595,15 +597,15 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
               return (
                 <div
                   key={weekNum}
-                  className={`bg-white border rounded-xl overflow-hidden shadow-xs ${
-                    isCurrentWeek ? 'border-blue-600 ring-1 ring-blue-600' : 'border-slate-200'
+                  className={`bg-white border-2 rounded-xl overflow-hidden shadow-sm ${
+                    isCurrentWeek ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-300'
                   }`}
                 >
                   <div
-                    className={`px-4 py-2.5 border-b flex items-center justify-between text-xs font-bold ${
+                    className={`px-4 py-2.5 border-b-2 flex items-center justify-between text-xs font-bold ${
                       isCurrentWeek
                         ? 'bg-blue-700 text-white border-blue-700'
-                        : 'bg-slate-50 text-slate-800 border-slate-200'
+                        : 'bg-slate-100 text-slate-900 border-slate-300'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
@@ -613,18 +615,18 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     {isCurrentWeek && <span>Current Active Week</span>}
                   </div>
 
-                  <div className="divide-y divide-slate-100 p-3 space-y-2">
+                  <div className="divide-y divide-slate-200 p-3 space-y-2">
                     {matches.map((m, idx) => (
                       <div
                         key={idx}
                         className="pt-2 first:pt-0 flex items-center justify-between text-xs"
                       >
-                        <span className="font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                        <span className="font-mono font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded">
                           Lanes {m.oddLane}–{m.evenLane}
                         </span>
-                        <div className="text-right font-medium text-slate-900">
+                        <div className="text-right font-bold text-slate-900">
                           <span>{m.teamA}</span>{' '}
-                          <span className="text-slate-400">vs</span>{' '}
+                          <span className="text-slate-400 font-normal">vs</span>{' '}
                           <span>{m.teamB}</span>
                         </div>
                       </div>
@@ -641,8 +643,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
       {/* SUB-TAB 5C: BACKUPS, RESTORE & AUTO-BACKUP SCHEDULER                  */}
       {/* ===================================================================== */}
       {subTab === 'backups' && (
-        <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 pb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <section className="bg-white border-2 border-emerald-300 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-emerald-50/90 px-6 py-4 border-b-2 border-emerald-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <HardDrive className="w-5 h-5 text-blue-700" />
@@ -699,7 +701,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             </div>
           </div>
 
-          <div className="p-5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-4">
+          <div className="p-6">
+          <div className="p-5 bg-blue-50/70 border-2 border-blue-300 rounded-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
@@ -809,6 +812,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </section>
       )}
