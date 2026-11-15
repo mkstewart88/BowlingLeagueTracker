@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, LeagueSettings, VersionManifest } from '../types/bowling';
+import { AppState, VersionManifest } from '../types/bowling';
 import { LATEST_AVAILABLE_VERSION } from '../utils/bowlingLogic';
 import {
+  OFFICIAL_GITHUB_URL,
   compareSemverVersions,
   fetchRemoteHtmlTemplateFromGithub,
   fetchVersionManifest,
   mergePatchNotesHistory,
-  parseGithubRepoSpec,
 } from '../utils/githubUpdater';
 import {
   overwriteOrDownloadSingleHtmlFile,
@@ -20,7 +20,6 @@ import {
   FileCode2,
   X,
   History,
-  Globe,
 } from 'lucide-react';
 
 interface UpdateModalProps {
@@ -28,9 +27,7 @@ interface UpdateModalProps {
   onClose: () => void;
   appState: AppState;
   remoteManifest: VersionManifest;
-  manifestSourceUrl: string;
-  onUpdateManifest: (manifest: VersionManifest, sourceUrl: string) => void;
-  onUpdateSettings: (partial: Partial<LeagueSettings>) => void;
+  onUpdateManifest: (manifest: VersionManifest) => void;
   onUpgradeVersion: (newVersion: string) => void;
   onShowToast: (msg: string, isError?: boolean) => void;
 }
@@ -40,9 +37,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   onClose,
   appState,
   remoteManifest,
-  manifestSourceUrl,
   onUpdateManifest,
-  onUpdateSettings,
   onUpgradeVersion,
   onShowToast,
 }) => {
@@ -56,17 +51,9 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const [selectedPatchVersion, setSelectedPatchVersion] = useState<string>(
     effectiveLatestVersion
   );
-  const [repoInput, setRepoInput] = useState<string>(appState.settings.githubRepo || '');
-  const [branchInput, setBranchInput] = useState<string>(appState.settings.githubBranch || 'main');
   const [isChecking, setIsChecking] = useState(false);
   const [checkCompleted, setCheckCompleted] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [githubError, setGithubError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setRepoInput(appState.settings.githubRepo || '');
-    setBranchInput(appState.settings.githubBranch || 'main');
-  }, [appState.settings.githubRepo, appState.settings.githubBranch]);
 
   useEffect(() => {
     setSelectedPatchVersion(effectiveLatestVersion);
@@ -74,48 +61,27 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentVersion = appState.version || '1.0.06';
+  const currentVersion = appState.version || LATEST_AVAILABLE_VERSION;
   const hasNewUpdate = compareSemverVersions(effectiveLatestVersion, currentVersion) > 0;
   const selectedPatch =
     allPatches.find((p) => p.version === selectedPatchVersion) || allPatches[0];
 
-  const parsedGithub = parseGithubRepoSpec(repoInput, branchInput);
-
   const handleCheckForUpdates = async () => {
     setIsChecking(true);
     setCheckCompleted(false);
-    setGithubError(null);
-
-    const trimmedRepo = repoInput.trim();
-    const trimmedBranch = branchInput.trim() || 'main';
-    onUpdateSettings({
-      githubRepo: trimmedRepo,
-      githubBranch: trimmedBranch,
-      lastGithubUpdateCheckAt: new Date().toISOString(),
-    });
-
     try {
-      const result = await fetchVersionManifest(trimmedRepo, trimmedBranch);
-      onUpdateManifest(result.manifest, result.sourceUrl);
+      const result = await fetchVersionManifest();
+      onUpdateManifest(result.manifest);
       setSelectedPatchVersion(result.manifest.latestVersion);
-      if (result.error) {
-        setGithubError(result.error);
-        onShowToast(result.error, true);
-      } else {
-        const isNewer =
-          compareSemverVersions(result.manifest.latestVersion, currentVersion) > 0;
-        onShowToast(
-          isNewer
-            ? `Found v${result.manifest.latestVersion} from ${
-                result.isFromGithub ? 'GitHub version.json' : 'version.json'
-              }! Ready to install.`
-            : `Checked ${
-                result.isFromGithub ? 'GitHub version.json' : 'version.json'
-              }: You are on the latest release (v${result.manifest.latestVersion}).`
-        );
-      }
+      const isNewer =
+        compareSemverVersions(result.manifest.latestVersion, currentVersion) > 0;
+      onShowToast(
+        isNewer
+          ? `Update v${result.manifest.latestVersion} is ready to install!`
+          : `You are running the latest version (v${result.manifest.latestVersion}).`
+      );
     } catch {
-      onShowToast('Could not reach GitHub version.json; using local release manifest.', true);
+      onShowToast(`You are running v${currentVersion}.`);
     } finally {
       setIsChecking(false);
       setCheckCompleted(true);
@@ -125,41 +91,15 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const handleApplyAndOverwriteHtml = async () => {
     setIsUpdating(true);
     try {
-      const trimmedRepo = repoInput.trim() || appState.settings.githubRepo || '';
-      const trimmedBranch = branchInput.trim() || appState.settings.githubBranch || 'main';
-
-      // Save GitHub repo settings into state BEFORE building the HTML file so the exported HTML file tracks GitHub too
-      const updatedStateWithRepo: AppState = {
+      const updatedState: AppState = {
         ...appState,
         version: effectiveLatestVersion,
-        settings: {
-          ...appState.settings,
-          githubRepo: trimmedRepo,
-          githubBranch: trimmedBranch,
-        },
       };
-
-      onUpdateSettings({
-        githubRepo: trimmedRepo,
-        githubBranch: trimmedBranch,
-      });
       onUpgradeVersion(effectiveLatestVersion);
 
-      // Try fetching the latest pre-compiled HTML bundle from GitHub if a repo is configured
-      let remoteHtml: string | null = null;
-      if (trimmedRepo) {
-        const fetched = await fetchRemoteHtmlTemplateFromGithub(
-          trimmedRepo,
-          trimmedBranch,
-          remoteManifest
-        );
-        if (fetched?.html) {
-          remoteHtml = fetched.html;
-        }
-      }
-
+      const remoteHtml = await fetchRemoteHtmlTemplateFromGithub(remoteManifest);
       const res = await overwriteOrDownloadSingleHtmlFile(
-        updatedStateWithRepo,
+        updatedState,
         effectiveLatestVersion,
         remoteHtml
       );
@@ -179,12 +119,6 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   };
 
   const handleApplyInAppUpdateOnly = () => {
-    const trimmedRepo = repoInput.trim() || appState.settings.githubRepo || '';
-    const trimmedBranch = branchInput.trim() || appState.settings.githubBranch || 'main';
-    onUpdateSettings({
-      githubRepo: trimmedRepo,
-      githubBranch: trimmedBranch,
-    });
     onUpgradeVersion(effectiveLatestVersion);
     onShowToast(
       `Program updated to v${effectiveLatestVersion}! All ${appState.bowlers.length} active bowlers and ${appState.roster.length} roster players were preserved.`
@@ -212,20 +146,40 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-slate-800">
           <div>
             <h2 id="update-modal-title" className="text-lg font-bold tracking-tight">
-              Program Version Control, GitHub Live Updater & Patch Notes
+              Program Version Control, Single-File Updater & Patch Notes
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Tracks <code className="font-mono text-blue-300">version.json</code> on GitHub and updates your single-HTML desktop program while keeping 100% of your leagues.
+              Update your single-HTML desktop program while keeping 100% of your saved scores, roster, and history.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close Update & Patch Notes Window"
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={OFFICIAL_GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open Official GitHub Repository"
+              aria-label="Open Official GitHub Repository"
+              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M12 0.296997C5.37 0.296997 0 5.67 0 12.297C0 17.6 3.438 22.097 8.205 23.682C8.805 23.795 9.025 23.424 9.025 23.105C9.025 22.82 9.015 22.065 9.01 21.065C5.672 21.789 4.968 19.455 4.968 19.455C4.422 18.07 3.633 17.7 3.633 17.7C2.546 16.956 3.717 16.971 3.717 16.971C4.922 17.055 5.555 18.207 5.555 18.207C6.625 20.042 8.364 19.512 9.05 19.205C9.158 18.429 9.467 17.9 9.81 17.6C7.145 17.3 4.344 16.268 4.344 11.67C4.344 10.36 4.809 9.29 5.579 8.45C5.444 8.147 5.039 6.927 5.684 5.274C5.684 5.274 6.689 4.952 8.984 6.504C9.944 6.237 10.964 6.105 11.984 6.099C13.004 6.105 14.024 6.237 14.984 6.504C17.264 4.952 18.269 5.274 18.269 5.274C18.914 6.927 18.509 8.147 18.389 8.45C19.154 9.29 19.619 10.36 19.619 11.67C19.619 16.28 16.814 17.295 14.144 17.59C14.564 17.95 14.954 18.686 14.954 19.81C14.954 21.416 14.939 22.706 14.939 23.096C14.939 23.411 15.149 23.786 15.764 23.666C20.565 22.092 24 17.592 24 12.297C24 5.67 18.627 0.296997 12 0.296997Z" />
+              </svg>
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close Update & Patch Notes Window"
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -243,18 +197,16 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-slate-500">
-                Latest in <code className="font-mono">version.json</code>
-              </div>
+              <div className="text-xs font-semibold text-slate-500">Latest Release Available</div>
               <div className="text-xl font-bold text-blue-700 font-mono tabular-nums mt-0.5">
                 v{effectiveLatestVersion}
               </div>
               <div className="text-xs text-slate-600 mt-0.5">
                 {checkCompleted
                   ? hasNewUpdate
-                    ? `Update available: ${remoteManifest.title.slice(0, 48)}...`
-                    : 'Up to date with latest version.json release'
-                  : 'Checking GitHub version.json...'}
+                    ? 'New update available to install'
+                    : 'Up to date with latest release'
+                  : 'Checking for latest release...'}
               </div>
             </div>
 
@@ -263,80 +215,12 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 type="button"
                 onClick={handleCheckForUpdates}
                 disabled={isChecking}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
-                {isChecking ? 'Checking GitHub...' : 'Check GitHub Now'}
+                {isChecking ? 'Checking...' : 'Check for Updates'}
               </button>
-              <div className="text-[11px] text-slate-500 truncate" title={manifestSourceUrl}>
-                Source: {manifestSourceUrl}
-              </div>
             </div>
-          </div>
-
-          {/* GitHub Repository Tracker Configuration */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <Globe className="w-4 h-4 text-blue-700" />
-                  GitHub Repository Auto-Update Tracker (<code className="font-mono text-blue-700">version.json</code>)
-                </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Enter your GitHub repository (e.g. <code className="font-mono text-slate-800">MKStewart88/bowling-league-helper</code> or full GitHub URL). It is saved inside any <code className="font-mono">.html</code> file you download so your uncle&apos;s single <code className="font-mono">.html</code> file automatically tracks your GitHub for updates!
-                </p>
-              </div>
-              {parsedGithub && (
-                <span className="px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
-                  Tracking: {parsedGithub.owner}/{parsedGithub.repo} ({parsedGithub.branch})
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              <div className="sm:col-span-7">
-                <label htmlFor="github-repo-input" className="block text-[11px] font-bold text-slate-700 mb-1">
-                  GitHub Repository (owner/repo or https://github.com/owner/repo)
-                </label>
-                <input
-                  id="github-repo-input"
-                  type="text"
-                  value={repoInput}
-                  onChange={(e) => setRepoInput(e.target.value)}
-                  placeholder="e.g. MKStewart88/bowling-league-helper"
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono text-slate-900"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label htmlFor="github-branch-input" className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Branch
-                </label>
-                <input
-                  id="github-branch-input"
-                  type="text"
-                  value={branchInput}
-                  onChange={(e) => setBranchInput(e.target.value)}
-                  placeholder="main"
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono text-slate-900"
-                />
-              </div>
-              <div className="sm:col-span-3 flex items-end">
-                <button
-                  type="button"
-                  onClick={handleCheckForUpdates}
-                  disabled={isChecking}
-                  className="w-full px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Save & Fetch version.json
-                </button>
-              </div>
-            </div>
-
-            {githubError && (
-              <div className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                {githubError}
-              </div>
-            )}
           </div>
 
           {/* Primary Overwrite & Update Action Box */}
@@ -345,10 +229,12 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <h3 className="text-sm font-bold text-slate-900">
                 {hasNewUpdate
                   ? `Upgrade from v${currentVersion} to v${effectiveLatestVersion} (Keep All League Data)`
-                  : `Re-Save Single HTML Desktop File (v${effectiveLatestVersion})`}
+                  : `You Are Running the Latest Version (v${effectiveLatestVersion})`}
               </h3>
               <p className="text-xs text-slate-600 mt-0.5">
-                Downloads the newest <code className="font-mono text-slate-800">Bowling_League_Helper_Latest.html</code> code (from GitHub or this build), embeds 100% of your saved leagues inside it, and overwrites your existing <code className="font-mono text-slate-800">.html</code> file on your computer.
+                {hasNewUpdate
+                  ? 'Updates your program to the latest release while keeping 100% of your saved leagues, scores, teams, and season history intact.'
+                  : 'Your program is up to date. You can also re-save your standalone single-file .html desktop program with all current league data embedded inside.'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -370,8 +256,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               >
                 <FileCode2 className="w-4 h-4" />
                 {isUpdating
-                  ? 'Updating HTML File...'
-                  : `Update & Overwrite Single HTML File (v${effectiveLatestVersion})`}
+                  ? 'Saving HTML File...'
+                  : hasNewUpdate
+                  ? `Update & Overwrite Single HTML File (v${effectiveLatestVersion})`
+                  : `Save Single HTML Desktop File (v${effectiveLatestVersion})`}
               </button>
             </div>
           </div>
@@ -407,7 +295,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Released {selectedPatch.date}
-                    {selectedPatch.isLatest ? ' · Latest Official Build in version.json' : ''}
+                    {selectedPatch.isLatest ? ' · Latest Official Build' : ''}
                   </p>
                 </div>
               </div>
@@ -447,11 +335,11 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <div>
                 <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                   <HardDrive className="w-4 h-4 text-slate-700" />
-                  How GitHub Version Updates Work for Single-File HTML Users
+                  Where Your League Data Is Saved & Dead-Computer Protection
                 </h4>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  1. <strong><code className="font-mono">version.json</code> in GitHub:</strong> Both the root <code className="font-mono">/version.json</code> and <code className="font-mono">/public/version.json</code> files store the current <code className="font-mono">latestVersion</code> and release notes.<br />
-                  2. <strong>Automatic Single-HTML Updating:</strong> When you push an updated <code className="font-mono">version.json</code> and pre-compiled <code className="font-mono">Bowling_League_Helper_Latest.html</code> to GitHub, any desktop <code className="font-mono">.html</code> file linked to your repo detects the new version and overwrites itself with the new code while keeping 100% of your saved leagues intact.
+                  1. <strong>Automatic Browser Memory:</strong> Every league, score, and roster name is saved immediately inside your web browser. Updating or replacing the <code className="font-mono">.html</code> file never wipes your browser memory.<br />
+                  2. <strong>Hard Drive File Backup:</strong> In case browser history is cleared or a new computer is needed, click <strong>Save Master Backup File</strong> (or use Tab 5C Auto-Backup) to save all leagues into a single file on your PC.
                 </p>
               </div>
               <button
@@ -468,9 +356,29 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
-          <span className="text-xs text-slate-600">
-            100% Offline-Capable Single-File Architecture · Live GitHub <code className="font-mono">version.json</code> Sync
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-600">
+              100% Offline Single-File Architecture · Zero License Fees
+            </span>
+            <a
+              href={OFFICIAL_GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900"
+              title="Open Official GitHub Page"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M12 0.296997C5.37 0.296997 0 5.67 0 12.297C0 17.6 3.438 22.097 8.205 23.682C8.805 23.795 9.025 23.424 9.025 23.105C9.025 22.82 9.015 22.065 9.01 21.065C5.672 21.789 4.968 19.455 4.968 19.455C4.422 18.07 3.633 17.7 3.633 17.7C2.546 16.956 3.717 16.971 3.717 16.971C4.922 17.055 5.555 18.207 5.555 18.207C6.625 20.042 8.364 19.512 9.05 19.205C9.158 18.429 9.467 17.9 9.81 17.6C7.145 17.3 4.344 16.268 4.344 11.67C4.344 10.36 4.809 9.29 5.579 8.45C5.444 8.147 5.039 6.927 5.684 5.274C5.684 5.274 6.689 4.952 8.984 6.504C9.944 6.237 10.964 6.105 11.984 6.099C13.004 6.105 14.024 6.237 14.984 6.504C17.264 4.952 18.269 5.274 18.269 5.274C18.914 6.927 18.509 8.147 18.389 8.45C19.154 9.29 19.619 10.36 19.619 11.67C19.619 16.28 16.814 17.295 14.144 17.59C14.564 17.95 14.954 18.686 14.954 19.81C14.954 21.416 14.939 22.706 14.939 23.096C14.939 23.411 15.149 23.786 15.764 23.666C20.565 22.092 24 17.592 24 12.297C24 5.67 18.627 0.296997 12 0.296997Z" />
+              </svg>
+              <span>GitHub</span>
+            </a>
+          </div>
           <button
             type="button"
             onClick={onClose}

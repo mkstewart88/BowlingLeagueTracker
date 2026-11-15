@@ -1,20 +1,43 @@
 {
   "appName": "Bowling League Helper",
-  "latestVersion": "1.0.08",
+  "latestVersion": "1.0.09",
   "releaseDate": "November 14, 2026",
-  "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & GitHub Auto-Updater",
+  "title": "Natural Instant Undo, Streamlined Non-Duplicated Tabs & Automatic Update Sync",
   "htmlBundlePath": "Bowling_League_Helper_Latest.html",
   "fallbackHtmlPaths": [
     "public/standalone_template.html"
   ],
   "releases": [
     {
-      "version": "1.0.08",
+      "version": "1.0.09",
       "date": "November 14, 2026",
-      "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & GitHub Auto-Updater",
+      "title": "Natural Instant Undo, Streamlined Non-Duplicated Tabs & Automatic Update Sync",
       "isLatest": true,
       "highlights": [
-        "Added GitHub Version Manifest (version.json) & Live GitHub Auto-Updater so any standalone .html desktop file tracks your GitHub repo and updates itself to the newest version while preserving all leagues.",
+        "Natural Undo Placement & Toast Undo Button: Added an instant 'Undo' button right inside the bottom notification banner AND directly above the Currently Entered bowler list and Score Entry form.",
+        "Eliminated Duplicate Controls & Legacy Comparison Clutter: Removed the V1/V2 comparison view, consolidated League Officers & Birthdays into the Master Roster tab, and kept all Backup/Download actions cleanly in Tab 5C.",
+        "Seamless Single-File Updater: Downloaded .html files now automatically stamp the latest version so a freshly downloaded latest build never falsely asks for an update."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Moved Undo Last Action right next to Score Entry and Currently Entered lists, plus added an inline [Undo] button inside toast notifications."
+        },
+        {
+          "category": "Improvement",
+          "description": "Removed V1 vs V2 comparison clutter from Tab 5 and eliminated duplicate backup/download buttons from Tab 1."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Streamlined single-file updater to check for the latest release automatically in the background with a direct GitHub icon link."
+        }
+      ]
+    },
+    {
+      "version": "1.0.08",
+      "date": "November 14, 2026",
+      "title": "Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & Delete Protection",
+      "highlights": [
         "New Team Performance & Consistency Section (Tab 2A): Displays a bar chart of total team scores per week across the season to identify the most consistent teams.",
         "Reorganized all 5 primary tabs into clean, focused Sub-Tabs so score entry, recap grids, rosters, league rules, charts, side pots, prize funds, and backups never clutter a single page.",
         "League-Agnostic Customization (BLS 2026 Parity): Configurable Bowlers Per Team (1-5), Absentee Rules (Fixed vs. Avg Minus Penalty Pins vs. % of Avg), Max Handicap Cap, Custom Match Points, Mystery Score & High-Game Side Pots, and End-of-Season Prize Fund Calculator.",
@@ -22,16 +45,12 @@
       ],
       "changes": [
         {
-          "category": "Data & Backup",
-          "description": "GitHub Live Version Tracking (version.json): Automatically checks GitHub for new releases and downloads/injects your saved league data into the newest pre-compiled .html file."
-        },
-        {
           "category": "New Feature",
           "description": "Team Performance Weekly Bar Chart & Consistency Analyzer: Visualizes total team scores per week against season weekly averages with variance (± pins), high/low spread, and CSV export."
         },
         {
           "category": "Improvement",
-          "description": "Dedicated Sub-Tab Bars inside all 5 main tabs (1A-1D, 2A-2D, 3A-3C, 4A-4B, 5A-5D) for easy reading and zero screen clutter."
+          "description": "Dedicated Sub-Tab Bars inside all 5 main tabs (1A-1D, 2A-2D, 3A-3C, 4A-4B, 5A-5C) for easy reading and zero screen clutter."
         },
         {
           "category": "Data & Backup",

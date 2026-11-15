@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { AppState, LaneMatchup, LeagueSettings } from '../types/bowling';
 import {
+  LATEST_AVAILABLE_VERSION,
   buildTeamStandings,
   computeMasterDatabaseMetrics,
   generatePositionRoundMatchups,
@@ -19,9 +20,6 @@ import {
   Shuffle,
   Trophy,
   Download,
-  Users,
-  Cake,
-  Bell,
   Database,
   FolderOpen,
   Plus,
@@ -31,7 +29,6 @@ import {
   Trash2,
   AlertTriangle,
 } from 'lucide-react';
-import { LegacyCompareTab } from './LegacyCompareTab';
 
 interface ScheduleTabProps {
   appState: AppState;
@@ -46,7 +43,7 @@ interface ScheduleTabProps {
   onShowToast: (msg: string, isError?: boolean) => void;
 }
 
-type HubSubTab = 'leagues' | 'schedule' | 'backups' | 'officers_archive';
+type HubSubTab = 'leagues' | 'schedule' | 'backups';
 
 export const ScheduleTab: React.FC<ScheduleTabProps> = ({
   appState,
@@ -209,7 +206,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
         }}
       />
 
-      {/* Clear Sub-Tab Navigation Bar for Tab 5 */}
+      {/* Clean 3-Part Sub-Tab Navigation Bar for Tab 5 */}
       <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Schedule and League Hub Sections">
           <button
@@ -255,21 +252,6 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
           >
             <HardDrive className="w-4 h-4" />
             <span>5C. Backups, Restore & Auto-Save</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={subTab === 'officers_archive'}
-            onClick={() => setSubTab('officers_archive')}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
-              subTab === 'officers_archive'
-                ? 'bg-blue-700 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>5D. League Officers & V1/V2 Archive</span>
           </button>
         </div>
       </div>
@@ -699,7 +681,10 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 type="button"
                 onClick={async () => {
                   try {
-                    const res = await overwriteOrDownloadSingleHtmlFile(appState, appState.version);
+                    const res = await overwriteOrDownloadSingleHtmlFile(
+                      appState,
+                      LATEST_AVAILABLE_VERSION
+                    );
                     onRecordBackupTimestamp('local', res.filename);
                     onShowToast(`Downloaded ${res.filename}! Double-click this file on any PC to run.`);
                   } catch {
@@ -826,88 +811,6 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             </div>
           </div>
         </section>
-      )}
-
-      {/* ===================================================================== */}
-      {/* SUB-TAB 5D: LEAGUE OFFICERS, BIRTHDAYS & V1/V2 ARCHIVE                */}
-      {/* ===================================================================== */}
-      {subTab === 'officers_archive' && (
-        <div className="space-y-6">
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                <Users className="w-4 h-4 text-blue-700" />
-                League Officers ({settings.seasonName})
-              </h3>
-              <div className="space-y-2 text-xs">
-                {roster.filter((r) => r.officerRole).length === 0 ? (
-                  <div className="text-slate-400">No officers assigned yet.</div>
-                ) : (
-                  roster
-                    .filter((r) => r.officerRole)
-                    .map((officer) => (
-                      <div key={officer.id} className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-600">{officer.officerRole}:</span>
-                        <span className="font-bold text-slate-900">
-                          {officer.name} ({officer.team})
-                        </span>
-                      </div>
-                    ))
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                <Cake className="w-4 h-4 text-amber-600" />
-                Bowler Birthdays & Milestones
-              </h3>
-              <div className="space-y-2 text-xs">
-                {roster.filter((r) => r.birthday).length === 0 ? (
-                  <div className="text-slate-400">No birthdays listed in roster.</div>
-                ) : (
-                  roster
-                    .filter((r) => r.birthday)
-                    .slice(0, 6)
-                    .map((b) => (
-                      <div key={b.id} className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{b.name}</span>
-                        <span className="font-mono text-slate-600">{b.birthday}</span>
-                      </div>
-                    ))
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                <Bell className="w-4 h-4 text-emerald-700" />
-                Season Progress & Schedule Summary
-              </h3>
-              <div className="space-y-2 text-xs text-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">Current Week:</span>
-                  <span className="font-mono font-bold">Week {settings.weekNumber} of {settings.totalWeeks}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">Competing Teams:</span>
-                  <span className="font-mono font-bold">{allTeams.length} Teams</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">Starting Alley Lane:</span>
-                  <span className="font-mono font-bold">Lane {settings.startingLane}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">
-              Original Saved Codebases (Version 1 vs. Version 2 Side-by-Side Comparison)
-            </h3>
-            <LegacyCompareTab />
-          </section>
-        </div>
       )}
 
       {/* ===================================================================== */}

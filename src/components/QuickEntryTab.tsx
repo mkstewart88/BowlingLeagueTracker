@@ -9,18 +9,13 @@ import {
 import {
   exportMasterRosterCsv,
   exportWeeklyResultsCsv,
-  overwriteOrDownloadSingleHtmlFile,
-  saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import {
   Printer,
   Download,
   Undo2,
   RotateCcw,
-  Upload,
   UserPlus,
-  Trash2,
-  HardDriveDownload,
   Table2,
   ListChecks,
   Users,
@@ -41,9 +36,7 @@ interface QuickEntryTabProps {
   onUndo: () => void;
   onStartNewWeek: () => void;
   onFinishWeekAndArchive: () => void;
-  onImportBackupJson: (file: File) => void;
   onSwitchLeague: (leagueId: string) => void;
-  onOpenLeagueAndBackupHub: () => void;
   onShowToast: (msg: string, isError?: boolean) => void;
 }
 
@@ -61,9 +54,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
   onUndo,
   onStartNewWeek,
   onFinishWeekAndArchive,
-  onImportBackupJson,
   onSwitchLeague,
-  onOpenLeagueAndBackupHub,
   onShowToast,
 }) => {
   const { settings, bowlers, roster, history } = appState;
@@ -94,7 +85,6 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const scoreInputRef = useRef<HTMLInputElement>(null);
   const g1InputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const seasonStats = computeSeasonPlayerStats(roster, history, bowlers, settings, false);
 
@@ -302,15 +292,6 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
     }, 250);
   };
 
-  const handleSaveToComputer = async () => {
-    try {
-      const res = await saveLeagueFileToComputer(appState);
-      onShowToast(`Saved league data file (${res.filename}) to your computer.`);
-    } catch {
-      // Cancelled
-    }
-  };
-
   // Filtered & sorted entered list
   const query = enteredSearch.trim().toLowerCase();
   const visibleEntered = bowlers
@@ -366,112 +347,15 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
         ))}
       </datalist>
 
-      {/* Hidden File Input for 1-Click Backup Import */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json,.html,.htm,application/json,text/html"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            onImportBackupJson(file);
-            e.target.value = '';
-          }
-        }}
-      />
-
-      {/* Compact Top Active League & Quick Action Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="quick-league-switcher"
-              className="text-xs font-bold text-slate-700"
-            >
-              Active League:
-            </label>
-            <select
-              id="quick-league-switcher"
-              value={appState.activeLeagueId || settings.leagueId || 'thursday-night-rollers'}
-              onChange={(e) => onSwitchLeague(e.target.value)}
-              className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-blue-50/70 border border-blue-300 rounded-lg cursor-pointer"
-            >
-              {Object.entries(
-                appState.allLeaguesRegistry || {
-                  [settings.leagueId || 'thursday-night-rollers']: appState,
-                }
-              ).map(([id, lg]) => (
-                <option key={id} value={id}>
-                  {lg.settings?.leagueName || id} (Wk {lg.settings?.weekNumber || '1'} · {(lg.roster || []).length} Bowlers)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <label htmlFor="quick-week-input" className="font-bold text-slate-700">
-              Week #:
-            </label>
-            <input
-              id="quick-week-input"
-              type="text"
-              value={settings.weekNumber}
-              onChange={(e) => onUpdateSettings({ weekNumber: e.target.value })}
-              className="w-14 px-2 py-1 text-center font-mono font-bold bg-slate-50 border border-slate-300 rounded-md"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await overwriteOrDownloadSingleHtmlFile(
-                  appState,
-                  appState.version
-                );
-                onShowToast(
-                  `Downloaded ${res.filename}! Put this single file on your Desktop and double-click to run.`
-                );
-              } catch {
-                // Cancelled
-              }
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Download Desktop App (.html)
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Import Backup
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveToComputer}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-          >
-            <HardDriveDownload className="w-3.5 h-3.5" />
-            Save Backup
-          </button>
-        </div>
-      </div>
-
-      {/* Clear Sub-Tab Bar for Tab 1 (Eliminates Option Clutter!) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      {/* Clean Unified Sub-Tab Bar + Active League / Week Switcher for Tab 1 */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Weekly Scoring Sub-Tabs">
           <button
             type="button"
             role="tab"
             aria-selected={subTab === 'quick_entry'}
             onClick={() => setSubTab('quick_entry')}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'quick_entry'
                 ? 'bg-blue-700 text-white shadow-xs'
                 : 'text-slate-700 hover:bg-slate-100'
@@ -486,7 +370,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
             role="tab"
             aria-selected={subTab === 'recap_grid'}
             onClick={() => setSubTab('recap_grid')}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'recap_grid'
                 ? 'bg-blue-700 text-white shadow-xs'
                 : 'text-slate-700 hover:bg-slate-100'
@@ -501,7 +385,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
             role="tab"
             aria-selected={subTab === 'roster_manager'}
             onClick={() => setSubTab('roster_manager')}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'roster_manager'
                 ? 'bg-blue-700 text-white shadow-xs'
                 : 'text-slate-700 hover:bg-slate-100'
@@ -516,7 +400,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
             role="tab"
             aria-selected={subTab === 'league_rules'}
             onClick={() => setSubTab('league_rules')}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
               subTab === 'league_rules'
                 ? 'bg-blue-700 text-white shadow-xs'
                 : 'text-slate-700 hover:bg-slate-100'
@@ -525,6 +409,44 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
             <Sliders className="w-4 h-4" />
             <span>1D. League Rules & Sheet Options</span>
           </button>
+        </div>
+
+        {/* Active League & Week Indicator (Non-Duplicated) */}
+        <div className="flex flex-wrap items-center gap-2.5 pr-1">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="quick-league-switcher" className="text-xs font-bold text-slate-600">
+              League:
+            </label>
+            <select
+              id="quick-league-switcher"
+              value={appState.activeLeagueId || settings.leagueId || 'thursday-night-rollers'}
+              onChange={(e) => onSwitchLeague(e.target.value)}
+              className="px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-lg cursor-pointer"
+            >
+              {Object.entries(
+                appState.allLeaguesRegistry || {
+                  [settings.leagueId || 'thursday-night-rollers']: appState,
+                }
+              ).map(([id, lg]) => (
+                <option key={id} value={id}>
+                  {lg.settings?.leagueName || id}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs">
+            <label htmlFor="quick-week-input" className="font-bold text-slate-600">
+              Week:
+            </label>
+            <input
+              id="quick-week-input"
+              type="text"
+              value={settings.weekNumber}
+              onChange={(e) => onUpdateSettings({ weekNumber: e.target.value })}
+              className="w-12 px-2 py-1 text-center font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg"
+            />
+          </div>
         </div>
       </div>
 
@@ -591,14 +513,30 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                       Type a bowler name (or click a name from Missing on the right), enter their games, and press Enter.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSubTab('league_rules')}
-                    className="text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
-                  >
-                    {settings.entryMode === 'three' ? '3-Game Series' : 'Single Game'} ·{' '}
-                    {settings.scoringType === 'handicap' ? 'Handicap' : 'Scratch'} (Change Rules →)
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={!canUndo}
+                      onClick={onUndo}
+                      title="Undo last score addition, edit, or deletion (Ctrl+Z)"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors ${
+                        canUndo
+                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 cursor-pointer'
+                          : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                      }`}
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      <span>Undo (Ctrl+Z)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSubTab('league_rules')}
+                      className="text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
+                    >
+                      {settings.entryMode === 'three' ? '3-Game Series' : 'Single Game'} ·{' '}
+                      {settings.scoringType === 'handicap' ? 'Handicap' : 'Scratch'} (Rules →)
+                    </button>
+                  </div>
                 </div>
 
                 {editingId && (
@@ -799,7 +737,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
 
               {/* Side-by-Side Lists: Currently Entered vs Missing from Roster */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                   <input
                     type="search"
                     value={enteredSearch}
@@ -821,6 +759,19 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                     <option value="name">Sort: Name A–Z</option>
                     <option value="team">Sort: Team A–Z</option>
                   </select>
+                  <button
+                    type="button"
+                    disabled={!canUndo}
+                    onClick={onUndo}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border shrink-0 transition-colors ${
+                      canUndo
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 cursor-pointer'
+                        : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                    }`}
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>Undo Last Delete / Edit</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -962,16 +913,17 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                 <div className="grid grid-cols-3 gap-2 pt-1">
                   <button
                     type="button"
-                    disabled={!canUndo}
-                    onClick={onUndo}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border ${
-                      canUndo
-                        ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 cursor-pointer'
-                        : 'bg-slate-800/40 text-slate-500 border-slate-800 cursor-not-allowed'
-                    }`}
+                    onClick={() => {
+                      if (bowlers.length === 0) {
+                        onShowToast('Enter at least one bowler score first.', true);
+                        return;
+                      }
+                      window.print();
+                    }}
+                    className="py-2 px-2.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>Undo Last</span>
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Only</span>
                   </button>
 
                   <button
@@ -1167,6 +1119,8 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
                     <th className="py-2.5 px-4 font-bold">Bowler Name</th>
                     <th className="py-2.5 px-3 font-bold">Team</th>
+                    <th className="py-2.5 px-3 font-bold">League Role</th>
+                    <th className="py-2.5 px-3 font-bold">Birthday</th>
                     <th className="py-2.5 px-3 font-bold text-right">Entering / Book Avg</th>
                     <th className="py-2.5 px-3 font-bold text-right">Computed Hdcp/Gm</th>
                     <th className="py-2.5 px-4 font-bold text-right">Actions</th>
@@ -1188,6 +1142,12 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                         <tr key={r.id} className="hover:bg-slate-50">
                           <td className="py-2.5 px-4 font-bold text-slate-900">{r.name}</td>
                           <td className="py-2.5 px-3 text-slate-600">{r.team || 'Unassigned'}</td>
+                          <td className="py-2.5 px-3 text-slate-700 font-semibold">
+                            {r.officerRole || '—'}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-500">
+                            {r.birthday || '—'}
+                          </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold">
                             {r.bookAverage || 165}
                           </td>

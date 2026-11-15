@@ -1,5 +1,9 @@
 import { AppState } from '../types/bowling';
-import { buildTeamStandings, rankWeeklyBowlers } from './bowlingLogic';
+import {
+  LATEST_AVAILABLE_VERSION,
+  buildTeamStandings,
+  rankWeeklyBowlers,
+} from './bowlingLogic';
 
 function csvCell(value: unknown): string {
   const s = String(value ?? '');
@@ -131,9 +135,19 @@ export function exportMasterLeagueBackupJson(state: AppState): string {
 }
 
 function buildBootstrapScriptBlock(state: AppState, targetVersion: string): string {
+  const updatedRegistry: NonNullable<AppState['allLeaguesRegistry']> = {};
+  if (state.allLeaguesRegistry) {
+    for (const [id, lg] of Object.entries(state.allLeaguesRegistry)) {
+      updatedRegistry[id] = {
+        ...lg,
+        version: targetVersion,
+      };
+    }
+  }
   const updatedState: AppState = {
     ...state,
     version: targetVersion,
+    allLeaguesRegistry: state.allLeaguesRegistry ? updatedRegistry : undefined,
   };
   const serializedState = safeSerializeJsonForHtml(updatedState);
   const sOpen = openTag('script');
@@ -157,13 +171,11 @@ function buildBootstrapScriptBlock(state: AppState, targetVersion: string): stri
     `      var changed = false;\n` +
     `      if (parsed.version && parsed.version !== existing.version) {\n` +
     `        existing.version = parsed.version;\n` +
-    `        changed = true;\n` +
-    `      }\n` +
-    `      if (parsed.settings && parsed.settings.githubRepo && (!existing.settings || !existing.settings.githubRepo)) {\n` +
-    `        existing.settings = Object.assign({}, existing.settings || {}, {\n` +
-    `          githubRepo: parsed.settings.githubRepo,\n` +
-    `          githubBranch: parsed.settings.githubBranch || 'main'\n` +
-    `        });\n` +
+    `        if (existing.allLeaguesRegistry) {\n` +
+    `          Object.keys(existing.allLeaguesRegistry).forEach(function(k) {\n` +
+    `            existing.allLeaguesRegistry[k].version = parsed.version;\n` +
+    `          });\n` +
+    `        }\n` +
     `        changed = true;\n` +
     `      }\n` +
     `      if (changed) {\n` +
@@ -323,7 +335,7 @@ export async function chooseAutoBackupLocation(
 
   const content =
     format === 'html'
-      ? await buildInteractiveSingleHtmlFile(state, state.version || '1.0.06')
+      ? await buildInteractiveSingleHtmlFile(state, LATEST_AVAILABLE_VERSION)
       : JSON.stringify(
           {
             app: 'Bowling League Helper',
@@ -401,7 +413,7 @@ export async function executeAutoBackupWrite(
 
   const content =
     format === 'html'
-      ? await buildInteractiveSingleHtmlFile(state, state.version || '1.0.06')
+      ? await buildInteractiveSingleHtmlFile(state, LATEST_AVAILABLE_VERSION)
       : JSON.stringify(
           {
             app: 'Bowling League Helper',

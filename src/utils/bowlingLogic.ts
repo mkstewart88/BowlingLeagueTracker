@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.06';
-export const LATEST_AVAILABLE_VERSION = '1.0.08';
+export const CURRENT_APP_VERSION = '1.0.09';
+export const LATEST_AVAILABLE_VERSION = '1.0.09';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -60,17 +60,44 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   autoBackupDirectoryLabel: 'Downloads / Chosen PC Folder',
   lastLocalBackupAt: null,
   lastAutoBackupAt: null,
-  githubRepo: '',
+  githubRepo: 'mkstewart88/BowlingLeagueTracker',
   githubBranch: 'main',
   lastGithubUpdateCheckAt: null,
 };
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.09',
+    date: 'November 14, 2026',
+    title: 'Natural Instant Undo, Streamlined Non-Duplicated Tabs & Automatic Update Sync',
+    isLatest: true,
+    highlights: [
+      'Natural Undo Placement & Toast Undo Button: Added an instant "Undo" button right inside the bottom notification banner AND directly above the Currently Entered bowler list and Score Entry form.',
+      'Eliminated Duplicate Controls & Legacy Comparison Clutter: Removed the V1/V2 comparison view, consolidated League Officers & Birthdays into the Master Roster tab, and kept all Backup/Download actions cleanly in Tab 5C.',
+      'Seamless Single-File Updater: Downloaded .html files now automatically stamp the latest version so a freshly downloaded latest build never falsely asks for an update.',
+    ],
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Moved Undo Last Action right next to Score Entry and Currently Entered lists, plus added an inline [Undo] button inside toast notifications.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Removed V1 vs V2 comparison clutter from Tab 5 and eliminated duplicate backup/download buttons from Tab 1.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Streamlined single-file updater to check for the latest release automatically in the background with a direct GitHub icon link.',
+      },
+    ],
+  },
+  {
     version: '1.0.08',
     date: 'November 14, 2026',
     title: 'Team Performance Bar Charts, Clean Sub-Tab Workspace, League-Agnostic Rules & Delete Protection',
-    isLatest: true,
     highlights: [
       'New Team Performance & Consistency Section (Tab 2A): Displays a bar chart of total team scores per week across the season to identify the most consistent teams.',
       'Reorganized all 5 primary tabs into clean, focused Sub-Tabs so score entry, recap grids, rosters, league rules, charts, side pots, prize funds, and backups never clutter a single page.',

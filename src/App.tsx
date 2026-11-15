@@ -78,8 +78,12 @@ export default function App() {
       if (rawSource) {
         const parsed = JSON.parse(rawSource);
         if (parsed && Array.isArray(parsed.bowlers) && Array.isArray(parsed.roster)) {
+          const resolvedVersion =
+            compareSemverVersions(CURRENT_APP_VERSION, parsed.version || '1.0.0') >= 0
+              ? CURRENT_APP_VERSION
+              : parsed.version;
           return syncActiveLeagueInRegistry({
-            version: parsed.version || CURRENT_APP_VERSION,
+            version: resolvedVersion,
             settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
             bowlers: parsed.bowlers,
             roster: parsed.roster,
@@ -108,26 +112,21 @@ export default function App() {
   const [remoteManifest, setRemoteManifest] = useState<VersionManifest>(() =>
     getBuiltInFallbackManifest()
   );
-  const [manifestSourceUrl, setManifestSourceUrl] = useState<string>('/version.json');
-  const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; isError: boolean; showUndo?: boolean } | null>(null);
 
-  // Automatically check GitHub / version.json on mount and when githubRepo changes
+  // Silently check GitHub (mkstewart88/BowlingLeagueTracker) / version.json on mount
   useEffect(() => {
     let active = true;
-    fetchVersionManifest(
-      appState.settings.githubRepo,
-      appState.settings.githubBranch
-    )
+    fetchVersionManifest()
       .then((res) => {
         if (!active) return;
         setRemoteManifest(res.manifest);
-        setManifestSourceUrl(res.sourceUrl);
       })
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [appState.settings.githubRepo, appState.settings.githubBranch]);
+  }, []);
 
   // Sync to localStorage and legacy keys on every state change
   useEffect(() => {
@@ -177,13 +176,13 @@ export default function App() {
     return () => clearInterval(timer);
   }, [appState]);
 
-  const showToast = (message: string, isError = false) => {
-    setToast({ message, isError });
+  const showToast = (message: string, isError = false, showUndo = false) => {
+    setToast({ message, isError, showUndo });
   };
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
+    const t = setTimeout(() => setToast(null), 5000);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -286,7 +285,9 @@ export default function App() {
     showToast(
       editingId
         ? `Updated score for ${entry.name} (${entry.grandTotal}).`
-        : `Added ${entry.name} — Total: ${entry.grandTotal}.`
+        : `Added ${entry.name} — Total: ${entry.grandTotal}.`,
+      false,
+      true
     );
   };
 
@@ -299,7 +300,7 @@ export default function App() {
       bowlers: prev.bowlers.filter((b) => b.id !== id),
       weekArchived: false,
     }));
-    showToast(`Removed ${target.name} from current week. Click Undo to restore.`);
+    showToast(`Removed ${target.name} from current week.`, false, true);
   };
 
   const handleMarkAbsent = (player: RosterPlayer) => {
@@ -340,7 +341,11 @@ export default function App() {
       bowlers: [...prev.bowlers, absentEntry],
       weekArchived: false,
     }));
-    showToast(`Marked ${player.name} as Absent (${scratch} pts — ${absCalc.ruleDescription}).`);
+    showToast(
+      `Marked ${player.name} as Absent (${scratch} pts — ${absCalc.ruleDescription}).`,
+      false,
+      true
+    );
   };
 
   const handleAddRosterPlayer = (name: string, team: string, bookAvg = 165) => {
@@ -366,7 +371,7 @@ export default function App() {
       }
       return { ...prev, roster: nextRoster };
     });
-    showToast(`Saved ${name} to Master Roster.`);
+    showToast(`Saved ${name} to Master Roster.`, false, true);
   };
 
   const handleDeleteRosterPlayer = (id: string) => {
@@ -377,7 +382,7 @@ export default function App() {
       ...prev,
       roster: prev.roster.filter((r) => r.id !== id),
     }));
-    showToast(`Removed ${target.name} from Master Roster.`);
+    showToast(`Removed ${target.name} from Master Roster.`, false, true);
   };
 
   const handleFinishWeekAndArchive = () => {
@@ -458,7 +463,11 @@ export default function App() {
         weekArchiveId: null,
       });
     });
-    showToast('Started new week! Previous scores were archived to Season History, and Master Roster was kept.');
+    showToast(
+      'Started new week! Previous scores were archived to Season History, and Master Roster was kept.',
+      false,
+      true
+    );
   };
 
   const handleImportBackupJson = (file: File) => {
@@ -471,7 +480,7 @@ export default function App() {
         );
         pushUndoState(appState);
         setAppState(syncActiveLeagueInRegistry(restoredState));
-        showToast(summary);
+        showToast(summary, false, true);
       } catch (err: unknown) {
         showToast(
           `Could not import backup: ${(err as Error)?.message || 'Invalid backup file.'}`,
@@ -499,7 +508,7 @@ export default function App() {
       weekArchiveId: target.id,
     }));
     setActiveTab('entry');
-    showToast(`Loaded archived Week ${target.week} into active view.`);
+    showToast(`Loaded archived Week ${target.week} into active view.`, false, true);
   };
 
   const handleDeleteArchivedWeek = (weekId: string) => {
@@ -508,7 +517,7 @@ export default function App() {
       ...prev,
       history: prev.history.filter((h) => h.id !== weekId),
     }));
-    showToast('Deleted archived week from history.');
+    showToast('Deleted archived week from history.', false, true);
   };
 
   const handleUpdateDuesRecord = (playerId: string, record: WeeklyDuesRecord) => {
@@ -538,7 +547,7 @@ export default function App() {
       };
     });
     setAppState((prev) => ({ ...prev, currentDues: nextDues }));
-    showToast(`Marked all ${appState.roster.length} bowlers as Paid ($${appState.settings.weeklyDuesPerBowler}).`);
+    showToast(`Marked all ${appState.roster.length} bowlers as Paid ($${appState.settings.weeklyDuesPerBowler}).`, false, true);
   };
 
   const handleUpdateSchedule = (newSchedule: LaneMatchup[]) => {
@@ -571,7 +580,7 @@ export default function App() {
       activeLeagueId: leagueId,
       allLeaguesRegistry: synced.allLeaguesRegistry,
     });
-    showToast(`Switched active league to "${target.settings.leagueName}".`);
+    showToast(`Switched active league to "${target.settings.leagueName}".`, false, true);
   };
 
   const handleCreateLeague = (
@@ -627,7 +636,7 @@ export default function App() {
       activeLeagueId: slug,
       allLeaguesRegistry: nextRegistry,
     });
-    showToast(`Created new league "${leagueName}" and switched to it!`);
+    showToast(`Created new league "${leagueName}" and switched to it!`, false, true);
   };
 
   const handleToggleLeagueStatus = (leagueId: string) => {
@@ -681,7 +690,7 @@ export default function App() {
       activeLeagueId: nextActiveId,
       allLeaguesRegistry: registry,
     });
-    showToast(`Deleted league "${targetName}".`);
+    showToast(`Deleted league "${targetName}".`, false, true);
   };
 
   const handleRecordBackupTimestamp = (kind: 'local' | 'auto', locationLabel?: string) => {
@@ -890,9 +899,7 @@ export default function App() {
             onUndo={handleUndo}
             onStartNewWeek={handleStartNewWeek}
             onFinishWeekAndArchive={handleFinishWeekAndArchive}
-            onImportBackupJson={handleImportBackupJson}
             onSwitchLeague={handleSwitchLeague}
-            onOpenLeagueAndBackupHub={() => switchTab('schedule')}
             onShowToast={showToast}
           />
         )}
@@ -1010,12 +1017,9 @@ export default function App() {
         onClose={() => setIsUpdateModalOpen(false)}
         appState={appState}
         remoteManifest={remoteManifest}
-        manifestSourceUrl={manifestSourceUrl}
-        onUpdateManifest={(manifest, sourceUrl) => {
+        onUpdateManifest={(manifest) => {
           setRemoteManifest(manifest);
-          setManifestSourceUrl(sourceUrl);
         }}
-        onUpdateSettings={handleUpdateSettings}
         onUpgradeVersion={handleUpgradeVersion}
         onShowToast={showToast}
       />
@@ -1023,16 +1027,25 @@ export default function App() {
       {/* Landscape Print Standing Sheet (Only visible when printing) */}
       <PrintStandingSheet appState={appState} />
 
-      {/* Toast Notification */}
+      {/* Toast Notification with Direct Inline Undo Button */}
       {toast && (
         <div
           role="status"
           aria-live="polite"
-          className={`fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 rounded-lg shadow-lg text-xs font-semibold text-white transition-all print:hidden ${
+          className={`fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 rounded-lg shadow-lg text-xs font-semibold text-white transition-all print:hidden flex items-center justify-between gap-3 ${
             toast.isError ? 'bg-red-800' : 'bg-slate-900'
           }`}
         >
-          {toast.message}
+          <span>{toast.message}</span>
+          {toast.showUndo && undoStack.length > 0 && !toast.isError && (
+            <button
+              type="button"
+              onClick={handleUndo}
+              className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded cursor-pointer shrink-0 transition-colors"
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
     </div>
