@@ -34,9 +34,9 @@ import {
 } from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.18 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.18');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.18');
+test('version is set to 1.0.19 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.19');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.19');
 });
 
 test('createFreshInitialState returns a clean empty Week 1 league with zero sample data', () => {
@@ -512,5 +512,63 @@ test('createHttpDesktopBridge communicates with native desktop host HTTP endpoin
   }
 });
 
+test('createHttpDesktopBridge gracefully handles 404 on older desktop hosts without throwing', async () => {
+  const { createHttpDesktopBridge } = await import('./desktopBridge');
+  const origFetch = globalThis.fetch;
+  let lastSaveExists = false;
 
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/api/desktop/quick-save') || url.endsWith('/api/desktop/load-save') || url.endsWith('/api/desktop/clear-save-link')) {
+      return new Response('{"error":"Not found"}', {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/desktop/info')) {
+      return new Response(
+        JSON.stringify({
+          isDesktopApp: true,
+          installDir: 'C:\\BowlingLeagueHelper',
+          defaultSaveDir: 'C:\\Users\\League\\Documents',
+          desktopVersion: '1.0.14',
+          lastSaveFilePath: lastSaveExists ? 'C:\\Users\\League\\Documents\\BowlingLeagueTrackerSave.json' : '',
+          lastSavedAt: null,
+          lastSaveExists,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (url.endsWith('/api/desktop/autosave-beacon')) {
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }) as typeof fetch;
 
+  try {
+    const bridge = createHttpDesktopBridge('http://127.0.0.1:45820');
+
+    // 1. When no file is linked on a v1.0.14 host, quickSaveToCurrentFile returns { saved: false, missing: true } instead of throwing 404
+    const unlinkedRes = await bridge.quickSaveToCurrentFile!('{"bowlers":[]}');
+    assert.equal(unlinkedRes.saved, false);
+    assert.equal(unlinkedRes.missing, true);
+
+    // 2. When a file IS linked on a v1.0.14 host, quickSaveToCurrentFile falls back to /api/desktop/autosave-beacon and succeeds
+    lastSaveExists = true;
+    const linkedRes = await bridge.quickSaveToCurrentFile!('{"bowlers":[]}');
+    assert.equal(linkedRes.saved, true);
+    assert.equal(linkedRes.missing, false);
+    assert.equal(linkedRes.filename, 'BowlingLeagueTrackerSave.json');
+
+    // 3. loadLastSaveFile and clearLastSaveLink never throw on 404
+    const loadRes = await bridge.loadLastSaveFile!();
+    assert.equal(loadRes.ok, false);
+    const clearRes = await bridge.clearLastSaveLink!();
+    assert.equal(clearRes.ok, true);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});

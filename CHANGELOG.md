@@ -6,6 +6,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 
 ---
 
+## [1.0.19] - 2026-11-15
+
+### Fixed
+- **Eliminated `Desktop host request failed (404)` on Quick Save:** Added backward-compatible fallback logic in `desktopBridge.ts` so clicking the top-bar **Save** button works seamlessly even if an older `BowlingLeagueHelper.exe` (`v1.0.14`) is running in `C:\BowlingLeagueHelper\`. When a save file is already linked, it falls back to `/api/desktop/autosave-beacon`; when no save file is linked or found, it displays `"No save file found. Please choose where to save."` and opens the native Save As dialog (`/api/desktop/save-backup`).
+- **Guaranteed Automatic Save-File Loading on Startup:** Fixed a startup race condition where the initial empty league state could overwrite `localStorage` and staged desktop memory before `/api/desktop/load-save` finished reading `BowlingLeagueTrackerSave.json`. Injected the linked `BowlingLeagueTrackerSave.json` payload directly into `#embedded-league-state` on initial HTML load and bound the desktop host to a fixed loopback port range (`45820–45829`) so `localStorage` persists across restarts.
+- **Automatic Old-Window Closing on `Update and Restart`:** Fixed `UpdateModal.tsx` and the native Windows/Linux hosts so clicking **Update and Restart** suppresses false unload prompts and cleanly closes the older running window (`window.close()` + Win32 `EnumWindows` `WM_CLOSE`) when launching the updated build.
+- **Zero Lingering Background Processes on Exit:** Added explicit `ExitProcess(0)` cleanup at the end of `wWinMain` in `desktop/host/main.cpp` so `BowlingLeagueHelper.exe` terminates all background socket/COM threads immediately upon closing.
+- **Restored Corrupted Release Manifest & Documentation:** Repaired corrupted `1.0.14–1.0.18` entries in `version.json` and `src/utils/bowlingLogic.ts`, updated `CHANGELOG.md`, `README.md`, `docs/USER_GUIDE.md`, and `desktop/README-Windows.txt`, and wired `npm run build` to automatically rebuild `BowlingLeagueHelper.exe`, `installer.exe`, and all standalone HTML/version bundles.
+
+---
+
+## [1.0.18] - 2026-11-14
+
+### Changed
+- Refined the desktop quick-save workflow to prompt for a destination file whenever no existing save file is linked yet.
+
+---
+
+## [1.0.17] - 2026-11-14
+
+### Changed
+- Updated the desktop **Update and Restart** process to close the previous window when spawning the newly updated application instance.
+
+---
+
+## [1.0.16] - 2026-11-14
+
+### Changed
+- Updated the top-bar **Save** button so that when no save file is linked or found on disk, the app notifies the user (`"No save file found. Please choose where to save."`) and opens the Save As file picker instead of reporting an error.
+
+---
+
+## [1.0.15] - 2026-11-14
+
+### Added
+- **Top-Bar Quick Save Button:** Added a dedicated green **Save** button directly beside the **Update** button in the top navigation bar for 1-click saving to `BowlingLeagueTrackerSave.json`.
+- **Automatic Save-File Loading on Startup:** Added `/api/desktop/load-save` so the desktop application automatically loads the user's linked `BowlingLeagueTrackerSave.json` file when launched.
+
+---
+
 ## [1.0.14] - 2026-11-14
 
 ### Added

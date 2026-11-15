@@ -6,7 +6,7 @@
   </p>
   <p>
     <a href="CHANGELOG.md">
-      <img src="https://img.shields.io/badge/version-v1.0.14-1d4ed8?style=for-the-badge" alt="Version v1.0.14" />
+      <img src="https://img.shields.io/badge/version-v1.0.19-1d4ed8?style=for-the-badge" alt="Version v1.0.19" />
     </a>
     <img src="https://img.shields.io/badge/platform-Windows%2011%20%7C%20Linux-0f172a?style=for-the-badge" alt="Supported Platforms: Windows 11 and Linux" />
     <img src="https://img.shields.io/badge/offline--first-Zero%20Server%20Required-047857?style=for-the-badge" alt="Offline First" />
@@ -77,11 +77,13 @@ Bowling League Helper organizes every weekly night-of-league task into five stru
 
 ## Data Safety, Persistent Save File & Auto-Save on Closing
 
-Bowling League Helper protects league records across **Windows 11** and **Linux** with redundant local persistence, user-directed file saves, and close-time verification:
+Bowling League Helper protects league records across **Windows 11** and **Linux** with redundant local persistence, 1-click top-bar saves, automatic startup loading, and close-time verification:
 
-- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** Click **Save New File (.json)...** in the footer or Tab `5C` to save a complete multi-league snapshot (default filename `BowlingLeagueTrackerSave.json`, with no date attached) into any chosen folder (local drive, Documents, USB drive, or synced cloud folder). That exact file stays linked and continues to be updated on close unless you click **Save New File (.json)...** again to pick a different file.
-- **Automatic Save on Closing:** Closing the window or clicking **Save &amp; Close** automatically overwrites your remembered `BowlingLeagueTrackerSave.json` (or last chosen save file) in place before exiting.
-- **Missing-File Close Protection:** If your last save file cannot be found (e.g., moved, deleted, disconnected drive, or not yet configured), the program **cancels closing**, keeps your data intact on screen, and prompts you to:
+- **Top-Bar `Save` Button & Missing-File Fallback:** Click the green **Save** button next to the version/update button in the top bar anytime to overwrite your linked `BowlingLeagueTrackerSave.json` file in one click. If no save file is linked or found yet, the app displays *"No save file found. Please choose where to save."* and opens the system Save As dialog so you can pick where to save `BowlingLeagueTrackerSave.json`.
+- **Automatic Save-File Load on Startup:** Whenever you launch **Bowling League Helper**, it automatically opens and restores your linked `BowlingLeagueTrackerSave.json` file (all leagues, rosters, scores, Week Notes, dues, brackets, and season history).
+- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** You can also click **Save New File (.json)...** in the footer or Tab `5C` at any time to choose a new folder or filename. That file stays linked and continues to be updated on Save and on close.
+- **Automatic Save on Closing:** Closing the window or clicking **Save &amp; Close** automatically overwrites your remembered `BowlingLeagueTrackerSave.json` in place before exiting and terminates the desktop host process cleanly with zero background tasks left in Task Manager.
+- **Missing-File Close Protection:** If your last save file cannot be found when closing (e.g., moved, deleted, disconnected drive, or not yet configured), the program **cancels closing**, keeps your data intact on screen, and prompts you to:
   1. **Pick New Save Location &amp; Close** — select a valid folder/file to save and exit cleanly.
   2. **Don't Save** — exit immediately without writing a backup file.
   3. **Cancel (Stay Open)** — abort closing and return to your league data.
@@ -92,7 +94,7 @@ Bowling League Helper protects league records across **Windows 11** and **Linux*
 
 Click the version button in the top bar (or **Check for Updates &amp; Patch Notes** in the footer) to check this GitHub repository for newer versions and browse full patch notes:
 
-- Clicking **`Update and Restart`** downloads the latest verified release bundle (`BowlingLeagueHelper.html` and `version.json`), overwrites the program files directly inside your installation directory (**`C:\BowlingLeagueHelper\`** on Windows 11 or **`~/BowlingLeagueHelper/`** on Linux), and restarts into the updated build.
+- Clicking **`Update and Restart`** saves your current league state, downloads the latest verified release bundle (`BowlingLeagueHelper.html` and `version.json`), overwrites the program files directly inside your installation directory (**`C:\BowlingLeagueHelper\`** on Windows 11 or **`~/BowlingLeagueHelper/`** on Linux), **automatically closes the old running program window**, and launches the updated version.
 - All scores, rosters, schedules, financial records, and archived weeks remain preserved across updates.
 
 ---

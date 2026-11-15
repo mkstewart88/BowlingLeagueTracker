@@ -162,6 +162,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       // 1. Desktop App Mode (`C:\BowlingLeagueHelper\`): overwrite real files in install folder & relaunch
       const desktopBridge = getDesktopBridge();
       if (desktopBridge) {
+        (window as unknown as { __BOWLING_SUPPRESS_UNLOAD__?: boolean }).__BOWLING_SUPPRESS_UNLOAD__ = true;
         await desktopBridge.quickSaveToCurrentFile?.(serializeMasterSavePayload(appState)).catch(() => {});
         const versionJsonText = JSON.stringify(
           {
@@ -181,13 +182,28 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
           onShowToast(
             `Updated files in ${targetDir} to v${effectiveLatestVersion}! Restarting...`
           );
+          document.title = 'Bowling League Helper [Updating]';
           if (installRes.needsPageReload) {
             setTimeout(() => {
               window.location.reload();
-            }, 600);
+            }, 400);
+          } else {
+            setTimeout(() => {
+              try {
+                window.close();
+              } catch {
+                // Ignore
+              }
+              try {
+                window.open('', '_self')?.close();
+              } catch {
+                // Ignore
+              }
+            }, 250);
           }
           return;
         }
+        (window as unknown as { __BOWLING_SUPPRESS_UNLOAD__?: boolean }).__BOWLING_SUPPRESS_UNLOAD__ = false;
         const errMsg =
           installRes.error ||
           'Failed to write updated files to installation folder.';

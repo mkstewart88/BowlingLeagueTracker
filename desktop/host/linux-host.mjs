@@ -65,7 +65,7 @@ function readInstalledVersion() {
   } catch {
     // Fallback
   }
-  return '1.0.14';
+  return '1.0.19';
 }
 
 function commandExists(cmd) {
@@ -283,22 +283,10 @@ const server = http.createServer(async (req, res) => {
     try {
       const { jsonText } = await readJsonBody(req);
       const cfg = readConfig();
-      let target = (cfg.lastSaveFilePath || '').trim();
+      const target = (cfg.lastSaveFilePath || '').trim();
       if (!target || !fs.existsSync(target)) {
-        const startDir =
-          cfg.lastSaveFilePath && fs.existsSync(path.dirname(cfg.lastSaveFilePath))
-            ? path.dirname(cfg.lastSaveFilePath)
-            : getDocumentsDir();
-        const dlg = await showLinuxSaveDialog(
-          'Save Bowling League File',
-          startDir,
-          'BowlingLeagueTrackerSave.json'
-        );
-        if (dlg.canceled || !dlg.filePath) {
-          sendJson(res, 200, { saved: false, canceled: true });
-          return;
-        }
-        target = dlg.filePath;
+        sendJson(res, 200, { saved: false, missing: true });
+        return;
       }
       const payload = jsonText || stagedSavePayload || '';
       atomicWrite(target, payload);
@@ -444,9 +432,6 @@ const server = http.createServer(async (req, res) => {
         updatedTargets: [htmlTarget],
         needsPageReload: true,
       });
-      setTimeout(() => {
-        shutdownSoon(true);
-      }, 400);
     } catch (err) {
       sendJson(res, 200, { ok: false, error: err?.message || 'Update failed.' });
     }
@@ -461,7 +446,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     let html = fs.readFileSync(htmlFile, 'utf8');
-    const inject = '<script>window.__BOWLING_NATIVE_HOST__=true;</script>';
+    let inject = '<script>window.__BOWLING_NATIVE_HOST__=true;</script>';
+    const cfg = readConfig();
+    const target = (cfg.lastSaveFilePath || '').trim();
+    if (target && fs.existsSync(target)) {
+      try {
+        const savedJson = fs.readFileSync(target, 'utf8');
+        if (savedJson) {
+          stagedSavePayload = savedJson;
+          const safeJson = savedJson.replace(/<\//g, '<\\/');
+          inject += `<script id="embedded-league-state" type="application/json">${safeJson}</script>`;
+        }
+      } catch {
+        // Ignore read error
+      }
+    }
     html = html.includes('<head>')
       ? html.replace('<head>', `<head>${inject}`)
       : `${inject}${html}`;
@@ -526,10 +525,19 @@ function openLinuxBrowserWindow(appUrl) {
   }
 }
 
-server.listen(0, '127.0.0.1', () => {
-  const addr = server.address();
-  const port = typeof addr === 'object' && addr ? addr.port : 3000;
-  const appUrl = `http://127.0.0.1:${port}/`;
-  console.log(`Bowling League Helper Linux Desktop Host running at ${appUrl}`);
-  openLinuxBrowserWindow(appUrl);
-});
+function startLinuxServer(preferredPort = 45820) {
+  server.once('error', (err) => {
+    if (preferredPort !== 0 && (err.code === 'EADDRINUSE' || err.code === 'EACCES')) {
+      startLinuxServer(0);
+    }
+  });
+  server.listen(preferredPort, '127.0.0.1', () => {
+    const addr = server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 3000;
+    const appUrl = `http://127.0.0.1:${port}/`;
+    console.log(`Bowling League Helper Linux Desktop Host running at ${appUrl}`);
+    openLinuxBrowserWindow(appUrl);
+  });
+}
+
+startLinuxServer(45820);

@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.18';
-export const LATEST_AVAILABLE_VERSION = '1.0.18';
+export const CURRENT_APP_VERSION = '1.0.19';
+export const LATEST_AVAILABLE_VERSION = '1.0.19';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'my-bowling-league',
@@ -67,29 +67,120 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.19',
+    date: 'November 15, 2026',
+    title: 'Zero-404 Desktop Save Compatibility, Guaranteed Startup Auto-Load & Synchronized Installer',
+    isLatest: true,
+    highlights: [
+      'Eliminated "Desktop host request failed (404)" on Save: Added backward-compatible desktop host fallback so clicking Save works on both current and older installed BowlingLeagueHelper.exe binaries without ever throwing a 404 error.',
+      'Guaranteed Startup Save-File Auto-Load & Fixed Localhost Port: Pre-loads your linked BowlingLeagueTrackerSave.json directly on launch and binds the desktop host to a consistent localhost port so localStorage never resets between sessions.',
+      'Clean Old-Window Shutdown on Update & Restart: Updating automatically closes the old running program window while launching the new version—and rebuilds installer.exe and BowlingLeagueHelper.exe in lockstep with Keep a Changelog documentation.',
+    ],
+    changes: [
+      {
+        category: 'Data & Backup',
+        description:
+          'Fixed "Desktop host request failed (404)" when clicking the top-bar Save button on older desktop host binaries by automatically falling back to /api/desktop/info + /api/desktop/autosave-beacon or opening the Save As dialog (/api/desktop/save-backup).',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Fixed startup race condition and random port origin resets so the linked BowlingLeagueTrackerSave.json file is always loaded into the workspace immediately when the program starts.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Update and Restart now closes the older running window cleanly (both native WebView2 and fallback app windows) and terminates background host threads via ExitProcess(0) so nothing lingers in Task Manager.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Restored and synchronized all release entries (v1.0.14–v1.0.19) across CHANGELOG.md (Keep a Changelog 1.1.0), version.json, README.md, USER_GUIDE.md, and rebuilt installer.exe.',
+      },
+    ],
+  },
+  {
     version: '1.0.18',
     date: 'November 14, 2026',
     title: 'Seamless Save Dialog Fallback & Version 1.0.18 Stability',
-    isLatest: true,
+    isLatest: false,
     highlights: [
-      'Seamless Save Dialog Fallback: Clicking the top-bar Save button when no file is linked yet now automatically opens the system save file picker and links it instantly—eliminating any missing file errors or 404s.',
-      'Enhanced Save Resilience: Refined desktop quick-save endpoints to seamlessly fall back to save dialogs when unlinked.',
+      'Seamless Save Dialog Fallback: Clicking the top-bar Save button when no file is linked yet prompts you to choose where to save and links BowlingLeagueTrackerSave.json immediately.',
+      'Enhanced Save Resilience: Refined desktop quick-save handling when no save file path is configured yet.',
     ],
     changes: [
       {
         category: 'New Feature',
-        description: 'Quick-save button now automatically opens the save dialog to pick a location if no file is currently linked.',
+        description:
+          'Quick-save button automatically prompts to choose a save location if no save file is currently linked.',
       },
       {
         category: 'Improvement',
-        description: 'Eliminated missing file errors and 404 responses during unlinked desktop save actions.',
+        description:
+          'Improved desktop quick-save error handling for unlinked save files.',
       },
     ],
   },
   {
     version: '1.0.17',
     date: 'November 14, 2026',
-    title: 'Automatic Window Closing & Process Relaunch on Update & Version 1.0.17 Stability',
+    title: 'Automatic Window Closing & Process Relaunch on Update',
+    isLatest: false,
+    highlights: [
+      'Automatic Old-Window Closing on Update: Clicking Update and Restart closes the previous running window as the updated version launches.',
+      'Clean Desktop Process Lifecycle: Prevents duplicate windows from remaining open side by side after an in-app update.',
+    ],
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Updated Update and Restart flow to close the active window when spawning the updated desktop executable.',
+      },
+    ],
+  },
+  {
+    version: '1.0.16',
+    date: 'November 14, 2026',
+    title: 'Missing-File Notification & Save Location Prompt on Quick Save',
+    isLatest: false,
+    highlights: [
+      'Clear Missing-File Notice on Save: Clicking Save when no save file exists notifies you ("No save file found. Please choose where to save.") and opens the Save As dialog instead of failing.',
+      'Immediate Save Link Update: Choosing a location in the Save As dialog links that file for future 1-click saves and automatic save-on-close.',
+    ],
+    changes: [
+      {
+        category: 'Data & Backup',
+        description:
+          'Updated the top-bar Save button so missing or unlinked save files display a clear notification and open the file save picker.',
+      },
+    ],
+  },
+  {
+    version: '1.0.15',
+    date: 'November 14, 2026',
+    title: 'Top-Bar Quick Save Button & Automatic Save-File Load on Startup',
+    isLatest: false,
+    highlights: [
+      'Top-Bar Save Button: Added a green Save button right next to the Update button in the top navigation bar for instant 1-click saves.',
+      'Automatic Save File Loading on Startup: Automatically opens and restores your linked BowlingLeagueTrackerSave.json file when the desktop program starts.',
+    ],
+    changes: [
+      {
+        category: 'New Feature',
+        description:
+          'Added a dedicated Save button next to the top-bar Update button to save directly to your linked BowlingLeagueTrackerSave.json file.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Added /api/desktop/load-save startup hydration so the program opens your last linked save file automatically on launch.',
+      },
+    ],
+  },
+  {
+    version: '1.0.14',
+    date: 'November 14, 2026',
+    title: 'Desktop Program (Windows 11 & Linux), Auto-Save on Close, Week Notes & Print to PDF',
     isLatest: false,
     highlights: [
       'Desktop Program & Installer (Windows 11 installer.exe + Linux installer): Installs to C:\\BowlingLeagueHelper\\ on Windows 11 or ~/BowlingLeagueHelper/ on Linux with a custom Bowling Ball & Pins desktop icon.',

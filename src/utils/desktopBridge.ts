@@ -115,18 +115,81 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
       return resp.json() as Promise<DesktopInfo>;
     },
     loadLastSaveFile: async () => {
-      const resp = await fetch(api('/api/desktop/load-save'), { cache: 'no-store' });
-      if (!resp.ok) {
-        throw new Error(`Failed to load last save file (${resp.status})`);
+      try {
+        const resp = await fetch(api('/api/desktop/load-save'), { cache: 'no-store' });
+        if (resp.ok) {
+          return (await resp.json()) as DesktopLoadSaveResult;
+        }
+      } catch {
+        // Fallback if older host binary does not expose /api/desktop/load-save
       }
-      return resp.json() as Promise<DesktopLoadSaveResult>;
+      return { ok: false, exists: false };
     },
-    quickSaveToCurrentFile: async (jsonText) =>
-      postJson<DesktopQuickSaveResult>('/api/desktop/quick-save', {
-        jsonText,
-      }),
-    clearLastSaveLink: async () =>
-      postJson<{ ok: boolean }>('/api/desktop/clear-save-link', {}),
+    quickSaveToCurrentFile: async (jsonText) => {
+      try {
+        const resp = await fetch(api('/api/desktop/quick-save'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonText }),
+          cache: 'no-store',
+        });
+        if (resp.ok) {
+          return (await resp.json()) as DesktopQuickSaveResult;
+        }
+      } catch {
+        // Fall through to /api/desktop/info + /api/desktop/autosave-beacon fallback
+      }
+
+      // Backwards-compatible fallback for older desktop host executables (e.g. v1.0.14)
+      try {
+        const infoResp = await fetch(api('/api/desktop/info'), { cache: 'no-store' });
+        if (infoResp.ok) {
+          const info = (await infoResp.json()) as DesktopInfo;
+          if (info.lastSaveExists && info.lastSaveFilePath) {
+            const beaconResp = await fetch(api('/api/desktop/autosave-beacon'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: jsonText,
+              cache: 'no-store',
+            });
+            if (beaconResp.ok) {
+              const beaconData = (await beaconResp.json()) as { ok?: boolean };
+              if (beaconData.ok) {
+                const filename =
+                  info.lastSaveFilePath.split(/[\\/]/).pop() || DEFAULT_SAVE_FILENAME;
+                return {
+                  saved: true,
+                  missing: false,
+                  filePath: info.lastSaveFilePath,
+                  filename,
+                  savedAt: new Date().toISOString(),
+                };
+              }
+            }
+          }
+        }
+      } catch {
+        // Ignore fallback error and report missing so file picker opens
+      }
+
+      return { saved: false, missing: true };
+    },
+    clearLastSaveLink: async () => {
+      try {
+        const resp = await fetch(api('/api/desktop/clear-save-link'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          cache: 'no-store',
+        });
+        if (resp.ok) {
+          return (await resp.json()) as { ok: boolean };
+        }
+      } catch {
+        // Ignore if older host binary does not expose /api/desktop/clear-save-link
+      }
+      return { ok: true };
+    },
     saveNewLeagueFile: async (jsonText, defaultFilename) =>
       postJson<DesktopBackupSaveResult>('/api/desktop/save-backup', {
         jsonText,

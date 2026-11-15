@@ -87,25 +87,16 @@ export default function App() {
       const rawSource = saved || embeddedScript;
       if (rawSource) {
         const parsed = JSON.parse(rawSource);
-        if (parsed && Array.isArray(parsed.bowlers) && Array.isArray(parsed.roster)) {
-          return syncActiveLeagueInRegistry({
-            version: CURRENT_APP_VERSION,
-            settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
-            bowlers: parsed.bowlers,
-            roster: parsed.roster,
-            history: Array.isArray(parsed.history) ? parsed.history : [],
-            currentDues: parsed.currentDues || {},
-            schedule: Array.isArray(parsed.schedule) ? parsed.schedule : [],
-            bracketEntrantIds: Array.isArray(parsed.bracketEntrantIds)
-              ? parsed.bracketEntrantIds
-              : parsed.bowlers.filter((b: BowlerEntry) => !b.isAbsent).map((b: BowlerEntry) => b.id),
-            weekArchived: Boolean(parsed.weekArchived),
-            weekNotes: typeof parsed.weekNotes === 'string' ? parsed.weekNotes : '',
-            weekArchiveId: parsed.weekArchiveId || null,
-            activeLeagueId: parsed.activeLeagueId || parsed.settings?.leagueId || 'my-bowling-league',
-            allLeaguesRegistry: parsed.allLeaguesRegistry || undefined,
-          });
-        }
+        const { restoredState } = parseUniversalBackupPayload(
+          rawSource,
+          createFreshInitialState()
+        );
+        const hasRegistry = Boolean(parsed && typeof parsed.allLeaguesRegistry === 'object');
+        return syncActiveLeagueInRegistry({
+          ...restoredState,
+          version: CURRENT_APP_VERSION,
+          allLeaguesRegistry: hasRegistry ? restoredState.allLeaguesRegistry : undefined,
+        });
       }
     } catch (e) {
       console.warn('Could not load saved bowling state, starting with a clean league.', e);
@@ -156,12 +147,16 @@ export default function App() {
   const closeHandledCleanlyRef = React.useRef(false);
   const desktopLastSaveExistsRef = React.useRef(false);
   const desktopLastSavePathRef = React.useRef<string | null>(null);
+  const initialLoadCompleteRef = React.useRef(!getDesktopBridge());
   const [desktopInstallDir, setDesktopInstallDir] = useState<string>('C:\\BowlingLeagueHelper');
 
   // Register native desktop close interception + keep save-file status synced
   useEffect(() => {
     const bridge = getDesktopBridge();
-    if (!bridge) return;
+    if (!bridge) {
+      initialLoadCompleteRef.current = true;
+      return;
+    }
 
     const refreshDesktopSaveStatus = () => {
       bridge
@@ -212,6 +207,7 @@ export default function App() {
                     res.filePath || restoredState.settings.autoBackupDirectoryLabel,
                 },
               });
+              initialLoadCompleteRef.current = true;
               setAppState(loaded);
               setUndoStack([]);
               desktopLastSaveExistsRef.current = true;
@@ -226,12 +222,15 @@ export default function App() {
               console.warn('Could not parse linked save file on startup:', err);
             }
           }
+          initialLoadCompleteRef.current = true;
           bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
         })
         .catch(() => {
+          initialLoadCompleteRef.current = true;
           bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
         });
     } else {
+      initialLoadCompleteRef.current = true;
       bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
     }
     const statusPoll = setInterval(refreshDesktopSaveStatus, 4000);
@@ -271,7 +270,12 @@ export default function App() {
     });
 
     const notifyDesktopWindowUnloading = () => {
-      if (closeHandledCleanlyRef.current) return;
+      if (
+        closeHandledCleanlyRef.current ||
+        (window as unknown as { __BOWLING_SUPPRESS_UNLOAD__?: boolean }).__BOWLING_SUPPRESS_UNLOAD__
+      ) {
+        return;
+      }
       const payload = serializeMasterSavePayload(appStateRef.current);
       if (desktopLastSaveExistsRef.current && typeof bridge.sendAutoSaveBeacon === 'function') {
         bridge.sendAutoSaveBeacon(payload);
@@ -295,6 +299,7 @@ export default function App() {
 
   // Sync to localStorage and stage latest desktop save payload on every state change
   useEffect(() => {
+    if (!initialLoadCompleteRef.current) return;
     try {
       const synced = syncActiveLeagueInRegistry(appState);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
@@ -927,14 +932,9 @@ export default function App() {
     if (isQuickSaving) return;
     setIsQuickSaving(true);
     try {
-      const hasLinked = Boolean(
-        appStateRef.current.settings.autoBackupDirectoryLabel &&
-          appStateRef.current.settings.autoBackupDirectoryLabel.trim() !== ''
-      );
-      if (!hasLinked) {
+      const res = await quickSaveLeagueFile(appStateRef.current, () => {
         showToast('No save file found. Please choose where to save.');
-      }
-      const res = await quickSaveLeagueFile(appStateRef.current);
+      });
       handleRecordBackupTimestamp('local', res.filePath || res.filename);
       showToast(`Saved "${res.filePath || res.filename}".`);
     } catch (err: unknown) {

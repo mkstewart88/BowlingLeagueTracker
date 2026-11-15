@@ -462,7 +462,7 @@ static std::string ReadInstalledVersion() {
       return ver;
     }
   }
-  return "1.0.14";
+  return "1.0.19";
 }
 
 // ============================================================================
@@ -802,20 +802,9 @@ static void HandleHttpClient(SOCKET client) {
     DesktopConfig cfg = ReadDesktopConfig();
     std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
     if (cfg.lastSaveFilePath.empty() || !FileExistsW(targetWide)) {
-      std::wstring startDir = GetDocumentsDirW();
-      if (!cfg.lastSaveFilePath.empty()) {
-        std::wstring prevParent = ParentDirW(Utf8ToWide(cfg.lastSaveFilePath));
-        if (DirExistsW(prevParent)) startDir = prevParent;
-      }
-      std::wstring chosenPath;
-      if (!ShowSaveFileDialogOnUiThread(L"Save Bowling League File", startDir,
-                                        L"BowlingLeagueTrackerSave.json", chosenPath)) {
-        SendHttpResponse(client, 200, "OK", "application/json", "{\"saved\":false,\"canceled\":true}");
-        closesocket(client);
-        return;
-      }
-      targetWide = chosenPath;
-      cfg.lastSaveFilePath = WideToUtf8(chosenPath);
+      SendHttpResponse(client, 200, "OK", "application/json", "{\"saved\":false,\"missing\":true}");
+      closesocket(client);
+      return;
     }
 
     if (!AtomicWriteFileUtf8(targetWide, jsonText)) {
@@ -1047,10 +1036,29 @@ static void HandleHttpClient(SOCKET client) {
       closesocket(client);
       return;
     }
-    // Inject native desktop host flag cleanly in-memory (does not modify file on disk)
+    // Inject native desktop host flag + pre-load linked save file directly into #embedded-league-state
+    DesktopConfig cfg = ReadDesktopConfig();
+    std::string inject = "<script>window.__BOWLING_NATIVE_HOST__=true;</script>";
+    if (!cfg.lastSaveFilePath.empty()) {
+      std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
+      std::string savedJson;
+      if (FileExistsW(targetWide) && ReadFileUtf8(targetWide, savedJson) && !savedJson.empty()) {
+        {
+          AutoCsLock lock(&g_stagedCs);
+          g_stagedSavePayload = savedJson;
+        }
+        // Escape </script so it can never break out of the script tag
+        std::string safeJson = savedJson;
+        size_t pos = 0;
+        while ((pos = safeJson.find("</", pos)) != std::string::npos) {
+          safeJson.replace(pos, 2, "<\\/");
+          pos += 3;
+        }
+        inject += "<script id=\"embedded-league-state\" type=\"application/json\">" + safeJson + "</script>";
+      }
+    }
     const char* marker = "<head>";
     size_t headPos = html.find(marker);
-    std::string inject = "<script>window.__BOWLING_NATIVE_HOST__=true;</script>";
     if (headPos != std::string::npos) {
       html.insert(headPos + std::strlen(marker), inject);
     } else {
@@ -1582,6 +1590,18 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
       if (g_wvController) {
         g_wvController->lpVtbl->Close(g_wvController);
       }
+      // Close any fallback Edge/Chrome app window displaying Bowling League Helper before relaunching
+      EnumWindows([](HWND h, LPARAM selfHwnd) -> BOOL {
+        if (h == (HWND)selfHwnd || !IsWindowVisible(h)) return TRUE;
+        wchar_t title[512] = {0};
+        if (GetWindowTextW(h, title, 511) > 0) {
+          if (wcsstr(title, L"Bowling League Helper") != nullptr) {
+            PostMessageW(h, WM_CLOSE, 0, 0);
+          }
+        }
+        return TRUE;
+      }, (LPARAM)hwnd);
+
       std::wstring args = L"\"" + g_exePath + L"\" --relaunch-wait=" + std::to_wstring(GetCurrentProcessId());
       STARTUPINFOW si = {};
       si.cb = sizeof(si);
@@ -1645,10 +1665,25 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
   sockaddr_in addr = {};
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  addr.sin_port = 0; // Ephemeral free localhost port
 
-  if (bind(listenSock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR ||
-      listen(listenSock, SOMAXCONN) == SOCKET_ERROR) {
+  bool boundPort = false;
+  for (int candidatePort = 45820; candidatePort <= 45829; ++candidatePort) {
+    addr.sin_port = htons((u_short)candidatePort);
+    if (bind(listenSock, (sockaddr*)&addr, sizeof(addr)) == 0) {
+      boundPort = true;
+      break;
+    }
+  }
+  if (!boundPort) {
+    addr.sin_port = 0; // Ephemeral free localhost port fallback
+    if (bind(listenSock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+      closesocket(listenSock);
+      WSACleanup();
+      return 1;
+    }
+  }
+
+  if (listen(listenSock, SOMAXCONN) == SOCKET_ERROR) {
     closesocket(listenSock);
     WSACleanup();
     return 1;
@@ -1703,7 +1738,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
   MSG msg;
   while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
     TranslateMessage(&msg);
-    DispatchMessageW(&msg);
+    DispatchMessage(&msg);
   }
 
   g_serverRunning.store(false);
@@ -1715,8 +1750,6 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
   }
   WSACleanup();
   CoUninitialize();
-  DeleteCriticalSection(&g_stagedCs);
-  DeleteCriticalSection(&g_sseCs);
-  DeleteCriticalSection(&g_configCs);
+  ExitProcess(0);
   return (int)msg.wParam;
 }

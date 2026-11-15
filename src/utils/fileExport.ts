@@ -839,7 +839,8 @@ export async function saveLeagueFileToComputer(
  * without opening a file picker if already linked; otherwise prompts to choose a save location.
  */
 export async function quickSaveLeagueFile(
-  state: AppState
+  state: AppState,
+  onMissingFile?: () => void
 ): Promise<{ method: 'desktop' | 'filesystem' | 'download'; filename: string; filePath?: string }> {
   const suggestedName = getDefaultSaveFilename();
   const payload = serializeMasterSavePayload(state);
@@ -855,12 +856,13 @@ export async function quickSaveLeagueFile(
           filePath: res.filePath,
         };
       }
-      if (res.missing) {
-        // No save file linked yet: notify user and prompt to pick a save location
-        if (typeof window !== 'undefined') {
-          // Toast or fallback picker
-        }
+      if (res.missing || !res.saved) {
+        onMissingFile?.();
+        await new Promise((r) => setTimeout(r, 60));
       }
+    } else {
+      onMissingFile?.();
+      await new Promise((r) => setTimeout(r, 60));
     }
     return saveLeagueFileToComputer(state);
   }
@@ -886,6 +888,8 @@ export async function quickSaveLeagueFile(
     }
   }
 
+  onMissingFile?.();
+  await new Promise((r) => setTimeout(r, 60));
   return saveLeagueFileToComputer(state);
 }
 

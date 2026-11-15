@@ -58,9 +58,15 @@ const gxxCmd = isWindows ? 'g++' : 'x86_64-w64-mingw32-g++';
 const stripCmd = isWindows ? 'strip' : 'x86_64-w64-mingw32-strip';
 
 if (!commandExists(windresCmd) || !commandExists(gxxCmd)) {
-  throw new Error(
-    `Missing MinGW-w64 toolchain (${windresCmd} / ${gxxCmd}). Install mingw-w64 to compile BowlingLeagueHelper.exe.`
+  if (process.argv.includes('--require-native')) {
+    throw new Error(
+      `Missing MinGW-w64 toolchain (${windresCmd} / ${gxxCmd}). Install mingw-w64 to compile BowlingLeagueHelper.exe.`
+    );
+  }
+  console.log(
+    `[build-installer] Synced HTML & version.json manifests. Skipping native .exe rebuild (${windresCmd} not installed in this environment).`
   );
+  process.exit(0);
 }
 
 const resFile = path.join(distHostDir, 'resource.res');
@@ -115,7 +121,11 @@ const makensisCmd = makensisCandidates.find(
 );
 
 if (!makensisCmd) {
-  throw new Error('NSIS (makensis) is required to build installer.exe.');
+  if (process.argv.includes('--require-native')) {
+    throw new Error('NSIS (makensis) is required to build installer.exe.');
+  }
+  console.log('[build-installer] Built BowlingLeagueHelper.exe. Skipping installer.exe (makensis not installed).');
+  process.exit(0);
 }
 
 const installerScript = path.join(desktopDir, 'installer', 'installer.nsi');
@@ -131,3 +141,4 @@ const stat = fs.statSync(rootInstallerOut);
 console.log(
   `\nBuilt ${rootInstallerOut} (${(stat.size / (1024 * 1024)).toFixed(2)} MB)`
 );
+
