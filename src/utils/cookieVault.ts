@@ -16,6 +16,7 @@ export interface VaultSnapshot {
   state: AppState;
   savedAt: number;
   dirty: boolean;
+  trimmed: boolean;
 }
 
 export function utf8ToUrlSafeBase64(str: string): string {
@@ -76,15 +77,22 @@ function buildCompactVaultJson(
   state: AppState,
   savedAt: number,
   dirty: boolean,
-  maxHistoryEntries?: number
+  maxHistoryEntries?: number,
+  trimmed = false,
+  trimOtherLeaguesHistory = false
 ): string {
   const activeId =
     state.activeLeagueId || state.settings.leagueId || 'my-bowling-league';
   const otherLeagues: Record<string, unknown> = {};
   if (state.allLeaguesRegistry) {
     for (const [id, lg] of Object.entries(state.allLeaguesRegistry)) {
-      if (id !== activeId) {
-        otherLeagues[id] = lg;
+      if (id !== activeId && lg) {
+        otherLeagues[id] = trimOtherLeaguesHistory
+          ? {
+              ...lg,
+              history: Array.isArray(lg.history) ? lg.history.slice(-1) : [],
+            }
+          : lg;
       }
     }
   }
@@ -99,6 +107,7 @@ function buildCompactVaultJson(
     schemaVersion: 4,
     __vaultSavedAt: savedAt,
     __vaultDirty: dirty ? 1 : 0,
+    __vaultTrimmed: trimmed ? 1 : 0,
     ...state,
     history: historySlice,
     allLeaguesRegistry:
@@ -129,13 +138,22 @@ export function saveStateToCookieVault(
 
   try {
     const savedAt = Date.now();
-    let json = buildCompactVaultJson(state, savedAt, dirty);
+    let json = buildCompactVaultJson(state, savedAt, dirty, undefined, false, false);
     let encoded = utf8ToUrlSafeBase64(json);
 
     // If multi-year history exceeds the 15-chunk budget, trim older history snapshots in the cookie mirror
+    // and mark __vaultTrimmed=1 so full untrimmed stores (IndexedDB, localStorage, Disk JSON) never get overwritten.
     if (encoded.length > CHUNK_SIZE * MAX_CHUNKS) {
       for (const keepHistory of [12, 6, 3, 1, 0]) {
-        json = buildCompactVaultJson(state, savedAt, dirty, keepHistory);
+        json = buildCompactVaultJson(state, savedAt, dirty, keepHistory, true, false);
+        encoded = utf8ToUrlSafeBase64(json);
+        if (encoded.length <= CHUNK_SIZE * MAX_CHUNKS) break;
+      }
+    }
+
+    if (encoded.length > CHUNK_SIZE * MAX_CHUNKS) {
+      for (const keepHistory of [3, 1, 0]) {
+        json = buildCompactVaultJson(state, savedAt, dirty, keepHistory, true, true);
         encoded = utf8ToUrlSafeBase64(json);
         if (encoded.length <= CHUNK_SIZE * MAX_CHUNKS) break;
       }
@@ -244,6 +262,7 @@ export function loadStateFromCookieVault(rawCookieHeader?: string): VaultSnapsho
       state: syncedState,
       savedAt,
       dirty,
+      trimmed: Boolean(parsedRaw?.__vaultTrimmed),
     };
   } catch {
     return null;

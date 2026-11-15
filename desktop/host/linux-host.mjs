@@ -65,7 +65,7 @@ function readInstalledVersion() {
   } catch {
     // Fallback
   }
-  return '1.0.22';
+  return '1.0.24';
 }
 
 function commandExists(cmd) {
@@ -508,7 +508,7 @@ function openLinuxBrowserWindow(appUrl) {
   if (chosen) {
     const child = spawn(
       chosen,
-      [`--app=${appUrl}`, `--user-data-dir=${profileDir}`, '--class=BowlingLeagueHelper', '--new-window'],
+      [`--app=${appUrl}`, `--user-data-dir=${profileDir}`, '--class=BowlingLeagueHelper', '--new-window', '--start-maximized'],
       { detached: true, stdio: 'ignore' }
     );
     child.on('exit', () => {

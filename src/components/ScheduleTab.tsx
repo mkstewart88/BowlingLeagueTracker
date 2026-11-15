@@ -688,7 +688,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     Step 1: Automatic Backup Scheduler &amp; Save-on-Close Behavior
                   </h3>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Choose <strong>On Closing Program</strong> to automatically save on exit, or choose another frequency to be prompted whenever you close with unsaved changes.
+                    By default, changes sync automatically right after every entry (<strong>Every Data Change — Instant Auto-Save</strong>). Switch to <strong>On Closing Program</strong> or <strong>Manual Only</strong> anytime to keep separate save files or be prompted on close.
                   </p>
                 </div>
                 <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
@@ -709,7 +709,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   </label>
                   <select
                     id="autobackup-interval"
-                    value={settings.autoBackupInterval || 'on_finish_week'}
+                    value={settings.autoBackupInterval || 'on_change'}
                     onChange={(e) =>
                       onUpdateSettings({
                         autoBackupInterval: e.target.value as LeagueSettings['autoBackupInterval'],
@@ -717,9 +717,9 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     }
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-900"
                   >
+                    <option value="on_change">Every Data Change — Instant Auto-Save (Default)</option>
                     <option value="on_close">On Closing Program (Auto-Save When Exiting)</option>
                     <option value="on_finish_week">When Clicking Finish Week &amp; Archive</option>
-                    <option value="on_change">Every Score Change (Instant Sync to Connected File)</option>
                     <option value="5min">Every 5 Minutes</option>
                     <option value="15min">Every 15 Minutes</option>
                     <option value="30min">Every 30 Minutes</option>

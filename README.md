@@ -6,7 +6,7 @@
   </p>
   <p>
     <a href="CHANGELOG.md">
-      <img src="https://img.shields.io/badge/version-v1.0.22-1d4ed8?style=for-the-badge" alt="Version v1.0.22" />
+      <img src="https://img.shields.io/badge/version-v1.0.24-1d4ed8?style=for-the-badge" alt="Version v1.0.24" />
     </a>
     <img src="https://img.shields.io/badge/platform-Windows%2011%20%7C%20Linux-0f172a?style=for-the-badge" alt="Supported Platforms: Windows 11 and Linux" />
     <img src="https://img.shields.io/badge/offline--first-Zero%20Server%20Required-047857?style=for-the-badge" alt="Offline First" />
@@ -79,11 +79,11 @@ Bowling League Helper organizes every weekly night-of-league task into five stru
 
 Bowling League Helper protects league records across **Windows 11** and **Linux** with redundant local persistence, 1-click top-bar saves, automatic startup loading, and close-time verification:
 
-- **Top-Bar `Save` Button & Missing-File Fallback:** Click the green **Save** button next to the version/update button in the top bar anytime to overwrite your linked `BowlingLeagueTrackerSave.json` file in one click (shows `Save *` whenever you have unsaved edits). If no save file is linked or found yet, the app displays *"No save file found. Please choose where to save."* and opens the system Save As dialog so you can pick where to save `BowlingLeagueTrackerSave.json`.
-- **Automatic Save-File Load on Startup:** Whenever you launch **Bowling League Helper**, it automatically opens and restores your linked `BowlingLeagueTrackerSave.json` file (all leagues, rosters, scores, Week Notes, dues, brackets, and season history).
-- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** You can also click **Save New File (.json)...** in the footer or Tab `5C` at any time to choose a new folder or filename. That file stays linked and continues to be updated on Save.
+- **Top-Bar `Save` / `Saved` Sync Indicator & Instant Auto-Save Default:** Out of the box, every change auto-saves immediately (**Every Data Change — Instant Auto-Save**): the top-bar Save button briefly turns **orange** with a spinning **Syncing...** icon while saving, then turns **green** with a **Saved** checkmark once complete. Clicking **Save / Saved** anytime lets you write or update a linked `BowlingLeagueTrackerSave.json` file (or opens the Save As dialog if no file is linked yet).
+- **Automatic Save-File Load on Startup:** Whenever you launch **Bowling League Helper**, it automatically opens maximized and restores your linked `BowlingLeagueTrackerSave.json` or local auto-saved league data (all leagues, rosters, scores, Week Notes, dues, brackets, and season history).
+- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** You can also click **Save New File (.json)...** in the footer or Tab `5C` at any time to choose a new folder or filename, or switch to `"Manual Only"` / `"On Closing Program"` in Tab `5C` if you prefer maintaining separate save files.
 - **Unsaved-Changes Close Prompt & `"On Closing Program"` Auto-Backup (`Tab 5C`):**
-  - If you make a change and close the program, it prompts you to **Save Changes &amp; Close**, **Save As...**, **Don't Save**, or **Cancel (Stay Open)** so you never lose edits by accident.
+  - If you switch Tab `5C` to `"Manual Only"` or timed backups and close the program with unsaved edits (`Save *`), it prompts you to **Save Changes &amp; Close**, **Save As...**, **Don't Save**, or **Cancel (Stay Open)** so you never lose edits by accident.
   - Or, select **`On Closing Program (Auto-Save When Exiting)`** in **Tab 5C → Automatic Backup Schedule Frequency** to automatically save to your linked `BowlingLeagueTrackerSave.json` file every time you exit without being prompted.
 - **Missing-File Close Protection:** If your last save file cannot be found when closing (e.g., moved, deleted, disconnected drive, or not yet configured), the program **cancels closing**, keeps your data intact on screen, and prompts you to:
   1. **Pick New Save Location &amp; Close** — select a valid folder/file to save and exit cleanly.

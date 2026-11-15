@@ -12,6 +12,9 @@ import {
   computeMasterDatabaseMetrics,
   computeSeasonTeamPerformance,
   computeBowlerAbsentScore,
+  deduplicateAndSortHistory,
+  upsertArchivedWeekSnapshot,
+  getNextSequentialWeekNumber,
   CURRENT_APP_VERSION,
   LATEST_AVAILABLE_VERSION,
   DEFAULT_SETTINGS,
@@ -38,11 +41,18 @@ import {
   clearCookieVault,
   hasMeaningfulLeagueData,
 } from './cookieVault';
+import {
+  countTotalArchivedWeeks,
+  selectBestStartupCandidate,
+  shouldHydrateIndexedDbOverCurrent,
+} from './leagueDb';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.22 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.22');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.22');
+test('version is set to 1.0.24 as the latest release and instant auto-save is default', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.24');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.24');
+  assert.equal(DEFAULT_SETTINGS.autoBackupEnabled, true);
+  assert.equal(DEFAULT_SETTINGS.autoBackupInterval, 'on_change');
 });
 
 test('createFreshInitialState returns a clean empty Week 1 league with zero sample data', () => {
@@ -687,4 +697,184 @@ test('saveStateToCookieVault and loadStateFromCookieVault round-trip full league
     }
   }
 });
+
+test('deduplicateAndSortHistory, upsertArchivedWeekSnapshot, and getNextSequentialWeekNumber prevent duplicate week pills', () => {
+  const mkWeek = (id: string, week: string, date: string, bowlerCount: number) => ({
+    id,
+    league: 'My Bowling League',
+    week,
+    date,
+    settings: { ...DEFAULT_SETTINGS, weekNumber: week },
+    bowlers: Array.from({ length: bowlerCount }, (_, i) => ({
+      id: `${id}-b${i}`,
+      name: `Bowler ${i + 1}`,
+      team: 'Team A',
+      entryMode: 'three' as const,
+      scoringType: 'handicap' as const,
+      g1: 180,
+      g2: 190,
+      g3: 200,
+      scratchScore: 570,
+      handicap: 60,
+      grandTotal: 630,
+      isAbsent: false,
+      isSub: false,
+      createdAt: '',
+    })),
+  });
+
+  const duplicateRaw = [
+    mkWeek('w3-old', '3', '2026-10-15T12:00:00Z', 1),
+    mkWeek('w1-old', '1', '2026-10-01T12:00:00Z', 1),
+    mkWeek('w1-new', '1', '2026-10-02T12:00:00Z', 2),
+    mkWeek('w3-new', '3', '2026-10-16T12:00:00Z', 3),
+    mkWeek('w2-only', '2', '2026-10-08T12:00:00Z', 2),
+  ];
+
+  const cleaned = deduplicateAndSortHistory(duplicateRaw);
+  assert.deepEqual(
+    cleaned.map((w) => ({ id: w.id, week: w.week })),
+    [
+      { id: 'w1-new', week: '1' },
+      { id: 'w2-only', week: '2' },
+      { id: 'w3-new', week: '3' },
+    ]
+  );
+
+  // Upserting Week 1 replaces w1-new without introducing a second Week 1
+  const updated = upsertArchivedWeekSnapshot(
+    cleaned,
+    mkWeek('w1-rearchived', '1', '2026-10-20T12:00:00Z', 4)
+  );
+  assert.equal(updated.length, 3);
+  assert.equal(updated[0].id, 'w1-rearchived');
+  assert.equal(updated[0].bowlers.length, 4);
+
+  // Even when viewing Week 1, advancing computes next week after max archived week (4)
+  assert.equal(getNextSequentialWeekNumber('1', updated), '4');
+  assert.equal(getNextSequentialWeekNumber('3', updated), '4');
+  assert.equal(getNextSequentialWeekNumber('5', updated), '6');
+});
+
+test('large multi-league 30-week season marks 40KB cookie mirror trimmed without ever overwriting untrimmed IndexedDB or localStorage', () => {
+  const base = createFreshInitialState();
+  const makeBowler = (idx: number): BowlerEntry => ({
+    id: `b-${idx}`,
+    name: `Bowler Number ${idx} Extended Name`,
+    team: `Team ${idx % 6}`,
+    entryMode: 'three',
+    scoringType: 'handicap',
+    g1: 185,
+    g2: 195,
+    g3: 205,
+    scratchScore: 585,
+    handicap: 45,
+    grandTotal: 630,
+    isAbsent: false,
+    isSub: false,
+    createdAt: '2026-10-01T12:00:00.000Z',
+  });
+
+  // Build 30 archived weeks x 30 bowlers (> 40KB easily) across multiple leagues
+  const bigHistory = Array.from({ length: 30 }, (_, wIdx) => ({
+    id: `arch-${wIdx + 1}`,
+    league: 'Monday Classic League',
+    week: String(wIdx + 1),
+    date: `2026-10-${String((wIdx % 28) + 1).padStart(2, '0')}T12:00:00.000Z`,
+    settings: { ...base.settings, leagueName: 'Monday Classic League', weekNumber: String(wIdx + 1) },
+    bowlers: Array.from({ length: 30 }, (__, bIdx) => makeBowler(bIdx)),
+  }));
+
+  const fullState = {
+    ...base,
+    settings: { ...base.settings, leagueId: 'mon-classic', leagueName: 'Monday Classic League', weekNumber: '31' },
+    activeLeagueId: 'mon-classic',
+    history: bigHistory,
+    allLeaguesRegistry: {
+      'mon-classic': {
+        ...base,
+        settings: { ...base.settings, leagueId: 'mon-classic', leagueName: 'Monday Classic League', weekNumber: '31' },
+        history: bigHistory,
+        activeLeagueId: 'mon-classic',
+      },
+      'thu-rollers': {
+        ...base,
+        settings: { ...base.settings, leagueId: 'thu-rollers', leagueName: 'Thursday Night Rollers', weekNumber: '15' },
+        history: bigHistory.slice(0, 14),
+        activeLeagueId: 'thu-rollers',
+      },
+    },
+  };
+
+  assert.equal(countTotalArchivedWeeks(fullState), 44);
+
+  // Capture simulated browser cookies
+  const jar = new Map<string, string>();
+  const ok = saveStateToCookieVault(fullState, false, (cookieStr) => {
+    const first = cookieStr.split(';')[0];
+    const eq = first.indexOf('=');
+    const k = first.slice(0, eq).trim();
+    const v = first.slice(eq + 1).trim();
+    if (cookieStr.includes('max-age=0')) jar.delete(k);
+    else jar.set(k, v);
+  });
+  assert.equal(ok, true);
+
+  const rawHeader = Array.from(jar.entries())
+    .map(([k, v]) => `${k}=${v}`)
+    .join('; ');
+  const loadedFromCookie = loadStateFromCookieVault(rawHeader);
+  assert.ok(loadedFromCookie);
+  assert.equal(loadedFromCookie!.trimmed, true);
+  assert.ok(loadedFromCookie!.state.history.length < 30);
+
+  // Even if trimmed cookie has a newer timestamp than localStorage/IndexedDB, untrimmed full store MUST win
+  const chosen = selectBestStartupCandidate([
+    {
+      state: loadedFromCookie!.state,
+      meaningful: true,
+      timestamp: 2_000_000_000_000,
+      dirty: false,
+      trimmed: loadedFromCookie!.trimmed,
+      archivedWeeksCount: countTotalArchivedWeeks(loadedFromCookie!.state),
+      priority: 4,
+    },
+    {
+      state: fullState,
+      meaningful: true,
+      timestamp: 1_900_000_000_000,
+      dirty: false,
+      trimmed: false,
+      archivedWeeksCount: countTotalArchivedWeeks(fullState),
+      priority: 2,
+    },
+  ]);
+
+  assert.ok(chosen);
+  assert.equal(chosen!.trimmed, false);
+  assert.equal(chosen!.archivedWeeksCount, 44);
+  assert.equal(chosen!.state.history.length, 30);
+
+  // And if startup booted into the trimmed cookie, IndexedDB async hydration upgrades cleanly to all 44 weeks
+  assert.equal(
+    shouldHydrateIndexedDbOverCurrent({
+      idbRecord: {
+        id: 'current',
+        state: fullState,
+        savedAt: 1_900_000_000_000,
+        dirty: false,
+        schemaVersion: 4,
+        leagueCount: 2,
+        totalArchivedWeeks: 44,
+      },
+      currentMeaningful: true,
+      currentTimestamp: 2_000_000_000_000,
+      currentWasTrimmed: true,
+      currentArchivedWeeks: countTotalArchivedWeeks(loadedFromCookie!.state),
+    }),
+    true
+  );
+});
+
+
 

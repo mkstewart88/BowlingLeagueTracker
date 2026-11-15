@@ -1,8 +1,8 @@
 {
   "appName": "Bowling League Helper",
-  "latestVersion": "1.0.22",
+  "latestVersion": "1.0.24",
   "releaseDate": "November 15, 2026",
-  "title": "Compact Top-Bar Version & \"Update Available\" Button",
+  "title": "Unlimited Built-In IndexedDB Multi-League Database & Zero-Data-Loss Cookie Safeguard",
   "htmlBundlePath": "BowlingLeagueHelper.html",
   "fallbackHtmlPaths": [
     "public/BowlingLeagueHelper.html",
@@ -11,10 +11,59 @@
   ],
   "releases": [
     {
+      "version": "1.0.24",
+      "date": "November 15, 2026",
+      "title": "Unlimited Built-In IndexedDB Multi-League Database & Zero-Data-Loss Cookie Safeguard",
+      "isLatest": true,
+      "highlights": [
+        "Built-In IndexedDB Multi-League & Multi-Week Database: Added a zero-dependency IndexedDB storage layer (master_state + indexed league_weeks) alongside native disk JSON (autosave-state.json / BowlingLeagueTrackerSave.json) so pulling up any week of any league holds hundreds of megabytes with zero 40KB cookie cap or 5MB localStorage limit.",
+        "Guaranteed Protection Against 40KB Cookie Trimming: Trimmed fallback cookie snapshots are explicitly flagged (__vaultTrimmed) so they never overwrite full multi-week or multi-league data stored on disk, in IndexedDB, or in localStorage."
+      ],
+      "changes": [
+        {
+          "category": "Data & Backup",
+          "description": "Added src/utils/leagueDb.ts IndexedDB persistence (master_state + league_weeks stores indexed by leagueId) so multi-season history across 4–5+ leagues and 30+ weeks per league is always preserved locally with no external database setup."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Added localUpdatedAt timestamp tracking to localStorage writes and __vaultTrimmed flagging in cookieVault.ts + selectBestStartupCandidate() so a 40KB-trimmed cookie mirror can never clobber complete league archives on startup."
+        }
+      ]
+    },
+    {
+      "version": "1.0.23",
+      "date": "November 15, 2026",
+      "title": "Google-Docs Style Auto-Save Sync Indicator, Duplicate-Free Week Navigation, Maximized Launch & Clean Borderless Printing",
+      "isLatest": false,
+      "highlights": [
+        "Instant Auto-Save Default & Live Syncing Indicator: \"Every Data Change — Instant Auto-Save\" is now the default in Tab 5C (while keeping all other backup modes available). Making any edit briefly turns the top-bar Save button orange with a spinning Syncing icon, then turns green with a Saved checkmark once synced.",
+        "Fixed Duplicate Weeks in Bottom Navigation: Fixed archiving and advancing weeks when viewing older weeks so Quick Week Navigation never creates duplicate Week 1 or Week 3 pills.",
+        "Maximized Desktop Launch & Print Without Browser Headers/Footers: Configured the desktop window to launch maximized by default, and set @page margin: 0 with inner report padding so printing suppresses browser date/URL/page headers & footers and eliminates the grey background box."
+      ],
+      "changes": [
+        {
+          "category": "New Feature",
+          "description": "Added Google-Drive / Office-Docs style live Save sync state in the top navigation bar: shows an orange spinning Syncing... indicator while saving changes and switches to a green checkmark Saved state upon completion."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Set \"Every Data Change — Instant Auto-Save (Default)\" (on_change) as the default Automatic Backup mode while keeping On Closing Program, On Finish Week, Timed Intervals, and Manual Only options in Tab 5C."
+        },
+        {
+          "category": "Improvement",
+          "description": "Added history deduplication and sequential week advancement helpers so loading an archived week and advancing never produces duplicate week pills in Quick Week Navigation."
+        },
+        {
+          "category": "Improvement",
+          "description": "Updated Windows and Linux desktop host launch flags to open the application window maximized by default, and updated @media print CSS to suppress default browser print headers/footers and remove background shading below printed standing sheets."
+        }
+      ]
+    },
+    {
       "version": "1.0.22",
       "date": "November 15, 2026",
       "title": "Compact Top-Bar Version & \"Update Available\" Button",
-      "isLatest": true,
+      "isLatest": false,
       "highlights": [
         "Clean Top-Bar Version Button: The top-bar update button now displays only the version number (e.g., \"v1.0.22\") when up to date, and changes to \"Update Available\" when a newer release is detected."
       ],

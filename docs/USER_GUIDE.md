@@ -96,12 +96,11 @@ Customize every league calculation without hardcoding assumptions:
 
 ## 7. Persistent Save File, Top-Bar Quick Save & Auto-Save on Closing
 
-1. **Top-Bar `Save` Button:** Click the green **Save** button in the top bar (right next to the Update button) at any time to immediately save all leagues, scores, Week Notes, and settings to your linked **`BowlingLeagueTrackerSave.json`** file (shows `Save *` whenever you have unsaved edits).
-   - If no save file is linked or found yet, the app displays *"No save file found. Please choose where to save."* and opens the system **Save As** dialog so you can choose where to save **`BowlingLeagueTrackerSave.json`**.
-2. **Automatic Load on Startup:** Every time **Bowling League Helper** starts up, it automatically opens and loads your linked **`BowlingLeagueTrackerSave.json`** file so you pick up right where you left off.
-3. **Choosing a Different Save File (`Save New File (.json)...`):** Click **Save New File (.json)...** in the footer or Tab `5C` whenever you want to save to a brand-new folder or file location.
+1. **Top-Bar `Saved` / `Syncing...` Indicator:** Out of the box, **Every Data Change — Instant Auto-Save** is enabled by default. Whenever you edit scores or rules, the top-bar Save button briefly turns **orange** (`Syncing...`) and then turns **green with a checkmark** (`Saved`). Clicking it anytime writes/updates your linked **`BowlingLeagueTrackerSave.json`** file (or opens the **Save As** dialog if no file is linked yet).
+2. **Automatic Load on Startup:** Every time **Bowling League Helper** starts up, it launches maximized and automatically restores your latest auto-saved workspace and linked **`BowlingLeagueTrackerSave.json`** file so you pick up right where you left off.
+3. **Choosing a Different Save File or Manual Mode (`Save New File (.json)...`):** Click **Save New File (.json)...** in the footer or Tab `5C` whenever you want to save to a brand-new folder or file location, or switch **Tab 5C → Auto-Backup Schedule Frequency** to **Manual Only** / **On Closing Program**.
 4. **Unsaved-Changes Prompt on Closing & `"On Closing Program"` Auto-Backup (`Tab 5C`):**
-   - When you make a change and go to close the program, it prompts you to **Save Changes & Close**, **Save As...**, **Don't Save**, or **Cancel (Stay Open)**.
+   - When using `"Manual Only"` or timed backup modes and closing with unsaved edits (`Save *`), the program prompts you to **Save Changes & Close**, **Save As...**, **Don't Save**, or **Cancel (Stay Open)**.
    - Or, choose **`On Closing Program (Auto-Save When Exiting)`** under **Tab 5C → Automatic Backup Schedule Frequency** to automatically save to your linked `BowlingLeagueTrackerSave.json` file every time you close the program.
 5. **If the file cannot be found on closing** (for example if it was deleted, moved, or not yet created):
    - The window **stays open** instead of closing silently.
@@ -111,7 +110,7 @@ Customize every league calculation without hardcoding assumptions:
 
 ## 8. Updating the Application
 
-1. Click the blue version button in the top bar (e.g., `v1.0.20 · Updates & Patch Notes`) or **Check for Updates & Patch Notes** in the footer.
+1. Click the version button in the top bar (displays `v1.0.24` when current, or amber `Update Available` when a newer version is posted) or **Check for Updates & Patch Notes** in the footer.
 2. Click **Check for Updates** to query the latest release manifest (`version.json`).
 3. When a newer release is available, click **Update and Restart**.
    - On the installed desktop program (`C:\BowlingLeagueHelper\` on Windows 11 or `~/BowlingLeagueHelper/` on Linux), the updater saves your data, downloads the new version files, overwrites `BowlingLeagueHelper.html` and `version.json` in place, and **replaces the current window in-place** (with zero old windows left open).

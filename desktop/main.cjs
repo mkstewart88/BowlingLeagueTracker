@@ -149,7 +149,7 @@ function readInstalledVersion() {
       // Ignore
     }
   }
-  return '1.0.22';
+  return '1.0.24';
 }
 
 function createMainWindow() {
@@ -170,6 +170,7 @@ function createMainWindow() {
       sandbox: false,
     },
   });
+  mainWindow.maximize();
 
   mainWindow.on('close', (event) => {
     if (allowWindowClose) return;

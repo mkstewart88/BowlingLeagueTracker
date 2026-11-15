@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.22';
-export const LATEST_AVAILABLE_VERSION = '1.0.22';
+export const CURRENT_APP_VERSION = '1.0.24';
+export const LATEST_AVAILABLE_VERSION = '1.0.24';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'my-bowling-league',
@@ -55,7 +55,7 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
   honorGameThreshold: 215,
   honorSeriesThreshold: 625,
   autoBackupEnabled: true,
-  autoBackupInterval: 'on_finish_week',
+  autoBackupInterval: 'on_change',
   autoBackupFormat: 'json',
   autoBackupDirectoryLabel: '',
   lastLocalBackupAt: null,
@@ -67,10 +67,65 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.24',
+    date: 'November 15, 2026',
+    title: 'Unlimited Built-In IndexedDB Multi-League Database & Zero-Data-Loss Cookie Safeguard',
+    isLatest: true,
+    highlights: [
+      'Built-In IndexedDB Multi-League & Multi-Week Database: Added a zero-dependency IndexedDB storage layer (master_state + indexed league_weeks) alongside native disk JSON (autosave-state.json / BowlingLeagueTrackerSave.json) so pulling up any week of any league holds hundreds of megabytes with zero 40KB cookie cap or 5MB localStorage limit.',
+      'Guaranteed Protection Against 40KB Cookie Trimming: Trimmed fallback cookie snapshots are explicitly flagged (__vaultTrimmed) so they never overwrite full multi-week or multi-league data stored on disk, in IndexedDB, or in localStorage.',
+    ],
+    changes: [
+      {
+        category: 'Data & Backup',
+        description:
+          'Added src/utils/leagueDb.ts IndexedDB persistence (master_state + league_weeks stores indexed by leagueId) so multi-season history across 4–5+ leagues and 30+ weeks per league is always preserved locally with no external database setup.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Added localUpdatedAt timestamp tracking to localStorage writes and __vaultTrimmed flagging in cookieVault.ts + selectBestStartupCandidate() so a 40KB-trimmed cookie mirror can never clobber complete league archives on startup.',
+      },
+    ],
+  },
+  {
+    version: '1.0.23',
+    date: 'November 15, 2026',
+    title: 'Google-Docs Style Auto-Save Sync Indicator, Duplicate-Free Week Navigation, Maximized Launch & Clean Borderless Printing',
+    isLatest: false,
+    highlights: [
+      'Instant Auto-Save Default & Live Syncing Indicator: "Every Data Change — Instant Auto-Save" is now the default in Tab 5C (while keeping all other backup modes available). Making any edit briefly turns the top-bar Save button orange with a spinning Syncing icon, then turns green with a Saved checkmark once synced.',
+      'Fixed Duplicate Weeks in Bottom Navigation: Fixed archiving and advancing weeks when viewing older weeks so Quick Week Navigation never creates duplicate Week 1 or Week 3 pills.',
+      'Maximized Desktop Launch & Print Without Browser Headers/Footers: Configured the desktop window to launch maximized by default, and set @page margin: 0 with inner report padding so printing suppresses browser date/URL/page headers & footers and eliminates the grey background box.',
+    ],
+    changes: [
+      {
+        category: 'New Feature',
+        description:
+          'Added Google-Drive / Office-Docs style live Save sync state in the top navigation bar: shows an orange spinning Syncing... indicator while saving changes and switches to a green checkmark Saved state upon completion.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Set "Every Data Change — Instant Auto-Save (Default)" (on_change) as the default Automatic Backup mode while keeping On Closing Program, On Finish Week, Timed Intervals, and Manual Only options in Tab 5C.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Added history deduplication and sequential week advancement helpers so loading an archived week and advancing never produces duplicate week pills in Quick Week Navigation.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Updated Windows and Linux desktop host launch flags to open the application window maximized by default, and updated @media print CSS to suppress default browser print headers/footers and remove background shading below printed standing sheets.',
+      },
+    ],
+  },
+  {
     version: '1.0.22',
     date: 'November 15, 2026',
     title: 'Compact Top-Bar Version & "Update Available" Button',
-    isLatest: true,
+    isLatest: false,
     highlights: [
       'Clean Top-Bar Version Button: The top-bar update button now displays only the version number (e.g., "v1.0.22") when up to date, and changes to "Update Available" when a newer release is detected.',
     ],
@@ -1554,7 +1609,9 @@ export function parseUniversalBackupPayload(
     throw new Error('File does not contain valid bowlers, roster, or season history data.');
   }
 
-  const rawHistory: ArchivedWeek[] = Array.isArray(parsed.history) ? parsed.history : [];
+  const rawHistory: ArchivedWeek[] = Array.isArray(parsed.history)
+    ? deduplicateAndSortHistory(parsed.history)
+    : [];
   const rawDues: Record<string, WeeklyDuesRecord> =
     parsed.currentDues && typeof parsed.currentDues === 'object' ? parsed.currentDues : {};
   const rawSchedule: LaneMatchup[] = Array.isArray(parsed.schedule)
@@ -1690,3 +1747,83 @@ export function computeMasterDatabaseMetrics(
     daysSinceAutoBackup: formatDaysSince(lastAutoBackupAt),
   };
 }
+
+/**
+ * Pure function: Deduplicates archived weeks by week number (keeping the newest/richest entry)
+ * and sorts them chronologically by numeric week number ascending.
+ */
+export function deduplicateAndSortHistory(history: ArchivedWeek[]): ArchivedWeek[] {
+  const byWeekKey = new Map<string, ArchivedWeek>();
+
+  for (const item of history || []) {
+    if (!item || typeof item !== 'object') continue;
+    const normalizedWeek = String(item.week ?? '').trim();
+    const key = normalizedWeek ? `wk:${normalizedWeek.toLowerCase()}` : `id:${item.id}`;
+    const existing = byWeekKey.get(key);
+    if (!existing) {
+      byWeekKey.set(key, item);
+      continue;
+    }
+
+    const existingTs = existing.date ? Date.parse(existing.date) : 0;
+    const candidateTs = item.date ? Date.parse(item.date) : 0;
+    const existingCount = Array.isArray(existing.bowlers) ? existing.bowlers.length : 0;
+    const candidateCount = Array.isArray(item.bowlers) ? item.bowlers.length : 0;
+
+    if (
+      candidateTs > existingTs ||
+      (candidateTs === existingTs && candidateCount >= existingCount)
+    ) {
+      byWeekKey.set(key, item);
+    }
+  }
+
+  return Array.from(byWeekKey.values()).sort((a, b) => {
+    const numA = Number(a.week);
+    const numB = Number(b.week);
+    if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) {
+      return numA - numB;
+    }
+    return String(a.week || '').localeCompare(String(b.week || ''), undefined, {
+      numeric: true,
+    });
+  });
+}
+
+/**
+ * Pure function: Inserts or updates an archived week snapshot without creating duplicate week numbers.
+ */
+export function upsertArchivedWeekSnapshot(
+  history: ArchivedWeek[],
+  snapshot: ArchivedWeek
+): ArchivedWeek[] {
+  const normalizedTargetWeek = String(snapshot.week ?? '').trim().toLowerCase();
+  const filtered = (history || []).filter(
+    (h) =>
+      h.id !== snapshot.id &&
+      (!normalizedTargetWeek || String(h.week ?? '').trim().toLowerCase() !== normalizedTargetWeek)
+  );
+  return deduplicateAndSortHistory([...filtered, snapshot]);
+}
+
+/**
+ * Pure function: Computes the next unique sequential week number higher than both the current week
+ * and every week already stored in season history.
+ */
+export function getNextSequentialWeekNumber(
+  currentWeekNumber: string | number | undefined,
+  history: ArchivedWeek[]
+): string {
+  const currentNum = Number(currentWeekNumber);
+  let maxWeek = Number.isFinite(currentNum) && currentNum > 0 ? currentNum : 0;
+
+  for (const h of history || []) {
+    const wNum = Number(h.week);
+    if (Number.isFinite(wNum) && wNum > maxWeek) {
+      maxWeek = wNum;
+    }
+  }
+
+  return String(maxWeek + 1);
+}
+

@@ -491,7 +491,7 @@ static std::string ReadInstalledVersion() {
       return ver;
     }
   }
-  return "1.0.22";
+  return "1.0.24";
 }
 
 // ============================================================================
@@ -1284,9 +1284,11 @@ static void LaunchBrowserFallbackWindow() {
   for (const wchar_t* edgePath : edgeCandidates) {
     if (FileExistsW(edgePath)) {
       std::wstring args = L"\"" + std::wstring(edgePath) + L"\" --app=" + url +
-                          L" --user-data-dir=\"" + profileDir + L"\" --new-window";
+                          L" --user-data-dir=\"" + profileDir + L"\" --new-window --start-maximized";
       STARTUPINFOW si = {};
       si.cb = sizeof(si);
+      si.dwFlags = STARTF_USESHOWWINDOW;
+      si.wShowWindow = SW_SHOWMAXIMIZED;
       PROCESS_INFORMATION pi = {};
       std::vector<wchar_t> cmdBuf(args.begin(), args.end());
       cmdBuf.push_back(L'\0');
@@ -1303,7 +1305,7 @@ static void LaunchBrowserFallbackWindow() {
       }
     }
   }
-  ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+  ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWMAXIMIZED);
   HANDLE hWait = CreateThread(nullptr, 0, FallbackProcessWaitThread, nullptr, 0, nullptr);
   if (hWait) CloseHandle(hWait);
 }
@@ -1897,7 +1899,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
       0,
       wc.lpszClassName,
       L"Bowling League Helper",
-      WS_OVERLAPPEDWINDOW,
+      WS_OVERLAPPEDWINDOW | WS_MAXIMIZE,
       posX, posY, winW, winH,
       nullptr, nullptr, hInst, nullptr);
 
@@ -1908,7 +1910,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
   }
 
   if (!g_fallbackLaunched.load()) {
-    ShowWindow(g_hwnd, nCmdShow ? nCmdShow : SW_SHOWNORMAL);
+    ShowWindow(g_hwnd, SW_SHOWMAXIMIZED);
     UpdateWindow(g_hwnd);
   }
 

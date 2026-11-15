@@ -6,6 +6,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 
 ---
 
+## [1.0.24] - 2026-11-15
+
+### Added
+- **Built-In Unlimited IndexedDB Multi-League Database (`src/utils/leagueDb.ts`):** Stores the full untrimmed multi-league database (`master_state`) plus per-league/week indexed records (`league_weeks` keyed by `leagueId::week`) directly inside browser/WebView2 IndexedDB alongside native disk JSON (`autosave-state.json` and `BowlingLeagueTrackerSave.json`), supporting hundreds of megabytes of historical weeks across unlimited leagues with zero external database installation.
+
+### Fixed
+- **Prevented 40 KB Cookie Vault Trimming From Overwriting Full Multi-Week History:** Flagged truncated fallback cookie snapshots with `__vaultTrimmed: 1`, added `localUpdatedAt` timestamps to `localStorage` writes, and updated `selectBestStartupCandidate()` and desktop `loadLastSaveFile()` so a trimmed 40 KB cookie snapshot can never overwrite complete history stored on disk, in IndexedDB, or in `localStorage`.
+
+---
+
+## [1.0.23] - 2026-11-15
+
+### Added
+- **Google-Drive / Office-Docs Style Syncing & Saved Status Indicator:** Making any score, roster, dues, bracket, or rule change when Instant Auto-Save is active switches the top-bar Save button to orange with a spinning sync icon (`Syncing...`), then turns it green with a checkmark (`Saved`) once background sync finishes.
+
+### Changed
+- **Instant Auto-Save Default (`on_change`):** Set `"Every Data Change — Instant Auto-Save (Default)"` as the default Automatic Backup mode in `DEFAULT_SETTINGS` and `Tab 5C`, while keeping `"On Closing Program"`, `"When Clicking Finish Week & Archive"`, timed intervals (`5 / 15 / 30 min`), and `"Manual Only"` available for multiple save workflows.
+- **Maximized Desktop Launch (`main.cpp`, `main.cjs`, `linux-host.mjs`):** Configured both native Win32/WebView2 windows (`WS_MAXIMIZE` / `SW_SHOWMAXIMIZED`) and Edge/Chromium `--app` fallback windows (`--start-maximized`) to launch maximized by default instead of half-screen.
+- **Borderless Clean Print Output Without Browser Headers/Footers (`src/index.css`):** Set `@page { size: landscape; margin: 0; }` with explicit internal report padding on `#print-standing-sheet` so Edge/Chrome automatically suppress browser print headers and footers (date/time, title, localhost URL, `1/1`), and forced `.min-h-screen` background to white when printing to remove the grey shading box below the standing sheet.
+
+### Fixed
+- **Duplicate Weeks in Quick Week Navigation:** Added `deduplicateAndSortHistory()`, `upsertArchivedWeekSnapshot()`, and `getNextSequentialWeekNumber()` so viewing or editing an older archived week and advancing never creates duplicate `Week 1` or `Week 3` pills in the bottom navigation strip.
+
+---
+
 ## [1.0.22] - 2026-11-15
 
 ### Changed

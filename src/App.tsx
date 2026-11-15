@@ -13,8 +13,11 @@ import {
   DEFAULT_SETTINGS,
   LATEST_AVAILABLE_VERSION,
   computeBowlerAbsentScore,
+  deduplicateAndSortHistory,
   generateRoundRobinSchedule,
+  getNextSequentialWeekNumber,
   parseUniversalBackupPayload,
+  upsertArchivedWeekSnapshot,
 } from './utils/bowlingLogic';
 import {
   OFFICIAL_GITHUB_URL,
@@ -49,16 +52,27 @@ import {
   saveStateToCookieVault,
 } from './utils/cookieVault';
 import {
+  clearIndexedDbState,
+  countTotalArchivedWeeks,
+  loadFullStateFromIndexedDb,
+  saveFullStateToIndexedDb,
+  selectBestStartupCandidate,
+  shouldHydrateIndexedDbOverCurrent,
+  StartupStateCandidate,
+} from './utils/leagueDb';
+import {
   RefreshCw,
   Calendar,
   LogOut,
   Save,
   FolderOpen,
+  Check,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'bowling_league_helper_state_v5';
 
 type ActiveTab = 'entry' | 'analytics' | 'brackets' | 'treasury' | 'schedule';
+type SaveSyncStatus = 'synced' | 'syncing' | 'unsaved';
 
 function makeId(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -177,8 +191,14 @@ function autoPopulateDownstreamModules(
 
 function extractStateTimestamp(raw: unknown, state: AppState): number {
   const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (typeof obj.localUpdatedAt === 'number' && obj.localUpdatedAt > 0) {
+    return obj.localUpdatedAt;
+  }
   if (typeof obj.__vaultSavedAt === 'number' && obj.__vaultSavedAt > 0) {
     return obj.__vaultSavedAt;
+  }
+  if (typeof obj.savedAt === 'number' && obj.savedAt > 0) {
+    return obj.savedAt;
   }
   if (typeof obj.exportedAt === 'string') {
     const t = Date.parse(obj.exportedAt);
@@ -195,16 +215,13 @@ function extractStateTimestamp(raw: unknown, state: AppState): number {
   return 0;
 }
 
-function resolveBestInitialState(): { state: AppState; dirty: boolean } {
-  interface Candidate {
-    state: AppState;
-    meaningful: boolean;
-    timestamp: number;
-    dirty: boolean;
-    priority: number;
-  }
-
-  const candidates: Candidate[] = [];
+function resolveBestInitialState(): {
+  state: AppState;
+  dirty: boolean;
+  timestamp: number;
+  trimmed: boolean;
+} {
+  const candidates: StartupStateCandidate[] = [];
 
   const tryAddRawJson = (rawJson: string | null | undefined, priority: number, dirtyFlag = false) => {
     if (!rawJson) return;
@@ -225,6 +242,8 @@ function resolveBestInitialState(): { state: AppState; dirty: boolean } {
         meaningful: hasMeaningfulLeagueData(synced),
         timestamp: extractStateTimestamp(parsed, synced),
         dirty: dirtyFlag || Boolean(parsed && parsed.__vaultDirty === 1),
+        trimmed: Boolean(parsed && parsed.__vaultTrimmed === 1),
+        archivedWeeksCount: countTotalArchivedWeeks(synced),
         priority,
       });
     } catch {
@@ -246,6 +265,8 @@ function resolveBestInitialState(): { state: AppState; dirty: boolean } {
       meaningful: hasMeaningfulLeagueData(vaultSnap.state),
       timestamp: vaultSnap.savedAt,
       dirty: vaultSnap.dirty,
+      trimmed: vaultSnap.trimmed,
+      archivedWeeksCount: countTotalArchivedWeeks(vaultSnap.state),
       priority: 4,
     });
   }
@@ -256,25 +277,26 @@ function resolveBestInitialState(): { state: AppState; dirty: boolean } {
     tryAddRawJson(localStorage.getItem('bowling_league_helper_state_v4'), 1);
   }
 
-  if (candidates.length > 0) {
-    candidates.sort((a, b) => {
-      if (a.meaningful !== b.meaningful) {
-        return a.meaningful ? -1 : 1;
-      }
-      if (a.timestamp !== b.timestamp) {
-        return b.timestamp - a.timestamp;
-      }
-      return b.priority - a.priority;
-    });
-    const winner = candidates[0];
-    return { state: winner.state, dirty: winner.dirty };
+  const winner = selectBestStartupCandidate(candidates);
+  if (winner) {
+    return {
+      state: winner.state,
+      dirty: winner.dirty,
+      timestamp: winner.timestamp,
+      trimmed: winner.trimmed,
+    };
   }
 
-  return { state: createFreshInitialState(), dirty: false };
+  return { state: createFreshInitialState(), dirty: false, timestamp: 0, trimmed: false };
 }
 
 export default function App() {
-  const initialBootRef = React.useRef<{ state: AppState; dirty: boolean } | null>(null);
+  const initialBootRef = React.useRef<{
+    state: AppState;
+    dirty: boolean;
+    timestamp: number;
+    trimmed: boolean;
+  } | null>(null);
   if (!initialBootRef.current) {
     initialBootRef.current = resolveBestInitialState();
   }
@@ -284,7 +306,12 @@ export default function App() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(
     () => initialBootRef.current!.dirty
   );
+  const [saveSyncStatus, setSaveSyncStatus] = useState<SaveSyncStatus>(() =>
+    initialBootRef.current!.dirty ? 'unsaved' : 'synced'
+  );
   const lastSavedSnapshotRef = React.useRef<AppState>(initialBootRef.current!.state);
+  const lastPersistedTimestampRef = React.useRef<number>(initialBootRef.current!.timestamp);
+  const initialBootWasTrimmedRef = React.useRef<boolean>(initialBootRef.current!.trimmed);
   const openFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('entry');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -400,8 +427,9 @@ export default function App() {
 
               const diskTs = extractStateTimestamp(parsedRaw, loaded);
               const vaultSnap = loadStateFromCookieVault();
-              const currentHasNewerVaultData =
+              const currentHasNewerUntrimmedVaultData =
                 vaultSnap &&
+                !vaultSnap.trimmed &&
                 hasMeaningfulLeagueData(vaultSnap.state) &&
                 vaultSnap.savedAt > diskTs + 2000;
 
@@ -409,13 +437,17 @@ export default function App() {
               desktopLastSaveExistsRef.current = true;
               desktopLastSavePathRef.current = res.filePath || null;
 
-              if (!currentHasNewerVaultData && (hasMeaningfulLeagueData(loaded) || !hasMeaningfulLeagueData(appStateRef.current))) {
+              if (!currentHasNewerUntrimmedVaultData && (hasMeaningfulLeagueData(loaded) || !hasMeaningfulLeagueData(appStateRef.current))) {
                 lastSavedSnapshotRef.current = loaded;
+                lastPersistedTimestampRef.current = Math.max(diskTs, Date.now());
+                initialBootWasTrimmedRef.current = false;
                 setAppState(loaded);
                 setUndoStack([]);
                 setHasUnsavedChanges(false);
                 hasUnsavedChangesRef.current = false;
+                setSaveSyncStatus('synced');
                 saveStateToCookieVault(loaded, false);
+                saveFullStateToIndexedDb(loaded, lastPersistedTimestampRef.current, false).catch(() => {});
                 const autoSaveOnClose =
                   loaded.settings.autoBackupEnabled !== false &&
                   loaded.settings.autoBackupInterval === 'on_close';
@@ -626,29 +658,131 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, []);
 
-  // Sync to localStorage, port-agnostic Cookie Vault, and desktop host on every state change
+  // Async hydration from unlimited IndexedDB league database (protects multi-season data >40KB cookies or >5MB localStorage)
+  useEffect(() => {
+    let active = true;
+    loadFullStateFromIndexedDb()
+      .then((idbRecord) => {
+        if (!active || !idbRecord || !idbRecord.state) return;
+        const shouldHydrate = shouldHydrateIndexedDbOverCurrent({
+          idbRecord,
+          currentMeaningful: hasMeaningfulLeagueData(appStateRef.current),
+          currentTimestamp: lastPersistedTimestampRef.current,
+          currentWasTrimmed: initialBootWasTrimmedRef.current,
+          currentArchivedWeeks: countTotalArchivedWeeks(appStateRef.current),
+        });
+        if (!shouldHydrate) return;
+
+        const restored = syncActiveLeagueInRegistry({
+          ...idbRecord.state,
+          history: deduplicateAndSortHistory(idbRecord.state.history || []),
+          version: CURRENT_APP_VERSION,
+        });
+        lastSavedSnapshotRef.current = restored;
+        lastPersistedTimestampRef.current = idbRecord.savedAt;
+        initialBootWasTrimmedRef.current = false;
+        setAppState(restored);
+        const isDirty = Boolean(idbRecord.dirty);
+        setHasUnsavedChanges(isDirty);
+        hasUnsavedChangesRef.current = isDirty;
+        setSaveSyncStatus(isDirty ? 'unsaved' : 'synced');
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Sync to localStorage, IndexedDB unlimited database, Cookie Vault, and desktop host / linked file on every state change
   useEffect(() => {
     try {
       const synced = syncActiveLeagueInRegistry(appState);
-      const serialized = JSON.stringify(synced);
-      localStorage.setItem(STORAGE_KEY, serialized);
-      localStorage.setItem('bowling_league_helper_state_v4', serialized);
-      localStorage.setItem('tnr_bowling_tracker_v3', serialized);
-      saveStateToCookieVault(synced, hasUnsavedChanges);
+      const savedAt = Date.now();
+      lastPersistedTimestampRef.current = savedAt;
+      const serializedWithMeta = JSON.stringify({
+        ...synced,
+        localUpdatedAt: savedAt,
+      });
 
-      if (!hasUnsavedChanges) {
-        lastSavedSnapshotRef.current = synced;
+      try {
+        localStorage.setItem(STORAGE_KEY, serializedWithMeta);
+        localStorage.setItem('bowling_league_helper_state_v4', serializedWithMeta);
+        localStorage.setItem('tnr_bowling_tracker_v3', serializedWithMeta);
+      } catch {
+        // If multi-year league data exceeds browser localStorage ~5MB quota, IndexedDB & Disk JSON still preserve 100% of data
       }
 
-      if (!initialLoadCompleteRef.current) return;
+      const intervalMode = synced.settings.autoBackupInterval || 'on_change';
+      const isInstantAutoSave =
+        synced.settings.autoBackupEnabled !== false && intervalMode === 'on_change';
+
+      if (!initialLoadCompleteRef.current) {
+        saveStateToCookieVault(synced, hasUnsavedChanges && !isInstantAutoSave);
+        saveFullStateToIndexedDb(synced, savedAt, hasUnsavedChanges && !isInstantAutoSave).catch(() => {});
+        return;
+      }
 
       const bridge = getDesktopBridge();
-      if (bridge) {
-        const autoSaveOnClose =
-          synced.settings.autoBackupEnabled !== false &&
-          synced.settings.autoBackupInterval === 'on_close';
-        const masterPayload = serializeMasterSavePayload(synced);
+      const autoSaveOnClose =
+        synced.settings.autoBackupEnabled !== false && intervalMode === 'on_close';
+      const masterPayload = serializeMasterSavePayload(synced);
 
+      if (isInstantAutoSave && hasUnsavedChanges) {
+        setSaveSyncStatus('syncing');
+        let cancelled = false;
+
+        const syncTimer = setTimeout(async () => {
+          if (cancelled) return;
+          try {
+            saveStateToCookieVault(synced, false);
+            await saveFullStateToIndexedDb(synced, savedAt, false);
+            if (bridge) {
+              await bridge
+                .stageSavePayload?.(masterPayload, {
+                  dirty: false,
+                  autoSaveOnClose: false,
+                })
+                .catch(() => {});
+
+              if (
+                desktopLastSaveExistsRef.current &&
+                typeof bridge.quickSaveToCurrentFile === 'function'
+              ) {
+                await bridge.quickSaveToCurrentFile(masterPayload).catch(() => {});
+              }
+            } else if (hasConnectedAutoBackupHandle()) {
+              await executeAutoBackupWrite(synced, false).catch(() => {});
+            }
+
+            if (!cancelled) {
+              lastSavedSnapshotRef.current = synced;
+              hasUnsavedChangesRef.current = false;
+              setHasUnsavedChanges(false);
+              setSaveSyncStatus('synced');
+            }
+          } catch {
+            if (!cancelled) {
+              setSaveSyncStatus('unsaved');
+            }
+          }
+        }, 280);
+
+        return () => {
+          cancelled = true;
+          clearTimeout(syncTimer);
+        };
+      }
+
+      saveStateToCookieVault(synced, hasUnsavedChanges);
+      saveFullStateToIndexedDb(synced, savedAt, hasUnsavedChanges).catch(() => {});
+      if (!hasUnsavedChanges) {
+        lastSavedSnapshotRef.current = synced;
+        setSaveSyncStatus('synced');
+      } else {
+        setSaveSyncStatus('unsaved');
+      }
+
+      if (bridge) {
         const stageTimer = setTimeout(() => {
           bridge
             .stageSavePayload?.(masterPayload, {
@@ -657,11 +791,9 @@ export default function App() {
             })
             .catch(() => {});
 
-          // If Auto-Backup is set to "On Closing Program" or "On Every Change" and a save file is linked on disk, keep the disk file synced automatically
+          // If Auto-Backup is set to "On Closing Program" and a save file is linked on disk, keep the disk file synced safely
           if (
-            synced.settings.autoBackupEnabled !== false &&
-            (synced.settings.autoBackupInterval === 'on_close' ||
-              synced.settings.autoBackupInterval === 'on_change') &&
+            autoSaveOnClose &&
             desktopLastSaveExistsRef.current &&
             typeof bridge.quickSaveToCurrentFile === 'function'
           ) {
@@ -675,15 +807,10 @@ export default function App() {
     }
   }, [appState, hasUnsavedChanges]);
 
-  // Automatic Backup Scheduler Timer (5min, 15min, 30min) & On-Change Handle Writer
+  // Automatic Backup Scheduler Timer (5min, 15min, 30min)
   useEffect(() => {
     if (appState.settings.autoBackupEnabled === false) return;
-    const intervalMode = appState.settings.autoBackupInterval || 'on_finish_week';
-
-    if (intervalMode === 'on_change' && hasConnectedAutoBackupHandle()) {
-      executeAutoBackupWrite(syncActiveLeagueInRegistry(appState), false).catch(() => {});
-      return;
-    }
+    const intervalMode = appState.settings.autoBackupInterval || 'on_change';
 
     const minutesMap: Record<string, number> = {
       '5min': 5,
@@ -721,9 +848,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const pushUndoState = (current: AppState) => {
+  const markDirtyOrSyncing = (targetSettings?: LeagueSettings) => {
+    const s = targetSettings ?? appStateRef.current.settings;
+    const isInstant =
+      s.autoBackupEnabled !== false && (s.autoBackupInterval || 'on_change') === 'on_change';
     setHasUnsavedChanges(true);
     hasUnsavedChangesRef.current = true;
+    setSaveSyncStatus(isInstant ? 'syncing' : 'unsaved');
+  };
+
+  const pushUndoState = (current: AppState) => {
+    markDirtyOrSyncing(current.settings);
     setUndoStack((prev) => [...prev.slice(-29), JSON.parse(JSON.stringify(current))]);
   };
 
@@ -735,8 +870,7 @@ export default function App() {
     const previous = undoStack[undoStack.length - 1];
     setUndoStack((prev) => prev.slice(0, -1));
     setAppState(previous);
-    setHasUnsavedChanges(true);
-    hasUnsavedChangesRef.current = true;
+    markDirtyOrSyncing(previous.settings);
     showToast('Last change undone.');
   };
 
@@ -754,8 +888,8 @@ export default function App() {
   }, [undoStack]);
 
   const handleUpdateSettings = (partial: Partial<LeagueSettings>) => {
-    setHasUnsavedChanges(true);
-    hasUnsavedChangesRef.current = true;
+    const nextSettings = { ...appStateRef.current.settings, ...partial };
+    markDirtyOrSyncing(nextSettings);
     setAppState((prev) =>
       syncActiveLeagueInRegistry({
         ...prev,
@@ -766,8 +900,7 @@ export default function App() {
   };
 
   const handleUpdateWeekNotes = (notes: string) => {
-    setHasUnsavedChanges(true);
-    hasUnsavedChangesRef.current = true;
+    markDirtyOrSyncing();
     setAppState((prev) => {
       let nextHistory = prev.history;
       if (prev.weekArchived && prev.weekArchiveId) {
@@ -985,13 +1118,7 @@ export default function App() {
         bowlers: JSON.parse(JSON.stringify(prev.bowlers)),
       };
 
-      const existingIdx = prev.history.findIndex((h) => h.id === archiveId);
-      const nextHistory = [...prev.history];
-      if (existingIdx >= 0) {
-        nextHistory[existingIdx] = snapshot;
-      } else {
-        nextHistory.push(snapshot);
-      }
+      const nextHistory = upsertArchivedWeekSnapshot(prev.history, snapshot);
 
       return syncActiveLeagueInRegistry({
         ...prev,
@@ -1002,7 +1129,7 @@ export default function App() {
           ...prev.settings,
           lastAutoBackupAt:
             prev.settings.autoBackupEnabled !== false &&
-            (prev.settings.autoBackupInterval || 'on_finish_week') === 'on_finish_week'
+            (prev.settings.autoBackupInterval || 'on_change') === 'on_finish_week'
               ? new Date().toISOString()
               : prev.settings.lastAutoBackupAt,
         },
@@ -1011,7 +1138,7 @@ export default function App() {
 
     if (
       appState.settings.autoBackupEnabled !== false &&
-      (appState.settings.autoBackupInterval || 'on_finish_week') === 'on_finish_week'
+      (appState.settings.autoBackupInterval || 'on_change') === 'on_finish_week'
     ) {
       executeAutoBackupWrite(syncActiveLeagueInRegistry(appState), true).catch(() => {});
     }
@@ -1020,10 +1147,10 @@ export default function App() {
   const handleStartNewWeek = () => {
     pushUndoState(appState);
     setAppState((prev) => {
-      // Auto-archive current week if it has scores and wasn't archived yet
-      let nextHistory = [...prev.history];
+      // Auto-archive current week without duplicating existing week entries
+      let nextHistory = deduplicateAndSortHistory(prev.history);
       if (prev.bowlers.length > 0 && !prev.weekArchived) {
-        nextHistory.push({
+        nextHistory = upsertArchivedWeekSnapshot(nextHistory, {
           id: prev.weekArchiveId || makeId(),
           league: prev.settings.leagueName,
           week: prev.settings.weekNumber,
@@ -1034,7 +1161,7 @@ export default function App() {
         });
       }
 
-      const nextWeekNum = String((Number(prev.settings.weekNumber) || 0) + 1);
+      const nextWeekNum = getNextSequentialWeekNumber(prev.settings.weekNumber, nextHistory);
       return syncActiveLeagueInRegistry({
         ...prev,
         bowlers: [],
@@ -1070,10 +1197,15 @@ export default function App() {
           version: CURRENT_APP_VERSION,
         });
         pushUndoState(appState);
+        const now = Date.now();
         lastSavedSnapshotRef.current = synced;
+        lastPersistedTimestampRef.current = now;
+        initialBootWasTrimmedRef.current = false;
         setHasUnsavedChanges(false);
         hasUnsavedChangesRef.current = false;
+        setSaveSyncStatus('synced');
         saveStateToCookieVault(synced, false);
+        saveFullStateToIndexedDb(synced, now, false).catch(() => {});
         setAppState(synced);
         showToast(summary, false, true);
       } catch (err: unknown) {
@@ -1090,19 +1222,42 @@ export default function App() {
     const target = appState.history.find((h) => h.id === weekId);
     if (!target) return;
     pushUndoState(appState);
-    setAppState((prev) => ({
-      ...prev,
-      bowlers: JSON.parse(JSON.stringify(target.bowlers)),
-      settings: {
-        ...prev.settings,
-        ...(target.settings || {}),
-        leagueName: target.league || prev.settings.leagueName,
-        weekNumber: target.week || prev.settings.weekNumber,
-      },
-      weekNotes: typeof target.weekNotes === 'string' ? target.weekNotes : '',
-      weekArchived: true,
-      weekArchiveId: target.id,
-    }));
+    setAppState((prev) => {
+      let nextHistory = deduplicateAndSortHistory(prev.history);
+      if (
+        prev.bowlers.length > 0 &&
+        String(prev.settings.weekNumber || '').trim() !== String(target.week || '').trim()
+      ) {
+        nextHistory = upsertArchivedWeekSnapshot(nextHistory, {
+          id: prev.weekArchiveId || makeId(),
+          league: prev.settings.leagueName,
+          week: prev.settings.weekNumber,
+          date: new Date().toISOString(),
+          weekNotes: prev.weekNotes || '',
+          settings: { ...prev.settings },
+          bowlers: JSON.parse(JSON.stringify(prev.bowlers)),
+        });
+      }
+
+      return syncActiveLeagueInRegistry({
+        ...prev,
+        history: nextHistory,
+        bowlers: JSON.parse(JSON.stringify(target.bowlers)),
+        settings: {
+          ...prev.settings,
+          ...(target.settings || {}),
+          leagueName: target.league || prev.settings.leagueName,
+          weekNumber: target.week || prev.settings.weekNumber,
+          autoBackupEnabled: prev.settings.autoBackupEnabled,
+          autoBackupInterval: prev.settings.autoBackupInterval,
+          autoBackupFormat: prev.settings.autoBackupFormat,
+          autoBackupDirectoryLabel: prev.settings.autoBackupDirectoryLabel,
+        },
+        weekNotes: typeof target.weekNotes === 'string' ? target.weekNotes : '',
+        weekArchived: true,
+        weekArchiveId: target.id,
+      });
+    });
     setActiveTab('entry');
     showToast(`Loaded archived Week ${target.week} into active view.`, false, true);
   };
@@ -1117,8 +1272,7 @@ export default function App() {
   };
 
   const handleUpdateDuesRecord = (playerId: string, record: WeeklyDuesRecord) => {
-    setHasUnsavedChanges(true);
-    hasUnsavedChangesRef.current = true;
+    markDirtyOrSyncing();
     setAppState((prev) => ({
       ...prev,
       currentDues: {
@@ -1159,8 +1313,7 @@ export default function App() {
   };
 
   const handleUpdateBracketEntrants = (ids: string[]) => {
-    setHasUnsavedChanges(true);
-    hasUnsavedChangesRef.current = true;
+    markDirtyOrSyncing();
     setAppState((prev) =>
       syncActiveLeagueInRegistry({
         ...prev,
@@ -1300,13 +1453,17 @@ export default function App() {
       localStorage.removeItem('bowling_league_helper_state_v4');
       localStorage.removeItem('tnr_bowling_tracker_v3');
       clearCookieVault();
+      clearIndexedDbState().catch(() => {});
     } catch {
       // Ignore storage removal errors
     }
     desktopLastSaveExistsRef.current = false;
     desktopLastSavePathRef.current = null;
+    initialBootWasTrimmedRef.current = false;
+    lastPersistedTimestampRef.current = Date.now();
     setHasUnsavedChanges(false);
     hasUnsavedChangesRef.current = false;
+    setSaveSyncStatus('synced');
     getDesktopBridge()?.clearLastSaveLink?.().catch(() => {});
     const fresh = createFreshInitialState();
     lastSavedSnapshotRef.current = fresh;
@@ -1319,6 +1476,7 @@ export default function App() {
   const handleRecordBackupTimestamp = (kind: 'local' | 'auto', locationLabel?: string) => {
     setHasUnsavedChanges(false);
     hasUnsavedChangesRef.current = false;
+    setSaveSyncStatus('synced');
     if (kind === 'local' && locationLabel) {
       desktopLastSaveExistsRef.current = true;
       desktopLastSavePathRef.current = locationLabel;
@@ -1507,11 +1665,13 @@ export default function App() {
     // Revert storage mirrors to the last explicitly saved snapshot so discarded edits do not persist
     try {
       const reverted = syncActiveLeagueInRegistry(lastSavedSnapshotRef.current);
-      const raw = JSON.stringify(reverted);
+      const now = Date.now();
+      const raw = JSON.stringify({ ...reverted, localUpdatedAt: now });
       localStorage.setItem(STORAGE_KEY, raw);
       localStorage.setItem('bowling_league_helper_state_v4', raw);
       localStorage.setItem('tnr_bowling_tracker_v3', raw);
       saveStateToCookieVault(reverted, false);
+      saveFullStateToIndexedDb(reverted, now, false).catch(() => {});
       setAppState(reverted);
     } catch {
       // Ignore storage error
@@ -1660,20 +1820,39 @@ export default function App() {
               onClick={handleQuickSave}
               disabled={isQuickSaving}
               title={
-                appState.settings.autoBackupDirectoryLabel
-                  ? `Save directly to ${appState.settings.autoBackupDirectoryLabel}${hasUnsavedChanges ? ' (Unsaved changes)' : ''}`
-                  : 'Save BowlingLeagueTrackerSave.json'
+                saveSyncStatus === 'syncing'
+                  ? 'Auto-saving changes...'
+                  : saveSyncStatus === 'unsaved'
+                  ? `Unsaved changes — click to save${appState.settings.autoBackupDirectoryLabel ? ` to ${appState.settings.autoBackupDirectoryLabel}` : ''}`
+                  : appState.settings.autoBackupDirectoryLabel
+                  ? `All changes saved (${appState.settings.autoBackupDirectoryLabel}) — click to save or update file`
+                  : 'All changes auto-saved locally — click to save a .json file'
               }
               className={`px-3.5 py-2 text-xs font-bold text-white ${
-                hasUnsavedChanges
+                isQuickSaving || saveSyncStatus === 'syncing' || saveSyncStatus === 'unsaved'
                   ? 'bg-amber-600 hover:bg-amber-500'
                   : 'bg-emerald-600 hover:bg-emerald-500'
               } disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5`}
             >
               <Save className="w-3.5 h-3.5" />
-              <span>
-                {isQuickSaving ? 'Saving...' : hasUnsavedChanges ? 'Save *' : 'Save'}
-              </span>
+              {isQuickSaving ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : saveSyncStatus === 'syncing' ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Syncing...</span>
+                </>
+              ) : saveSyncStatus === 'unsaved' ? (
+                <span>Save *</span>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Saved</span>
+                </>
+              )}
             </button>
             <button
               type="button"
@@ -1829,26 +2008,49 @@ export default function App() {
             <span>Quick Week Navigation ({appState.settings.seasonName}):</span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {appState.history.map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => handleLoadArchivedWeek(h.id)}
-                className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-semibold cursor-pointer transition-colors"
-              >
-                Week {h.week}
-              </button>
-            ))}
-            <span className="px-2.5 py-1 rounded-md bg-emerald-700 text-white font-bold">
-              Week {appState.settings.weekNumber || '1'} (Active)
-            </span>
-            <button
-              type="button"
-              onClick={handleStartNewWeek}
-              className="px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 font-semibold cursor-pointer transition-colors"
-            >
-              Advance to Week {(Number(appState.settings.weekNumber) || 1) + 1} →
-            </button>
+            {(() => {
+              const sortedHistory = deduplicateAndSortHistory(appState.history);
+              const activeWeekStr = String(appState.settings.weekNumber || '1').trim();
+              const activeInHistory = sortedHistory.some(
+                (h) => String(h.week || '').trim() === activeWeekStr
+              );
+              const nextWeekNum = getNextSequentialWeekNumber(activeWeekStr, sortedHistory);
+              return (
+                <>
+                  {sortedHistory.map((h) =>
+                    String(h.week || '').trim() === activeWeekStr ? (
+                      <span
+                        key={h.id}
+                        className="px-2.5 py-1 rounded-md bg-emerald-700 text-white font-bold"
+                      >
+                        Week {h.week} (Active)
+                      </span>
+                    ) : (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => handleLoadArchivedWeek(h.id)}
+                        className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-semibold cursor-pointer transition-colors"
+                      >
+                        Week {h.week}
+                      </button>
+                    )
+                  )}
+                  {!activeInHistory && (
+                    <span className="px-2.5 py-1 rounded-md bg-emerald-700 text-white font-bold">
+                      Week {activeWeekStr} (Active)
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleStartNewWeek}
+                    className="px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 font-semibold cursor-pointer transition-colors"
+                  >
+                    Advance to Week {nextWeekNum} →
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
 
