@@ -34,9 +34,9 @@ import {
 } from './githubUpdater';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.16 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.16');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.16');
+test('version is set to 1.0.17 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.17');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.17');
 });
 
 test('createFreshInitialState returns a clean empty Week 1 league with zero sample data', () => {

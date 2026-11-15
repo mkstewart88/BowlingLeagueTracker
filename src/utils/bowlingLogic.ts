@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.16';
-export const LATEST_AVAILABLE_VERSION = '1.0.16';
+export const CURRENT_APP_VERSION = '1.0.17';
+export const LATEST_AVAILABLE_VERSION = '1.0.17';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'my-bowling-league',
@@ -67,29 +67,29 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
-    version: '1.0.16',
+    version: '1.0.17',
     date: 'November 14, 2026',
-    title: 'Robust Missing-File Save Dialog Fallback & Version 1.0.16 Stability',
+    title: 'Automatic Window Closing & Process Relaunch on Update & Version 1.0.17 Stability',
     isLatest: true,
     highlights: [
-      'Robust Missing-File Save Dialog Fallback: When clicking the top-bar Save button with no linked save file, the app now gracefully reports "No save file found. Please choose where to save." and opens the system save file picker.',
-      'Enhanced Version 1.0.16 Stability & Desktop Integration: Further refined desktop state synchronization, close-save confirmation dialogs, and GitHub updater connectivity.',
+      'Automatic Window Closing & Process Relaunch on Update: Clicking "Update and Restart" now cleanly closes the current running (older version) application window/process across Windows and Linux, immediately restarting into the new updated version.',
+      'Enhanced Desktop Update Lifecycle: Standardized background process termination and atomic relaunch across Windows and Linux desktop hosts.',
     ],
     changes: [
       {
         category: 'New Feature',
-        description: 'Added graceful save dialog fallback when no save file is currently linked or found.',
+        description: 'Desktop updater now automatically terminates the old process and relaunches the new version window upon installation.',
       },
       {
         category: 'Improvement',
-        description: 'Optimized state synchronization between active web session and desktop host processes.',
+        description: 'Refined desktop host process lifecycle management and automatic restart reliability.',
       },
     ],
   },
   {
-    version: '1.0.15',
+    version: '1.0.16',
     date: 'November 14, 2026',
-    title: 'Top-Bar Quick Save Button, Auto-Load Save File on Startup & 1.0.15 Stability',
+    title: 'Robust Missing-File Save Dialog Fallback & Version 1.0.16 Stability',
     isLatest: false,
     highlights: [
       'Desktop Program & Installer (Windows 11 installer.exe + Linux installer): Installs to C:\\BowlingLeagueHelper\\ on Windows 11 or ~/BowlingLeagueHelper/ on Linux with a custom Bowling Ball & Pins desktop icon.',

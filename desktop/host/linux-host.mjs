@@ -432,6 +432,9 @@ const server = http.createServer(async (req, res) => {
         updatedTargets: [htmlTarget],
         needsPageReload: true,
       });
+      setTimeout(() => {
+        shutdownSoon(true);
+      }, 400);
     } catch (err) {
       sendJson(res, 200, { ok: false, error: err?.message || 'Update failed.' });
     }
