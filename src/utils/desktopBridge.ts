@@ -84,9 +84,15 @@ export interface BowlingDesktopBridge {
   }) => Promise<DesktopInstallUpdateResult>;
   onRequestCloseSave: (callback: () => void) => () => void;
   ackCloseRequest?: () => Promise<void>;
-  stageSavePayload?: (jsonText: string) => Promise<void>;
+  stageSavePayload?: (
+    jsonText: string,
+    options?: { dirty?: boolean; autoSaveOnClose?: boolean }
+  ) => Promise<void>;
   sendAutoSaveBeacon?: (jsonText: string) => void;
-  sendWindowUnloadedBeacon?: (jsonText: string) => void;
+  sendWindowUnloadedBeacon?: (
+    jsonText: string,
+    options?: { dirty?: boolean; autoSaveOnClose?: boolean }
+  ) => void;
 }
 
 export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
@@ -271,9 +277,12 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
         // Ignore network errors during close
       }
     },
-    stageSavePayload: async (jsonText) => {
+    stageSavePayload: async (jsonText, options) => {
       try {
-        await fetch(api('/api/desktop/stage-state'), {
+        const qs = options
+          ? `?dirty=${options.dirty ? '1' : '0'}&autoclose=${options.autoSaveOnClose ? '1' : '0'}`
+          : '';
+        await fetch(api(`/api/desktop/stage-state${qs}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: jsonText,
@@ -293,16 +302,20 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
         }
       }
     },
-    sendWindowUnloadedBeacon: (jsonText) => {
+    sendWindowUnloadedBeacon: (jsonText, options) => {
+      const qs = options
+        ? `?dirty=${options.dirty ? '1' : '0'}&autoclose=${options.autoSaveOnClose ? '1' : '0'}`
+        : '';
+      const targetUrl = api(`/api/desktop/window-unloaded${qs}`);
       if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         const blob = new Blob([jsonText], { type: 'application/json' });
-        const queued = navigator.sendBeacon(api('/api/desktop/window-unloaded'), blob);
+        const queued = navigator.sendBeacon(targetUrl, blob);
         if (!queued) {
           const smallRef = new Blob(['{"useStaged":true}'], { type: 'application/json' });
-          navigator.sendBeacon(api('/api/desktop/window-unloaded'), smallRef);
+          navigator.sendBeacon(targetUrl, smallRef);
         }
       } else if (typeof fetch === 'function') {
-        fetch(api('/api/desktop/window-unloaded'), {
+        fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: jsonText,

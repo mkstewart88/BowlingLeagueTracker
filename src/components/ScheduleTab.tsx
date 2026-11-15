@@ -268,10 +268,10 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Database className="w-5 h-5 text-blue-700" />
-                Master Bowler & Multi-League Database Manager
+                Master Bowler &amp; Multi-League Database Manager
               </h2>
               <p className="text-xs text-slate-600 mt-0.5">
-                Manage multiple bowling leagues inside this single program and switch between them with 1 click.
+                Step 1: Create a new league or switch active leagues below. Step 2: Review master database totals at the bottom.
               </p>
             </div>
             <button
@@ -285,210 +285,215 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
           </div>
 
           <div className="p-6 space-y-6">
-          {/* 3 Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 border-2 border-blue-300 rounded-lg overflow-hidden shadow-xs">
-              <div className="bg-blue-100 border-b-2 border-blue-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
-                Bowler Count (All Leagues)
-              </div>
-              <div className="p-4 space-y-2 text-xs font-mono tabular-nums">
-                <div className="flex items-center justify-between">
-                  <span className="font-sans font-bold text-slate-700">Active</span>
-                  <span className="font-bold text-slate-900">{dbMetrics.activeBowlers}</span>
+            {/* STEP 1 (TOP): Create New League & Switch Active League */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              <form
+                onSubmit={handleCreateLeagueSubmit}
+                className="lg:col-span-5 bg-slate-50 border-2 border-blue-300 rounded-lg p-5 space-y-3 shadow-xs"
+              >
+                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-blue-700" />
+                  Step 1: Create New League Inside This Program
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-sans font-bold text-slate-700">Inactive / Absent</span>
-                  <span className="font-bold text-slate-900">{dbMetrics.inactiveBowlers}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
-                  <span className="font-sans font-bold text-slate-900">Total</span>
-                  <span className="font-bold text-blue-700">{dbMetrics.totalBowlers}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-sans font-bold text-slate-700" title={dbMetrics.duplicateNames.join(', ')}>
-                    Cross-League Bowlers (Duplicates)
-                  </span>
-                  <span className="font-bold text-amber-800">{dbMetrics.duplicateBowlersCount}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border-2 border-emerald-300 rounded-lg overflow-hidden shadow-xs">
-              <div className="bg-emerald-100 border-b-2 border-emerald-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
-                League Count
-              </div>
-              <div className="p-4 space-y-2 text-xs font-mono tabular-nums">
-                <div className="flex items-center justify-between">
-                  <span className="font-sans font-bold text-slate-700">Active</span>
-                  <span className="font-bold text-emerald-700">{dbMetrics.activeLeagues}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-sans font-bold text-slate-700">Inactive</span>
-                  <span className="font-bold text-slate-600">{dbMetrics.inactiveLeagues}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
-                  <span className="font-sans font-bold text-slate-900">Total Managed Leagues</span>
-                  <span className="font-bold text-blue-700">{dbMetrics.totalLeagues}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-sans font-bold text-slate-700">Current Active League</span>
-                  <span className="font-sans font-bold text-slate-900 truncate max-w-36">
-                    {settings.leagueName}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border-2 border-amber-300 rounded-lg overflow-hidden shadow-xs">
-              <div className="bg-amber-100 border-b-2 border-amber-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
-                Database & Backup Status
-              </div>
-              <div className="p-4 space-y-2.5 text-xs text-center">
                 <div>
-                  <div className="font-bold text-slate-900">Days Since Local Backup</div>
-                  <div className="font-mono font-semibold text-blue-700 mt-0.5">
-                    {dbMetrics.daysSinceLocalBackup}
-                  </div>
-                </div>
-                <div className="border-t border-slate-200 pt-2">
-                  <div className="font-bold text-slate-900">Days Since Auto Backup</div>
-                  <div className="font-mono font-semibold text-emerald-700 mt-0.5">
-                    {dbMetrics.daysSinceAutoBackup}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Multi-League Selector & New League Creator */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
-            <div className="lg:col-span-7 space-y-2.5">
-              <div className="text-xs font-bold text-slate-800">
-                All Leagues Inside This Program (Click to Switch Active League)
-              </div>
-              <div className="divide-y divide-slate-200 border-2 border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs">
-                {Object.entries(leaguesMap).map(([id, lg]) => {
-                  const isCurrent =
-                    id === (appState.activeLeagueId || settings.leagueId || 'my-bowling-league');
-                  const isInactive = lg.settings?.leagueStatus === 'inactive';
-                  return (
-                    <div
-                      key={id}
-                      className={`px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs ${
-                        isCurrent ? 'bg-blue-50/70' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900 flex items-center gap-2">
-                          <span>{lg.settings?.leagueName || id}</span>
-                          {isCurrent && (
-                            <span className="text-[11px] font-bold text-blue-700">
-                              (Active Workspace)
-                            </span>
-                          )}
-                          {isInactive && (
-                            <span className="text-[11px] font-semibold text-slate-500">
-                              [Inactive]
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
-                          {lg.settings?.seasonName} · Week {lg.settings?.weekNumber || '1'} of {lg.settings?.totalWeeks || 31} · {(lg.roster || []).length} Roster Bowlers · {(lg.history || []).length} Archived Wks
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        {!isCurrent && (
-                          <button
-                            type="button"
-                            onClick={() => onSwitchLeague(id)}
-                            className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-md cursor-pointer"
-                          >
-                            Switch to League
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onToggleLeagueStatus(id)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-md cursor-pointer"
-                        >
-                          {isInactive ? 'Mark Active' : 'Mark Inactive'}
-                        </button>
-                        {Object.keys(leaguesMap).length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setLeagueIdPendingDelete(id)}
-                            aria-label={`Delete ${lg.settings?.leagueName}`}
-                            className="px-2.5 py-1.5 text-red-700 hover:bg-red-50 border border-red-200 rounded-md font-semibold flex items-center gap-1 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete...</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <form
-              onSubmit={handleCreateLeagueSubmit}
-              className="lg:col-span-5 bg-slate-50 border-2 border-slate-300 rounded-lg p-5 space-y-3 shadow-xs"
-            >
-              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Plus className="w-4 h-4 text-blue-700" />
-                Create New League Inside This Program
-              </div>
-              <div>
-                <label htmlFor="new-league-name" className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  New League Name
-                </label>
-                <input
-                  id="new-league-name"
-                  type="text"
-                  value={newLeagueName}
-                  onChange={(e) => setNewLeagueName(e.target.value)}
-                  placeholder="e.g., Friday Night Men's Classic"
-                  className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-md"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label htmlFor="new-season-name" className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Season
+                  <label htmlFor="new-league-name" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    New League Name
                   </label>
                   <input
-                    id="new-season-name"
+                    id="new-league-name"
                     type="text"
-                    value={newSeasonName}
-                    onChange={(e) => setNewSeasonName(e.target.value)}
+                    value={newLeagueName}
+                    onChange={(e) => setNewLeagueName(e.target.value)}
+                    placeholder="e.g., Friday Night Men's Classic"
                     className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-md"
                   />
                 </div>
-                <div>
-                  <label htmlFor="new-league-scoring" className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Scoring Format
-                  </label>
-                  <select
-                    id="new-league-scoring"
-                    value={newScoringType}
-                    onChange={(e) => setNewScoringType(e.target.value as 'handicap' | 'scratch')}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-md font-semibold"
-                  >
-                    <option value="handicap">Handicap</option>
-                    <option value="scratch">Scratch</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="new-season-name" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Season
+                    </label>
+                    <input
+                      id="new-season-name"
+                      type="text"
+                      value={newSeasonName}
+                      onChange={(e) => setNewSeasonName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="new-league-scoring" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Scoring Format
+                    </label>
+                    <select
+                      id="new-league-scoring"
+                      value={newScoringType}
+                      onChange={(e) => setNewScoringType(e.target.value as 'handicap' | 'scratch')}
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-md font-semibold"
+                    >
+                      <option value="handicap">Handicap</option>
+                      <option value="scratch">Scratch</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-md cursor-pointer transition-colors"
+                >
+                  + Create &amp; Switch to New League
+                </button>
+              </form>
+
+              <div className="lg:col-span-7 space-y-2.5">
+                <div className="text-xs font-bold text-slate-800">
+                  Step 2: All Leagues Inside This Program (Click to Switch Active League)
+                </div>
+                <div className="divide-y divide-slate-200 border-2 border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs">
+                  {Object.entries(leaguesMap).map(([id, lg]) => {
+                    const isCurrent =
+                      id === (appState.activeLeagueId || settings.leagueId || 'my-bowling-league');
+                    const isInactive = lg.settings?.leagueStatus === 'inactive';
+                    return (
+                      <div
+                        key={id}
+                        className={`px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs ${
+                          isCurrent ? 'bg-blue-50/70' : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900 flex items-center gap-2">
+                            <span>{lg.settings?.leagueName || id}</span>
+                            {isCurrent && (
+                              <span className="text-[11px] font-bold text-blue-700">
+                                (Active Workspace)
+                              </span>
+                            )}
+                            {isInactive && (
+                              <span className="text-[11px] font-semibold text-slate-500">
+                                [Inactive]
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
+                            {lg.settings?.seasonName} · Week {lg.settings?.weekNumber || '1'} of {lg.settings?.totalWeeks || 31} · {(lg.roster || []).length} Roster Bowlers · {(lg.history || []).length} Archived Wks
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => onSwitchLeague(id)}
+                              className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-md cursor-pointer"
+                            >
+                              Switch to League
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onToggleLeagueStatus(id)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-md cursor-pointer"
+                          >
+                            {isInactive ? 'Mark Active' : 'Mark Inactive'}
+                          </button>
+                          {Object.keys(leaguesMap).length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setLeagueIdPendingDelete(id)}
+                              aria-label={`Delete ${lg.settings?.leagueName}`}
+                              className="px-2.5 py-1.5 text-red-700 hover:bg-red-50 border border-red-200 rounded-md font-semibold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete...</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-md cursor-pointer transition-colors"
-              >
-                + Create & Switch to New League
-              </button>
-            </form>
-          </div>
+            </div>
+
+            {/* STEP 3 (BOTTOM): Generated Database & Multi-League Summary Cards */}
+            <div className="space-y-2 pt-2 border-t border-slate-200">
+              <div className="text-xs font-bold text-slate-800">
+                Step 3: Generated Master Database &amp; Backup Status Overview
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-50 border-2 border-blue-300 rounded-lg overflow-hidden shadow-xs">
+                  <div className="bg-blue-100 border-b-2 border-blue-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
+                    Bowler Count (All Leagues)
+                  </div>
+                  <div className="p-4 space-y-2 text-xs font-mono tabular-nums">
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans font-bold text-slate-700">Active</span>
+                      <span className="font-bold text-slate-900">{dbMetrics.activeBowlers}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans font-bold text-slate-700">Inactive / Absent</span>
+                      <span className="font-bold text-slate-900">{dbMetrics.inactiveBowlers}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
+                      <span className="font-sans font-bold text-slate-900">Total</span>
+                      <span className="font-bold text-blue-700">{dbMetrics.totalBowlers}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans font-bold text-slate-700" title={dbMetrics.duplicateNames.join(', ')}>
+                        Cross-League Bowlers (Duplicates)
+                      </span>
+                      <span className="font-bold text-amber-800">{dbMetrics.duplicateBowlersCount}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border-2 border-emerald-300 rounded-lg overflow-hidden shadow-xs">
+                  <div className="bg-emerald-100 border-b-2 border-emerald-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
+                    League Count
+                  </div>
+                  <div className="p-4 space-y-2 text-xs font-mono tabular-nums">
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans font-bold text-slate-700">Active</span>
+                      <span className="font-bold text-emerald-700">{dbMetrics.activeLeagues}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans font-bold text-slate-700">Inactive</span>
+                      <span className="font-bold text-slate-600">{dbMetrics.inactiveLeagues}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
+                      <span className="font-sans font-bold text-slate-900">Total Managed Leagues</span>
+                      <span className="font-bold text-blue-700">{dbMetrics.totalLeagues}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans font-bold text-slate-700">Current Active League</span>
+                      <span className="font-sans font-bold text-slate-900 truncate max-w-36">
+                        {settings.leagueName}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border-2 border-amber-300 rounded-lg overflow-hidden shadow-xs">
+                  <div className="bg-amber-100 border-b-2 border-amber-200 px-4 py-2 text-xs font-bold text-slate-900 text-center">
+                    Database &amp; Backup Status
+                  </div>
+                  <div className="p-4 space-y-2.5 text-xs text-center">
+                    <div>
+                      <div className="font-bold text-slate-900">Days Since Local Backup</div>
+                      <div className="font-mono font-semibold text-blue-700 mt-0.5">
+                        {dbMetrics.daysSinceLocalBackup}
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-200 pt-2">
+                      <div className="font-bold text-slate-900">Days Since Auto Backup</div>
+                      <div className="font-mono font-semibold text-emerald-700 mt-0.5">
+                        {dbMetrics.daysSinceAutoBackup}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -498,13 +503,14 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'schedule' && (
         <div className="space-y-6">
+          {/* STEP 1 (TOP): Schedule Generator Setup */}
           <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                Round-Robin Lane Schedule & Position Round Generator
+                Step 1: Round-Robin Lane Schedule Setup ({allTeams.length} Teams)
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Automatically rotates {allTeams.length} league teams across odd/even lane pairs starting at any lane number in your bowling center.
+                Automatically populated from the teams entered in Quick Score Entry (Tab 1). Adjust starting lane or weeks below to rebuild rotation.
               </p>
             </div>
 
@@ -565,13 +571,65 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             </div>
           </section>
 
-          {/* Position Round Preview */}
+          {/* STEP 2 (MIDDLE): Multi-Week Round Robin Grid */}
+          <section className="space-y-3">
+            <div className="text-xs font-bold text-slate-800 px-1">
+              Step 2: Generated Multi-Week Round-Robin Lane Assignments
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...weeksMap.entries()].map(([weekNum, matches]) => {
+                const isCurrentWeek = String(weekNum) === String(settings.weekNumber);
+                return (
+                  <div
+                    key={weekNum}
+                    className={`bg-white border-2 rounded-xl overflow-hidden shadow-sm ${
+                      isCurrentWeek ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-300'
+                    }`}
+                  >
+                    <div
+                      className={`px-4 py-2.5 border-b-2 flex items-center justify-between text-xs font-bold ${
+                        isCurrentWeek
+                          ? 'bg-blue-700 text-white border-blue-700'
+                          : 'bg-slate-100 text-slate-900 border-slate-300'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Week {weekNum}
+                      </span>
+                      {isCurrentWeek && <span>Current Active Week</span>}
+                    </div>
+
+                    <div className="divide-y divide-slate-200 p-3 space-y-2">
+                      {matches.map((m, idx) => (
+                        <div
+                          key={idx}
+                          className="pt-2 first:pt-0 flex items-center justify-between text-xs"
+                        >
+                          <span className="font-mono font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded">
+                            Lanes {m.oddLane}–{m.evenLane}
+                          </span>
+                          <div className="text-right font-bold text-slate-900">
+                            <span>{m.teamA}</span>{' '}
+                            <span className="text-slate-400 font-normal">vs</span>{' '}
+                            <span>{m.teamB}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* STEP 3 (BOTTOM): Generated Position Round Pairings */}
           <section className="bg-white border-2 border-amber-300 rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b-2 border-amber-200 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Trophy className="w-4 h-4 text-amber-600" />
-                  Automatic Position Round Pairings (1st vs 2nd, 3rd vs 4th)
+                  Step 3: Generated Position Round Pairings (1st vs 2nd, 3rd vs 4th)
                 </h3>
                 <p className="text-xs text-slate-600">
                   Generated live from your current team standings starting on Lane {settings.startingLane}
@@ -587,7 +645,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 >
                   <div>
                     <div className="text-xs font-bold text-amber-900 font-mono">
-                      Lanes {pair.oddLane} & {pair.evenLane} · Matchup #{idx + 1}
+                      Lanes {pair.oddLane} &amp; {pair.evenLane} · Matchup #{idx + 1}
                     </div>
                     <div className="text-sm font-bold text-slate-900 mt-1">
                       #{idx * 2 + 1} {pair.teamA} <span className="text-slate-400 font-normal">vs.</span> #{idx * 2 + 2} {pair.teamB}
@@ -599,53 +657,6 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 </div>
               ))}
             </div>
-          </section>
-
-          {/* Multi-Week Round Robin Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...weeksMap.entries()].map(([weekNum, matches]) => {
-              const isCurrentWeek = String(weekNum) === String(settings.weekNumber);
-              return (
-                <div
-                  key={weekNum}
-                  className={`bg-white border-2 rounded-xl overflow-hidden shadow-sm ${
-                    isCurrentWeek ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-300'
-                  }`}
-                >
-                  <div
-                    className={`px-4 py-2.5 border-b-2 flex items-center justify-between text-xs font-bold ${
-                      isCurrentWeek
-                        ? 'bg-blue-700 text-white border-blue-700'
-                        : 'bg-slate-100 text-slate-900 border-slate-300'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      Week {weekNum}
-                    </span>
-                    {isCurrentWeek && <span>Current Active Week</span>}
-                  </div>
-
-                  <div className="divide-y divide-slate-200 p-3 space-y-2">
-                    {matches.map((m, idx) => (
-                      <div
-                        key={idx}
-                        className="pt-2 first:pt-0 flex items-center justify-between text-xs"
-                      >
-                        <span className="font-mono font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded">
-                          Lanes {m.oddLane}–{m.evenLane}
-                        </span>
-                        <div className="text-right font-bold text-slate-900">
-                          <span>{m.teamA}</span>{' '}
-                          <span className="text-slate-400 font-normal">vs</span>{' '}
-                          <span>{m.teamB}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
           </section>
         </div>
       )}
@@ -662,159 +673,173 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 Full Backup, New-PC Import &amp; Automatic Backup Scheduler
               </h2>
               <p className="text-xs text-slate-600 mt-0.5">
-                Protects 100% of all {dbMetrics.totalLeagues} leagues, rosters, scores, Week Notes, brackets, and season histories inside <code className="font-mono">BowlingLeagueTrackerSave.json</code> — clearing browser cache or switching computers never loses your data.
+                Step 1: Configure your Automatic Backup schedule (including <strong>On Closing Program</strong>). Step 2: Save or restore backup files below.
               </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => importInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-                Import &amp; Restore Backup (.json or .html)
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await saveLeagueFileToComputer(appState);
-                    onRecordBackupTimestamp('local', res.filePath || res.filename);
-                    onShowToast(
-                      `Saved (${res.filePath || res.filename}). Auto-save on closing is now linked to this file.`
-                    );
-                  } catch {
-                    // Cancelled
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
-              >
-                <HardDrive className="w-4 h-4" />
-                Save New File (.json)...
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsResetConfirmOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 text-xs font-bold rounded-lg cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Start Fresh...
-              </button>
             </div>
           </div>
 
-          <div className="p-6">
-          <div className="p-5 bg-blue-50/70 border-2 border-blue-300 rounded-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="p-6 space-y-5">
+            {/* STEP 1 (TOP): Automatic Backup Scheduler & Save Location */}
+            <div className="p-5 bg-blue-50/70 border-2 border-blue-300 rounded-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <FolderOpen className="w-4 h-4 text-blue-700" />
+                    Step 1: Automatic Backup Scheduler &amp; Save-on-Close Behavior
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Choose <strong>On Closing Program</strong> to automatically save on exit, or choose another frequency to be prompted whenever you close with unsaved changes.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoBackupEnabled !== false}
+                    onChange={(e) => onUpdateSettings({ autoBackupEnabled: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600"
+                  />
+                  <span>Enable Automatic Backup</span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label htmlFor="autobackup-interval" className="block font-semibold text-slate-700 mb-1">
+                    Auto-Backup Schedule Frequency
+                  </label>
+                  <select
+                    id="autobackup-interval"
+                    value={settings.autoBackupInterval || 'on_finish_week'}
+                    onChange={(e) =>
+                      onUpdateSettings({
+                        autoBackupInterval: e.target.value as LeagueSettings['autoBackupInterval'],
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-900"
+                  >
+                    <option value="on_close">On Closing Program (Auto-Save When Exiting)</option>
+                    <option value="on_finish_week">When Clicking Finish Week &amp; Archive</option>
+                    <option value="on_change">Every Score Change (Instant Sync to Connected File)</option>
+                    <option value="5min">Every 5 Minutes</option>
+                    <option value="15min">Every 15 Minutes</option>
+                    <option value="30min">Every 30 Minutes</option>
+                    <option value="manual">Manual Only (Prompt to Save on Close)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="autobackup-format" className="block font-semibold text-slate-700 mb-1">
+                    Auto-Backup File Type
+                  </label>
+                  <select
+                    id="autobackup-format"
+                    value={settings.autoBackupFormat || 'json'}
+                    onChange={(e) =>
+                      onUpdateSettings({
+                        autoBackupFormat: e.target.value as 'json' | 'html',
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-900"
+                  >
+                    <option value="json">Master Multi-League Database (.json)</option>
+                    <option value="html">Standalone Single-File HTML Program (.html)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="autobackup-folder-label" className="block font-semibold text-slate-700 mb-1">
+                    Optional Save Location / Path Label
+                  </label>
+                  <input
+                    id="autobackup-folder-label"
+                    type="text"
+                    value={connectedFileName || settings.autoBackupDirectoryLabel || ''}
+                    onChange={(e) =>
+                      onUpdateSettings({ autoBackupDirectoryLabel: e.target.value })
+                    }
+                    placeholder="e.g., Documents/BowlingLeagueTrackerSave.json"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div className="text-xs text-slate-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <span>
+                    {connectedFileName
+                      ? `Connected live file target: ${connectedFileName}`
+                      : `Target location: ${settings.autoBackupDirectoryLabel || 'Browser Downloads / PC Folder'}`}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePickAutoBackupLocation}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold rounded-lg cursor-pointer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-blue-700" />
+                    Choose Optional Save Location on PC...
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRunManualAutoBackup}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Run Scheduled Backup Now
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 2 (BOTTOM): Manual Save, Import/Restore & Reset Actions */}
+            <div className="p-5 bg-slate-50 border-2 border-slate-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <FolderOpen className="w-4 h-4 text-blue-700" />
-                  Automatic Backup Scheduler & Optional Save Location
+                <h3 className="text-sm font-bold text-slate-900">
+                  Step 2: Manual Save File, Import Backup &amp; Season Reset
                 </h3>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Automatically writes a complete backup file on your chosen schedule.
+                  Save a new <code className="font-mono">BowlingLeagueTrackerSave.json</code> file, restore a backup from another PC, or start a fresh season.
                 </p>
-              </div>
-              <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.autoBackupEnabled !== false}
-                  onChange={(e) => onUpdateSettings({ autoBackupEnabled: e.target.checked })}
-                  className="w-4 h-4 rounded border-slate-300 text-blue-600"
-                />
-                <span>Enable Auto-Backup Scheduler</span>
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div>
-                <label htmlFor="autobackup-interval" className="block font-semibold text-slate-700 mb-1">
-                  Auto-Backup Schedule Frequency
-                </label>
-                <select
-                  id="autobackup-interval"
-                  value={settings.autoBackupInterval || 'on_finish_week'}
-                  onChange={(e) =>
-                    onUpdateSettings({
-                      autoBackupInterval: e.target.value as LeagueSettings['autoBackupInterval'],
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-900"
-                >
-                  <option value="on_change">Every Score Change (Instant Sync to Connected File)</option>
-                  <option value="5min">Every 5 Minutes</option>
-                  <option value="15min">Every 15 Minutes</option>
-                  <option value="30min">Every 30 Minutes</option>
-                  <option value="on_finish_week">When Clicking Finish Week & Archive</option>
-                  <option value="manual">Manual Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="autobackup-format" className="block font-semibold text-slate-700 mb-1">
-                  Auto-Backup File Type
-                </label>
-                <select
-                  id="autobackup-format"
-                  value={settings.autoBackupFormat || 'json'}
-                  onChange={(e) =>
-                    onUpdateSettings({
-                      autoBackupFormat: e.target.value as 'json' | 'html',
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-900"
-                >
-                  <option value="json">Master Multi-League Database (.json)</option>
-                  <option value="html">Standalone Single-File HTML Program (.html)</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="autobackup-folder-label" className="block font-semibold text-slate-700 mb-1">
-                  Optional Save Location / Path Label
-                </label>
-                <input
-                  id="autobackup-folder-label"
-                  type="text"
-                  value={connectedFileName || settings.autoBackupDirectoryLabel || ''}
-                  onChange={(e) =>
-                    onUpdateSettings({ autoBackupDirectoryLabel: e.target.value })
-                  }
-                  placeholder="e.g., Documents/BowlingLeagueTrackerSave.json"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-              <div className="text-xs text-slate-700 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                <span>
-                  {connectedFileName
-                    ? `Connected live file target: ${connectedFileName}`
-                    : `Target location: ${settings.autoBackupDirectoryLabel || 'Browser Downloads / PC Folder'}`}
-                </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={handlePickAutoBackupLocation}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold rounded-lg cursor-pointer"
+                  onClick={async () => {
+                    try {
+                      const res = await saveLeagueFileToComputer(appState);
+                      onRecordBackupTimestamp('local', res.filePath || res.filename);
+                      onShowToast(
+                        `Saved (${res.filePath || res.filename}).`
+                      );
+                    } catch {
+                      // Cancelled
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
                 >
-                  <FolderOpen className="w-3.5 h-3.5 text-blue-700" />
-                  Choose Optional Save Location on PC...
+                  <HardDrive className="w-4 h-4" />
+                  Save New File (.json)...
                 </button>
                 <button
                   type="button"
-                  onClick={handleRunManualAutoBackup}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  onClick={() => importInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Run Scheduled Backup Now
+                  <Upload className="w-4 h-4" />
+                  Import &amp; Restore Backup (.json or .html)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsResetConfirmOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Start Fresh...
                 </button>
               </div>
             </div>
-          </div>
           </div>
         </section>
       )}

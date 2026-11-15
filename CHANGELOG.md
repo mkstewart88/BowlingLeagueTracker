@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 
 ---
 
+## [1.0.20] - 2026-11-15
+
+### Added
+- **`"On Closing Program"` Option in Automatic Backup (`Tab 5C`):** Added `"On Closing Program (Auto-Save When Exiting)"` (`'on_close'`) to the Automatic Backup Schedule Frequency selector so users can choose whether closing automatically overwrites `BowlingLeagueTrackerSave.json` or prompts before closing.
+- **Unsaved-Changes Prompt on Close:** When a user makes any score, roster, bracket, dues, or rule change (`Save *` indicator in the top bar) and closes the program without `"On Closing Program"` auto-backup enabled, the application prompts to **Save Changes & Close**, **Save As...**, **Don't Save**, or **Cancel (Stay Open)**.
+- **Live Team Standings Chart (`Tab 1A`) & Automatic Cross-Tab Population:** Added a live **Team Standings Bar Chart** right beside the **Live Top 10 Individual Leaderboard Bar Chart** in `Tab 1A`, and wired bowler/team entries in `Tab 1` to automatically populate `Tab 1B` (Team vs. Team Recap Grid), `Tab 2` (Season Averages & Handicaps), `Tab 3` (8-Bowler Tournament Brackets), `Tab 4` (Weekly Bowler Dues Checklist), and `Tab 5B` (Round-Robin Lane Schedule).
+
+### Changed
+- **Ordered Top-to-Bottom Workflow Across All 5 Tabs:** Reorganized `Tab 1A`, `Tab 2B`, `Tab 3A`, `Tab 4A`, and `Tab 5A–5C` so every screen flows naturally from **Step 1 (Top: Setup Rules & Score Entry)** → **Step 2 (Middle: Active Lists, Entrant Selection & Live Charts)** → **Step 3 (Bottom: Generated Standings, Summary Totals, Finish Week & CSV/PDF Exports)**.
+- **Removed GitHub Actions Workflow:** Removed `.github/workflows` so repository pushes never trigger failed Actions runs or consume Actions tokens.
+
+### Fixed
+- **In-Place Single-Window `Update and Restart`:** Fixed `POST /api/desktop/install-update` and `UpdateModal.tsx` so clicking **Update and Restart** atomically updates `BowlingLeagueHelper.html` and `version.json` and reloads the existing window in-place (`needsPageReload: true`) instead of spawning a second `BowlingLeagueHelper.exe` / `msedge.exe --app` window that left the old version window open. Added Win32 `EnumWindows` cleanup on `--relaunch-wait` and non-blocking fallback window monitoring so upgrades from older binaries also close the previous window cleanly.
+
+---
+
 ## [1.0.19] - 2026-11-15
 
 ### Fixed

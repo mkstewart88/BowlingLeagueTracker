@@ -25,7 +25,19 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
   const [subTab, setSubTab] = useState<TreasurySubTab>('weekly_dues');
   const [prizeDistMode, setPrizeDistMode] = useState<'place_pct' | 'equal_point'>('place_pct');
 
-  const summary = calculateTreasurySummary(roster, currentDues, settings);
+  // Auto-populate Dues Checklist with any bowlers entered in Tab 1 even if not yet in Master Roster
+  const rosterNamesLower = new Set(roster.map((r) => r.name.toLowerCase()));
+  const extraEnteredPlayers = bowlers
+    .filter((b) => !rosterNamesLower.has(b.name.toLowerCase()))
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      team: b.team,
+      bookAverage: Math.round(b.scratchScore / (b.entryMode === 'three' ? 3 : 1)) || 165,
+    }));
+  const effectiveRoster = [...roster, ...extraEnteredPlayers];
+
+  const summary = calculateTreasurySummary(effectiveRoster, currentDues, settings);
   const teamStandings = buildTeamStandings(bowlers);
 
   // Projected Full-Season Prize Fund Pool (Net Weekly Prize Fund * Total Season Weeks)
@@ -63,7 +75,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
         'High Game Pot',
         'Notes',
       ],
-      ...roster.map((p) => {
+      ...effectiveRoster.map((p) => {
         const rec = currentDues[p.id];
         const status = rec?.status || 'paid';
         const paid =
@@ -148,10 +160,11 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'weekly_dues' && (
         <div className="space-y-6">
+          {/* STEP 1 (TOP): Weekly Financial Setup & Fee Rules */}
           <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                Weekly Bowler Dues, Alley Lineage & Envelope Reconciliation
+                Step 1: Weekly Dues, Alley Lineage &amp; Fee Rules
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Configure your league's weekly dues, bowling center lineage fee, and optional secretary stipend.
@@ -224,75 +237,20 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
                 <CheckCircle className="w-3.5 h-3.5" />
                 Mark All Paid
               </button>
-
-              <button
-                type="button"
-                onClick={handleExportTreasuryCsv}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export Treasurer CSV
-              </button>
             </div>
           </section>
 
-          <section className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-slate-600">Collected Gross Dues</div>
-              <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
-                ${summary.collectedGrossDues.toFixed(2)}
-              </div>
-              <div className="text-xs text-slate-600 mt-0.5">
-                of ${summary.expectedGrossDues.toFixed(2)} ({summary.paidCount}/{summary.totalActiveBowlers} paid)
-              </div>
-            </div>
-
-            <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-slate-600">Alley Lineage Cut</div>
-              <div className="text-2xl font-bold text-slate-800 font-mono tabular-nums mt-1">
-                ${summary.houseLineageCut.toFixed(2)}
-              </div>
-              <div className="text-xs text-slate-600 mt-0.5">
-                ${settings.lineageCostPerBowler}/bowler to center
-              </div>
-            </div>
-
-            <div className="bg-emerald-50/80 border-2 border-emerald-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-emerald-900">Net Prize Fund Added</div>
-              <div className="text-2xl font-bold text-emerald-800 font-mono tabular-nums mt-1">
-                ${summary.netPrizeFundContribution.toFixed(2)}
-              </div>
-              <div className="text-xs text-emerald-800 mt-0.5">
-                After lineage & ${summary.secretarySalaryCut} sec fee
-              </div>
-            </div>
-
-            <div className="bg-amber-50/80 border-2 border-amber-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-amber-900">Outstanding Arrears</div>
-              <div className="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-1">
-                ${summary.outstandingArrears.toFixed(2)}
-              </div>
-              <div className="text-xs text-amber-800 mt-0.5">
-                {summary.owesCount} bowler(s) owing
-              </div>
-            </div>
-
-            <div className="bg-blue-50/80 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-blue-900">Side Pots Collected</div>
-              <div className="text-2xl font-bold text-blue-800 font-mono tabular-nums mt-1">
-                ${(summary.strikePotCollected + summary.highGamePotCollected).toFixed(2)}
-              </div>
-              <div className="text-xs text-blue-800 mt-0.5">
-                Strike: ${summary.strikePotCollected} · High Gm: ${summary.highGamePotCollected}
-              </div>
-            </div>
-          </section>
-
+          {/* STEP 2 (MIDDLE): Bowler Dues & Envelope Checklist Table (Auto-Populated from Tab 1) */}
           <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300">
-              <h3 className="text-sm font-bold text-slate-900">
-                Week {settings.weekNumber || '4'} Bowler Dues & Envelope Checklist
-              </h3>
+            <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Step 2: Week {settings.weekNumber || '4'} Bowler Dues &amp; Envelope Checklist ({effectiveRoster.length} Bowlers)
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Auto-populated from your active league bowlers. Record payments, side pot entries, and envelope notes below.
+                </p>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -309,7 +267,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70">
-                  {roster.map((p) => {
+                  {effectiveRoster.map((p) => {
                     const rec: WeeklyDuesRecord = currentDues[p.id] || {
                       playerId: p.id,
                       playerName: p.name,
@@ -419,6 +377,80 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({
                   })}
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          {/* STEP 3 (BOTTOM): Generated Weekly Financial Summary & Envelope Reconciliation */}
+          <section className="bg-white border-2 border-emerald-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-200 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Step 3: Generated Week {settings.weekNumber || '4'} Envelope Totals &amp; Treasurer Export
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Calculated automatically from Step 1 rules and Step 2 bowler payments above.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportTreasuryCsv}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg cursor-pointer shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Treasurer CSV
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-slate-50 border-2 border-slate-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-slate-600">Collected Gross Dues</div>
+                <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
+                  ${summary.collectedGrossDues.toFixed(2)}
+                </div>
+                <div className="text-xs text-slate-600 mt-0.5">
+                  of ${summary.expectedGrossDues.toFixed(2)} ({summary.paidCount}/{summary.totalActiveBowlers} paid)
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border-2 border-slate-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-slate-600">Alley Lineage Cut</div>
+                <div className="text-2xl font-bold text-slate-800 font-mono tabular-nums mt-1">
+                  ${summary.houseLineageCut.toFixed(2)}
+                </div>
+                <div className="text-xs text-slate-600 mt-0.5">
+                  ${settings.lineageCostPerBowler}/bowler to center
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/80 border-2 border-emerald-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-emerald-900">Net Prize Fund Added</div>
+                <div className="text-2xl font-bold text-emerald-800 font-mono tabular-nums mt-1">
+                  ${summary.netPrizeFundContribution.toFixed(2)}
+                </div>
+                <div className="text-xs text-emerald-800 mt-0.5">
+                  After lineage &amp; ${summary.secretarySalaryCut} sec fee
+                </div>
+              </div>
+
+              <div className="bg-amber-50/80 border-2 border-amber-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-amber-900">Outstanding Arrears</div>
+                <div className="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-1">
+                  ${summary.outstandingArrears.toFixed(2)}
+                </div>
+                <div className="text-xs text-amber-800 mt-0.5">
+                  {summary.owesCount} bowler(s) owing
+                </div>
+              </div>
+
+              <div className="bg-blue-50/80 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-blue-900">Side Pots Collected</div>
+                <div className="text-2xl font-bold text-blue-800 font-mono tabular-nums mt-1">
+                  ${(summary.strikePotCollected + summary.highGamePotCollected).toFixed(2)}
+                </div>
+                <div className="text-xs text-blue-800 mt-0.5">
+                  Strike: ${summary.strikePotCollected} · High Gm: ${summary.highGamePotCollected}
+                </div>
+              </div>
             </div>
           </section>
         </div>

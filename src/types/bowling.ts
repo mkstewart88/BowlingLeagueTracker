@@ -45,7 +45,7 @@ export interface LeagueSettings {
   honorSeriesThreshold?: number; // e.g. 600 or 650
   // Auto-Backup Scheduler & Optional Location Settings
   autoBackupEnabled?: boolean;
-  autoBackupInterval?: 'on_change' | '5min' | '15min' | '30min' | 'on_finish_week' | 'manual';
+  autoBackupInterval?: 'on_close' | 'on_change' | '5min' | '15min' | '30min' | 'on_finish_week' | 'manual';
   autoBackupFormat?: 'json' | 'html';
   autoBackupDirectoryLabel?: string;
   lastLocalBackupAt?: string | null;

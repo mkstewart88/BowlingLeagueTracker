@@ -76,6 +76,98 @@ function syncActiveLeagueInRegistry(state: AppState): AppState {
   };
 }
 
+/**
+ * Automatically populates downstream BLS 2026 modules (Brackets, Weekly Dues,
+ * and Round-Robin Lane Schedule) whenever bowlers or teams are entered in Tab 1.
+ */
+function autoPopulateDownstreamModules(
+  prev: AppState,
+  nextBowlers: BowlerEntry[],
+  nextRoster: RosterPlayer[],
+  addedOrUpdatedBowlerId?: string | null
+): Pick<AppState, 'bracketEntrantIds' | 'currentDues' | 'schedule'> {
+  // 1. Brackets: keep active non-absent bowler IDs and auto-include newly entered bowlers
+  const activeBowlerIds = new Set(
+    nextBowlers.filter((b) => !b.isAbsent).map((b) => b.id)
+  );
+  let nextBracketIds = (prev.bracketEntrantIds || []).filter((id) =>
+    activeBowlerIds.has(id)
+  );
+  if (
+    addedOrUpdatedBowlerId &&
+    activeBowlerIds.has(addedOrUpdatedBowlerId) &&
+    !nextBracketIds.includes(addedOrUpdatedBowlerId)
+  ) {
+    nextBracketIds = [...nextBracketIds, addedOrUpdatedBowlerId];
+  }
+  if (nextBracketIds.length === 0 && activeBowlerIds.size > 0) {
+    nextBracketIds = Array.from(activeBowlerIds);
+  }
+
+  // 2. Weekly Dues & Treasurer: ensure every roster player and active bowler has an initialized dues record
+  const nextDues: Record<string, WeeklyDuesRecord> = { ...(prev.currentDues || {}) };
+  for (const r of nextRoster) {
+    if (!nextDues[r.id]) {
+      nextDues[r.id] = {
+        playerId: r.id,
+        playerName: r.name,
+        team: r.team || '',
+        status: 'paid',
+        amountPaid: prev.settings.weeklyDuesPerBowler,
+        sidePotStrike: false,
+        sidePotHighGame: false,
+        notes: '',
+      };
+    } else if (r.team && nextDues[r.id].team !== r.team) {
+      nextDues[r.id] = {
+        ...nextDues[r.id],
+        playerName: r.name,
+        team: r.team,
+      };
+    }
+  }
+
+  // 3. Round-Robin Lane Schedule & Team Matchups: auto-generate or expand schedule when >= 2 teams exist
+  const teamSet = new Set<string>();
+  nextRoster.forEach((r) => {
+    const t = (r.team || '').trim();
+    if (t && t.toLowerCase() !== 'unassigned') teamSet.add(t);
+  });
+  nextBowlers.forEach((b) => {
+    const t = (b.team || '').trim();
+    if (t && t.toLowerCase() !== 'unassigned') teamSet.add(t);
+  });
+  const uniqueTeams = Array.from(teamSet);
+
+  let nextSchedule = prev.schedule || [];
+  if (uniqueTeams.length >= 2) {
+    const scheduledTeams = new Set<string>();
+    nextSchedule.forEach((m) => {
+      if (m.teamA && m.teamA !== 'BYE') scheduledTeams.add(m.teamA);
+      if (m.teamB && m.teamB !== 'BYE') scheduledTeams.add(m.teamB);
+    });
+    const hasMissingTeam = uniqueTeams.some((t) => !scheduledTeams.has(t));
+    const onlyDefaultPlaceholders =
+      scheduledTeams.size > 0 &&
+      Array.from(scheduledTeams).every((t) => /^Team \d+$/i.test(t)) &&
+      uniqueTeams.some((t) => !/^Team \d+$/i.test(t));
+
+    if (nextSchedule.length === 0 || hasMissingTeam || onlyDefaultPlaceholders) {
+      nextSchedule = generateRoundRobinSchedule(
+        uniqueTeams,
+        prev.settings.startingLane || 1,
+        prev.settings.totalWeeks || 12
+      );
+    }
+  }
+
+  return {
+    bracketEntrantIds: nextBracketIds,
+    currentDues: nextDues,
+    schedule: nextSchedule,
+  };
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>(() => {
     try {
@@ -105,6 +197,7 @@ export default function App() {
   });
 
   const [undoStack, setUndoStack] = useState<AppState[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('entry');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
@@ -114,11 +207,15 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; isError: boolean; showUndo?: boolean } | null>(null);
   const [closeModalState, setCloseModalState] = useState<{
     isOpen: boolean;
+    promptMode: 'unsaved_changes' | 'missing_file';
+    hasExistingSaveFile: boolean;
     missingPath: string | null;
     reason: string;
     isBusy: boolean;
   }>({
     isOpen: false,
+    promptMode: 'missing_file',
+    hasExistingSaveFile: false,
     missingPath: null,
     reason: '',
     isBusy: false,
@@ -128,6 +225,11 @@ export default function App() {
   useEffect(() => {
     appStateRef.current = appState;
   }, [appState]);
+
+  const hasUnsavedChangesRef = React.useRef(hasUnsavedChanges);
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges;
+  }, [hasUnsavedChanges]);
 
   // Silently check GitHub (mkstewart88/BowlingLeagueTracker) / version.json on mount
   useEffect(() => {
@@ -210,9 +312,19 @@ export default function App() {
               initialLoadCompleteRef.current = true;
               setAppState(loaded);
               setUndoStack([]);
+              setHasUnsavedChanges(false);
+              hasUnsavedChangesRef.current = false;
               desktopLastSaveExistsRef.current = true;
               desktopLastSavePathRef.current = res.filePath || null;
-              bridge.stageSavePayload?.(serializeMasterSavePayload(loaded)).catch(() => {});
+              const autoSaveOnClose =
+                loaded.settings.autoBackupEnabled !== false &&
+                loaded.settings.autoBackupInterval === 'on_close';
+              bridge
+                .stageSavePayload?.(serializeMasterSavePayload(loaded), {
+                  dirty: false,
+                  autoSaveOnClose,
+                })
+                .catch(() => {});
               setToast({
                 message: `Opened save file "${res.filePath || 'BowlingLeagueTrackerSave.json'}".`,
                 isError: false,
@@ -223,15 +335,36 @@ export default function App() {
             }
           }
           initialLoadCompleteRef.current = true;
-          bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+          bridge
+            .stageSavePayload?.(serializeMasterSavePayload(appStateRef.current), {
+              dirty: false,
+              autoSaveOnClose:
+                appStateRef.current.settings.autoBackupEnabled !== false &&
+                appStateRef.current.settings.autoBackupInterval === 'on_close',
+            })
+            .catch(() => {});
         })
         .catch(() => {
           initialLoadCompleteRef.current = true;
-          bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+          bridge
+            .stageSavePayload?.(serializeMasterSavePayload(appStateRef.current), {
+              dirty: false,
+              autoSaveOnClose:
+                appStateRef.current.settings.autoBackupEnabled !== false &&
+                appStateRef.current.settings.autoBackupInterval === 'on_close',
+            })
+            .catch(() => {});
         });
     } else {
       initialLoadCompleteRef.current = true;
-      bridge.stageSavePayload?.(serializeMasterSavePayload(appStateRef.current)).catch(() => {});
+      bridge
+        .stageSavePayload?.(serializeMasterSavePayload(appStateRef.current), {
+          dirty: false,
+          autoSaveOnClose:
+            appStateRef.current.settings.autoBackupEnabled !== false &&
+            appStateRef.current.settings.autoBackupInterval === 'on_close',
+        })
+        .catch(() => {});
     }
     const statusPoll = setInterval(refreshDesktopSaveStatus, 4000);
     window.addEventListener('focus', refreshDesktopSaveStatus);
@@ -239,6 +372,8 @@ export default function App() {
     const openMissingSavePrompt = (missingPath: string | null, reason?: string) => {
       setCloseModalState({
         isOpen: true,
+        promptMode: 'missing_file',
+        hasExistingSaveFile: false,
         missingPath,
         reason:
           reason ||
@@ -254,16 +389,48 @@ export default function App() {
       if (closeInFlightRef.current) return;
       closeInFlightRef.current = true;
       try {
-        const result = await verifyAndSaveBeforeClose(appStateRef.current);
-        if (result.ok) {
-          closeHandledCleanlyRef.current = true;
-          desktopLastSaveExistsRef.current = true;
-        } else if (result.missing) {
-          desktopLastSaveExistsRef.current = false;
-          openMissingSavePrompt(result.missingPath || null, result.reason);
-        } else {
-          closeInFlightRef.current = false;
+        const autoSaveOnClose =
+          appStateRef.current.settings.autoBackupEnabled !== false &&
+          appStateRef.current.settings.autoBackupInterval === 'on_close';
+        const isDirty = hasUnsavedChangesRef.current;
+
+        // 1. If Auto-Backup is set to "On Closing Program", attempt automatic save on close
+        if (autoSaveOnClose) {
+          const result = await verifyAndSaveBeforeClose(appStateRef.current);
+          if (result.ok) {
+            closeHandledCleanlyRef.current = true;
+            desktopLastSaveExistsRef.current = true;
+            setHasUnsavedChanges(false);
+            hasUnsavedChangesRef.current = false;
+          } else if (result.missing) {
+            desktopLastSaveExistsRef.current = false;
+            openMissingSavePrompt(result.missingPath || null, result.reason);
+          } else {
+            closeInFlightRef.current = false;
+          }
+          return;
         }
+
+        // 2. If changes were made and Auto-Backup is NOT set to "On Closing Program", prompt to save!
+        if (isDirty) {
+          setCloseModalState({
+            isOpen: true,
+            promptMode: 'unsaved_changes',
+            hasExistingSaveFile: desktopLastSaveExistsRef.current,
+            missingPath:
+              desktopLastSavePathRef.current ||
+              appStateRef.current.settings.autoBackupDirectoryLabel ||
+              null,
+            reason:
+              'You made changes to your league since your last save. Would you like to save before closing?',
+            isBusy: false,
+          });
+          return;
+        }
+
+        // 3. No unsaved changes: close cleanly
+        closeHandledCleanlyRef.current = true;
+        await forceCloseProgramWithoutSaving();
       } catch {
         closeInFlightRef.current = false;
       }
@@ -277,11 +444,24 @@ export default function App() {
         return;
       }
       const payload = serializeMasterSavePayload(appStateRef.current);
-      if (desktopLastSaveExistsRef.current && typeof bridge.sendAutoSaveBeacon === 'function') {
+      const autoSaveOnClose =
+        appStateRef.current.settings.autoBackupEnabled !== false &&
+        appStateRef.current.settings.autoBackupInterval === 'on_close';
+      const isDirty = hasUnsavedChangesRef.current;
+
+      // Only silently overwrite save file on unload if "On Closing Program" is enabled
+      if (
+        autoSaveOnClose &&
+        desktopLastSaveExistsRef.current &&
+        typeof bridge.sendAutoSaveBeacon === 'function'
+      ) {
         bridge.sendAutoSaveBeacon(payload);
       }
       if (typeof bridge.sendWindowUnloadedBeacon === 'function') {
-        bridge.sendWindowUnloadedBeacon(payload);
+        bridge.sendWindowUnloadedBeacon(payload, {
+          dirty: isDirty,
+          autoSaveOnClose,
+        });
       }
     };
 
@@ -297,6 +477,24 @@ export default function App() {
     };
   }, []);
 
+  // Browser beforeunload guard when unsaved changes exist in standard browser mode
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (
+        closeHandledCleanlyRef.current ||
+        (window as unknown as { __BOWLING_SUPPRESS_UNLOAD__?: boolean }).__BOWLING_SUPPRESS_UNLOAD__
+      ) {
+        return;
+      }
+      if (!getDesktopBridge() && hasUnsavedChangesRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
   // Sync to localStorage and stage latest desktop save payload on every state change
   useEffect(() => {
     if (!initialLoadCompleteRef.current) return;
@@ -308,15 +506,23 @@ export default function App() {
 
       const bridge = getDesktopBridge();
       if (bridge?.stageSavePayload) {
+        const autoSaveOnClose =
+          synced.settings.autoBackupEnabled !== false &&
+          synced.settings.autoBackupInterval === 'on_close';
         const stageTimer = setTimeout(() => {
-          bridge.stageSavePayload?.(serializeMasterSavePayload(synced)).catch(() => {});
-        }, 150);
+          bridge
+            .stageSavePayload?.(serializeMasterSavePayload(synced), {
+              dirty: hasUnsavedChanges,
+              autoSaveOnClose,
+            })
+            .catch(() => {});
+        }, 120);
         return () => clearTimeout(stageTimer);
       }
     } catch (e) {
       console.error('Failed to persist state to localStorage:', e);
     }
-  }, [appState]);
+  }, [appState, hasUnsavedChanges]);
 
   // Automatic Backup Scheduler Timer (5min, 15min, 30min) & On-Change Handle Writer
   useEffect(() => {
@@ -365,6 +571,8 @@ export default function App() {
   }, [toast]);
 
   const pushUndoState = (current: AppState) => {
+    setHasUnsavedChanges(true);
+    hasUnsavedChangesRef.current = true;
     setUndoStack((prev) => [...prev.slice(-29), JSON.parse(JSON.stringify(current))]);
   };
 
@@ -376,6 +584,8 @@ export default function App() {
     const previous = undoStack[undoStack.length - 1];
     setUndoStack((prev) => prev.slice(0, -1));
     setAppState(previous);
+    setHasUnsavedChanges(true);
+    hasUnsavedChangesRef.current = true;
     showToast('Last change undone.');
   };
 
@@ -393,6 +603,8 @@ export default function App() {
   }, [undoStack]);
 
   const handleUpdateSettings = (partial: Partial<LeagueSettings>) => {
+    setHasUnsavedChanges(true);
+    hasUnsavedChangesRef.current = true;
     setAppState((prev) =>
       syncActiveLeagueInRegistry({
         ...prev,
@@ -403,6 +615,8 @@ export default function App() {
   };
 
   const handleUpdateWeekNotes = (notes: string) => {
+    setHasUnsavedChanges(true);
+    hasUnsavedChangesRef.current = true;
     setAppState((prev) => {
       let nextHistory = prev.history;
       if (prev.weekArchived && prev.weekArchiveId) {
@@ -426,6 +640,7 @@ export default function App() {
 
     setAppState((prev) => {
       let nextBowlers: BowlerEntry[];
+      let targetBowlerId = editingId;
       if (editingId) {
         nextBowlers = prev.bowlers.map((b) =>
           b.id === editingId
@@ -433,11 +648,12 @@ export default function App() {
             : b
         );
       } else {
+        targetBowlerId = makeId();
         nextBowlers = [
           ...prev.bowlers,
           {
             ...entry,
-            id: makeId(),
+            id: targetBowlerId,
             createdAt: new Date().toISOString(),
           },
         ];
@@ -468,10 +684,18 @@ export default function App() {
         }
       }
 
+      const downstream = autoPopulateDownstreamModules(
+        prev,
+        nextBowlers,
+        nextRoster,
+        targetBowlerId
+      );
+
       return syncActiveLeagueInRegistry({
         ...prev,
         bowlers: nextBowlers,
         roster: nextRoster,
+        ...downstream,
         weekArchived: false,
       });
     });
@@ -489,11 +713,16 @@ export default function App() {
     const target = appState.bowlers.find((b) => b.id === id);
     if (!target) return;
     pushUndoState(appState);
-    setAppState((prev) => ({
-      ...prev,
-      bowlers: prev.bowlers.filter((b) => b.id !== id),
-      weekArchived: false,
-    }));
+    setAppState((prev) => {
+      const nextBowlers = prev.bowlers.filter((b) => b.id !== id);
+      const nextBracketIds = (prev.bracketEntrantIds || []).filter((bid) => bid !== id);
+      return syncActiveLeagueInRegistry({
+        ...prev,
+        bowlers: nextBowlers,
+        bracketEntrantIds: nextBracketIds,
+        weekArchived: false,
+      });
+    });
     showToast(`Removed ${target.name} from current week.`, false, true);
   };
 
@@ -530,11 +759,16 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    setAppState((prev) => ({
-      ...prev,
-      bowlers: [...prev.bowlers, absentEntry],
-      weekArchived: false,
-    }));
+    setAppState((prev) => {
+      const nextBowlers = [...prev.bowlers, absentEntry];
+      const downstream = autoPopulateDownstreamModules(prev, nextBowlers, prev.roster, null);
+      return syncActiveLeagueInRegistry({
+        ...prev,
+        bowlers: nextBowlers,
+        ...downstream,
+        weekArchived: false,
+      });
+    });
     showToast(
       `Marked ${player.name} as Absent (${scratch} pts — ${absCalc.ruleDescription}).`,
       false,
@@ -563,7 +797,12 @@ export default function App() {
           bookAverage: bookAvg,
         });
       }
-      return { ...prev, roster: nextRoster };
+      const downstream = autoPopulateDownstreamModules(prev, prev.bowlers, nextRoster, null);
+      return syncActiveLeagueInRegistry({
+        ...prev,
+        roster: nextRoster,
+        ...downstream,
+      });
     });
     showToast(`Saved ${name} to Master Roster.`, false, true);
   };
@@ -719,6 +958,8 @@ export default function App() {
   };
 
   const handleUpdateDuesRecord = (playerId: string, record: WeeklyDuesRecord) => {
+    setHasUnsavedChanges(true);
+    hasUnsavedChangesRef.current = true;
     setAppState((prev) => ({
       ...prev,
       currentDues: {
@@ -759,6 +1000,8 @@ export default function App() {
   };
 
   const handleUpdateBracketEntrants = (ids: string[]) => {
+    setHasUnsavedChanges(true);
+    hasUnsavedChangesRef.current = true;
     setAppState((prev) =>
       syncActiveLeagueInRegistry({
         ...prev,
@@ -902,6 +1145,8 @@ export default function App() {
     }
     desktopLastSaveExistsRef.current = false;
     desktopLastSavePathRef.current = null;
+    setHasUnsavedChanges(false);
+    hasUnsavedChangesRef.current = false;
     getDesktopBridge()?.clearLastSaveLink?.().catch(() => {});
     const fresh = createFreshInitialState();
     setUndoStack([]);
@@ -911,6 +1156,8 @@ export default function App() {
   };
 
   const handleRecordBackupTimestamp = (kind: 'local' | 'auto', locationLabel?: string) => {
+    setHasUnsavedChanges(false);
+    hasUnsavedChangesRef.current = false;
     if (kind === 'local' && locationLabel) {
       desktopLastSaveExistsRef.current = true;
       desktopLastSavePathRef.current = locationLabel;
@@ -956,10 +1203,34 @@ export default function App() {
     compareSemverVersions(latestAvailableVersion, CURRENT_APP_VERSION) > 0;
 
   const handleSafeExitProgram = async () => {
+    const autoSaveOnClose =
+      appStateRef.current.settings.autoBackupEnabled !== false &&
+      appStateRef.current.settings.autoBackupInterval === 'on_close';
+
+    // If the user has unsaved changes and Auto-Backup is NOT set to "On Closing Program", prompt them!
+    if (hasUnsavedChangesRef.current && !autoSaveOnClose) {
+      setCloseModalState({
+        isOpen: true,
+        promptMode: 'unsaved_changes',
+        hasExistingSaveFile:
+          desktopLastSaveExistsRef.current || hasConnectedAutoBackupHandle(),
+        missingPath:
+          desktopLastSavePathRef.current ||
+          appStateRef.current.settings.autoBackupDirectoryLabel ||
+          null,
+        reason:
+          'You made changes to your league since your last save. Would you like to save before closing?',
+        isBusy: false,
+      });
+      return;
+    }
+
     const result = await verifyAndSaveBeforeClose(appStateRef.current);
     if (result.ok) {
       closeHandledCleanlyRef.current = true;
       desktopLastSaveExistsRef.current = true;
+      setHasUnsavedChanges(false);
+      hasUnsavedChangesRef.current = false;
       if (result.savedPath) {
         handleRecordBackupTimestamp('local', result.savedPath);
       }
@@ -976,12 +1247,47 @@ export default function App() {
     desktopLastSaveExistsRef.current = false;
     setCloseModalState({
       isOpen: true,
+      promptMode: 'missing_file',
+      hasExistingSaveFile: false,
       missingPath: result.missingPath || null,
       reason:
         result.reason ||
         'Cannot find your last save file. Pick a new save location or choose Don\'t Save.',
       isBusy: false,
     });
+  };
+
+  const handleSaveToExistingAndClose = async () => {
+    setCloseModalState((prev) => ({ ...prev, isBusy: true }));
+    const result = await verifyAndSaveBeforeClose(appStateRef.current);
+    if (result.ok) {
+      closeHandledCleanlyRef.current = true;
+      closeInFlightRef.current = false;
+      desktopLastSaveExistsRef.current = true;
+      setHasUnsavedChanges(false);
+      hasUnsavedChangesRef.current = false;
+      if (result.savedPath) {
+        handleRecordBackupTimestamp('local', result.savedPath);
+      }
+      setCloseModalState({
+        isOpen: false,
+        promptMode: 'missing_file',
+        hasExistingSaveFile: false,
+        missingPath: null,
+        reason: '',
+        isBusy: false,
+      });
+      if (!getDesktopBridge()) {
+        showToast(
+          `Saved changes to "${result.savedPath || 'save file'}". Ready to close safely.`
+        );
+      } else {
+        window.close();
+      }
+      return;
+    }
+    // If existing file was missing, fall back to picking a save location
+    await handleClosePickNewLocation();
   };
 
   const handleClosePickNewLocation = async () => {
@@ -991,10 +1297,19 @@ export default function App() {
       closeHandledCleanlyRef.current = true;
       closeInFlightRef.current = false;
       desktopLastSaveExistsRef.current = true;
+      setHasUnsavedChanges(false);
+      hasUnsavedChangesRef.current = false;
       if (res.filePath) {
         handleRecordBackupTimestamp('local', res.filePath);
       }
-      setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
+      setCloseModalState({
+        isOpen: false,
+        promptMode: 'missing_file',
+        hasExistingSaveFile: false,
+        missingPath: null,
+        reason: '',
+        isBusy: false,
+      });
       if (!getDesktopBridge()) {
         showToast(
           `Saved to "${res.filePath || 'new save file'}". Ready to close safely.`
@@ -1012,12 +1327,21 @@ export default function App() {
 
   const handleCloseDontSave = async () => {
     closeHandledCleanlyRef.current = true;
+    setHasUnsavedChanges(false);
+    hasUnsavedChangesRef.current = false;
     setCloseModalState((prev) => ({ ...prev, isBusy: true }));
     await forceCloseProgramWithoutSaving();
     closeInFlightRef.current = false;
-    setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
+    setCloseModalState({
+      isOpen: false,
+      promptMode: 'missing_file',
+      hasExistingSaveFile: false,
+      missingPath: null,
+      reason: '',
+      isBusy: false,
+    });
     if (!getDesktopBridge()) {
-      showToast('Closed without saving to a backup file.');
+      showToast('Closed without saving changes to disk.');
     } else {
       window.close();
     }
@@ -1026,7 +1350,14 @@ export default function App() {
   const handleCloseCancel = async () => {
     closeInFlightRef.current = false;
     await cancelPendingClose();
-    setCloseModalState({ isOpen: false, missingPath: null, reason: '', isBusy: false });
+    setCloseModalState({
+      isOpen: false,
+      promptMode: 'missing_file',
+      hasExistingSaveFile: false,
+      missingPath: null,
+      reason: '',
+      isBusy: false,
+    });
   };
 
   const switchTab = (tab: ActiveTab) => {
@@ -1121,13 +1452,19 @@ export default function App() {
               disabled={isQuickSaving}
               title={
                 appState.settings.autoBackupDirectoryLabel
-                  ? `Save directly to ${appState.settings.autoBackupDirectoryLabel}`
+                  ? `Save directly to ${appState.settings.autoBackupDirectoryLabel}${hasUnsavedChanges ? ' (Unsaved changes)' : ''}`
                   : 'Save BowlingLeagueTrackerSave.json'
               }
-              className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
+              className={`px-3.5 py-2 text-xs font-bold text-white ${
+                hasUnsavedChanges
+                  ? 'bg-amber-600 hover:bg-amber-500'
+                  : 'bg-emerald-600 hover:bg-emerald-500'
+              } disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5`}
             >
               <Save className="w-3.5 h-3.5" />
-              <span>{isQuickSaving ? 'Saving...' : 'Save'}</span>
+              <span>
+                {isQuickSaving ? 'Saving...' : hasUnsavedChanges ? 'Save *' : 'Save'}
+              </span>
             </button>
             <button
               type="button"
@@ -1360,12 +1697,15 @@ export default function App() {
         onShowToast={showToast}
       />
 
-      {/* Save-On-Close Recovery Modal when Last Save File Cannot Be Found */}
+      {/* Save-On-Close Recovery & Unsaved Changes Modal */}
       <CloseSaveModal
         isOpen={closeModalState.isOpen}
+        promptMode={closeModalState.promptMode}
+        hasExistingSaveFile={closeModalState.hasExistingSaveFile}
         missingPath={closeModalState.missingPath}
         reason={closeModalState.reason}
         isBusy={closeModalState.isBusy}
+        onSaveToExistingAndClose={handleSaveToExistingAndClose}
         onPickNewSaveLocation={handleClosePickNewLocation}
         onDontSaveAndClose={handleCloseDontSave}
         onCancel={handleCloseCancel}

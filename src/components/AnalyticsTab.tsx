@@ -744,15 +744,15 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'bowler_averages' && (
         <div className="space-y-6">
-          {/* Handicap Formula & Custom CSV Builder Header */}
-          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm space-y-4">
+          {/* STEP 1 (TOP): Handicap Formula Rules & Bowler Filter */}
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Bowler Book Averages, Handicaps & Individual Trend Charts
+                  Step 1: Handicap Formula &amp; Bowler Filter
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Click any bowler row in the table below to inspect their week-by-week series and average progression chart.
+                  Adjust your league's handicap basis or percentage to recalculate all book handicaps below in real time.
                 </p>
               </div>
 
@@ -790,89 +790,113 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleExportBookAverageCsv}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export Custom Analytics CSV
-                </button>
-              </div>
-            </div>
-
-            {/* Customizable CSV Column Builder Strip */}
-            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <span className="font-bold text-slate-700">
-                Customize CSV Report Columns:
-              </span>
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="checkbox"
-                    checked={csvColumns.gamesAndPins}
-                    onChange={(e) =>
-                      setCsvColumns((p) => ({ ...p, gamesAndPins: e.target.checked }))
-                    }
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter bowler or team..."
+                    className="pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
                   />
-                  <span>Weeks, Games & Total Pins</span>
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={csvColumns.bookAndEnteringAvg}
-                    onChange={(e) =>
-                      setCsvColumns((p) => ({ ...p, bookAndEnteringAvg: e.target.checked }))
-                    }
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
-                  />
-                  <span>Entering & Book Avg (+Diff)</span>
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={csvColumns.handicapBreakdown}
-                    onChange={(e) =>
-                      setCsvColumns((p) => ({ ...p, handicapBreakdown: e.target.checked }))
-                    }
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
-                  />
-                  <span>Per-Game & Series Handicap</span>
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={csvColumns.seasonHighs}
-                    onChange={(e) =>
-                      setCsvColumns((p) => ({ ...p, seasonHighs: e.target.checked }))
-                    }
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
-                  />
-                  <span>High Games & High Series</span>
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={csvColumns.weeklyHistory}
-                    onChange={(e) =>
-                      setCsvColumns((p) => ({ ...p, weeklyHistory: e.target.checked }))
-                    }
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
-                  />
-                  <span>Week-by-Week Series Log</span>
-                </label>
+                </div>
               </div>
             </div>
           </section>
 
-          {/* Individual Bowler Progression Chart */}
+          {/* STEP 2A (MIDDLE): Complete Season Book Average & Handicap Table */}
+          <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Step 2: Complete Season Book Average &amp; Handicap Sheet ({filteredStats.length} Bowlers)
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Auto-populated from Tab 1. Click any bowler row to inspect their week-by-week progression chart below.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1 rounded-md">
+                Inspecting: {selectedPlayer?.name || 'None'}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs font-mono tabular-nums">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-sans">
+                    <th className="py-2.5 px-4 font-bold">Bowler</th>
+                    <th className="py-2.5 px-3 font-bold">Team</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Wks</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Gms</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Pins</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Enter Avg</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Book Avg</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Diff</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Hdcp/Gm</th>
+                    <th className="py-2.5 px-3 font-bold text-right">Series Hdcp</th>
+                    <th className="py-2.5 px-3 font-bold text-right">High Gm</th>
+                    <th className="py-2.5 px-4 font-bold text-right">High Ser</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/70">
+                  {filteredStats.map((p) => (
+                    <tr
+                      key={p.name}
+                      onClick={() => setSelectedBowlerName(p.name)}
+                      className={`hover:bg-blue-50/40 cursor-pointer transition-colors ${
+                        selectedPlayer?.name === p.name ? 'bg-blue-50/60' : ''
+                      }`}
+                    >
+                      <td className="py-2.5 px-4 font-sans font-bold text-slate-900">
+                        {p.name}
+                      </td>
+                      <td className="py-2.5 px-3 font-sans text-slate-600">{p.team}</td>
+                      <td className="py-2.5 px-3 text-right">{p.weeksBowled}</td>
+                      <td className="py-2.5 px-3 text-right">{p.gamesBowled}</td>
+                      <td className="py-2.5 px-3 text-right">{p.totalScratchPins}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-500">
+                        {p.enteringAverage}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                        {p.currentAverage}
+                      </td>
+                      <td
+                        className={`py-2.5 px-3 text-right font-semibold ${
+                          p.averageImprovement > 0
+                            ? 'text-emerald-700'
+                            : p.averageImprovement < 0
+                            ? 'text-amber-700'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        {p.averageImprovement > 0
+                          ? `+${p.averageImprovement}`
+                          : p.averageImprovement}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-blue-700 font-semibold">
+                        +{p.computedHandicapPerGame}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-blue-800">
+                        +{p.computedSeriesHandicap}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">{p.highScratchGame || '—'}</td>
+                      <td className="py-2.5 px-4 text-right font-bold">
+                        {p.highScratchSeries || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* STEP 2B (MIDDLE): Individual Bowler Progression Chart */}
           <section className="bg-white border-2 border-emerald-300 rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-emerald-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <TrendingUp className="w-4 h-4 text-blue-600" />
-                  Individual Bowler Progression Chart
+                  Selected Bowler Week-by-Week Progression Chart
                 </h3>
                 <p className="text-xs text-slate-500">
                   Switch between weekly series totals, per-game averages, or league-wide average comparison
@@ -1056,96 +1080,86 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             )}
           </section>
 
-          {/* Complete Season Book Average Table */}
-          <section className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-slate-100 px-5 py-4 border-b-2 border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* STEP 3 (BOTTOM): Custom Analytics CSV Report Builder & Export */}
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Complete Season Book Average & Handicap Sheet ({filteredStats.length} Bowlers)
+                  Step 3: Export Custom Bowler Averages &amp; Handicaps CSV Report
                 </h3>
-                <p className="text-xs text-slate-600">
-                  Click any row to view that bowler's chart above.
+                <p className="text-xs text-slate-500">
+                  Choose which statistical columns to include in your downloadable Excel/CSV spreadsheet.
                 </p>
               </div>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter bowler or team..."
-                  className="pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={handleExportBookAverageCsv}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Custom Analytics CSV
+              </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs font-mono tabular-nums">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-sans">
-                    <th className="py-2.5 px-4 font-bold">Bowler</th>
-                    <th className="py-2.5 px-3 font-bold">Team</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Wks</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Gms</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Pins</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Enter Avg</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Book Avg</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Diff</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Hdcp/Gm</th>
-                    <th className="py-2.5 px-3 font-bold text-right">Series Hdcp</th>
-                    <th className="py-2.5 px-3 font-bold text-right">High Gm</th>
-                    <th className="py-2.5 px-4 font-bold text-right">High Ser</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/70">
-                  {filteredStats.map((p) => (
-                    <tr
-                      key={p.name}
-                      onClick={() => setSelectedBowlerName(p.name)}
-                      className={`hover:bg-blue-50/40 cursor-pointer transition-colors ${
-                        selectedPlayer?.name === p.name ? 'bg-blue-50/60' : ''
-                      }`}
-                    >
-                      <td className="py-2.5 px-4 font-sans font-bold text-slate-900">
-                        {p.name}
-                      </td>
-                      <td className="py-2.5 px-3 font-sans text-slate-600">{p.team}</td>
-                      <td className="py-2.5 px-3 text-right">{p.weeksBowled}</td>
-                      <td className="py-2.5 px-3 text-right">{p.gamesBowled}</td>
-                      <td className="py-2.5 px-3 text-right">{p.totalScratchPins}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-500">
-                        {p.enteringAverage}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                        {p.currentAverage}
-                      </td>
-                      <td
-                        className={`py-2.5 px-3 text-right font-semibold ${
-                          p.averageImprovement > 0
-                            ? 'text-emerald-700'
-                            : p.averageImprovement < 0
-                            ? 'text-amber-700'
-                            : 'text-slate-500'
-                        }`}
-                      >
-                        {p.averageImprovement > 0
-                          ? `+${p.averageImprovement}`
-                          : p.averageImprovement}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-blue-700 font-semibold">
-                        +{p.computedHandicapPerGame}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-blue-800">
-                        +{p.computedSeriesHandicap}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">{p.highScratchGame || '—'}</td>
-                      <td className="py-2.5 px-4 text-right font-bold">
-                        {p.highScratchSeries || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs">
+              <span className="font-bold text-slate-700">
+                Include CSV Columns:
+              </span>
+              <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={csvColumns.gamesAndPins}
+                  onChange={(e) =>
+                    setCsvColumns((p) => ({ ...p, gamesAndPins: e.target.checked }))
+                  }
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span>Weeks, Games &amp; Total Pins</span>
+              </label>
+              <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={csvColumns.bookAndEnteringAvg}
+                  onChange={(e) =>
+                    setCsvColumns((p) => ({ ...p, bookAndEnteringAvg: e.target.checked }))
+                  }
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span>Entering &amp; Book Avg (+Diff)</span>
+              </label>
+              <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={csvColumns.handicapBreakdown}
+                  onChange={(e) =>
+                    setCsvColumns((p) => ({ ...p, handicapBreakdown: e.target.checked }))
+                  }
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span>Per-Game &amp; Series Handicap</span>
+              </label>
+              <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={csvColumns.seasonHighs}
+                  onChange={(e) =>
+                    setCsvColumns((p) => ({ ...p, seasonHighs: e.target.checked }))
+                  }
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span>High Games &amp; High Series</span>
+              </label>
+              <label className="inline-flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={csvColumns.weeklyHistory}
+                  onChange={(e) =>
+                    setCsvColumns((p) => ({ ...p, weeklyHistory: e.target.checked }))
+                  }
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600"
+                />
+                <span>Week-by-Week Series Log</span>
+              </label>
             </div>
           </section>
         </div>

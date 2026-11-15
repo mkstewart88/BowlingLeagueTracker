@@ -113,6 +113,8 @@ static std::atomic<bool> g_closeAcked{false};
 static std::atomic<bool> g_fallbackLaunched{false};
 static std::atomic<bool> g_browserWindowUnloaded{false};
 static std::atomic<bool> g_fallbackPromptActive{false};
+static std::atomic<bool> g_hasUnsavedChanges{false};
+static std::atomic<bool> g_autoSaveOnClose{false};
 static int g_port = 0;
 static std::wstring g_installDir;
 static std::wstring g_exePath;
@@ -462,7 +464,7 @@ static std::string ReadInstalledVersion() {
       return ver;
     }
   }
-  return "1.0.19";
+  return "1.0.20";
 }
 
 // ============================================================================
@@ -678,6 +680,16 @@ static void HandleHttpClient(SOCKET client) {
 
   // ---- Route: Stage latest state in memory (does not overwrite save file until close) ----
   if (method == "POST" && path == "/api/desktop/stage-state") {
+    if (rawTarget.find("dirty=1") != std::string::npos) {
+      g_hasUnsavedChanges.store(true);
+    } else if (rawTarget.find("dirty=0") != std::string::npos) {
+      g_hasUnsavedChanges.store(false);
+    }
+    if (rawTarget.find("autoclose=1") != std::string::npos) {
+      g_autoSaveOnClose.store(true);
+    } else if (rawTarget.find("autoclose=0") != std::string::npos) {
+      g_autoSaveOnClose.store(false);
+    }
     if (!body.empty()) {
       AutoCsLock lock(&g_stagedCs);
       g_stagedSavePayload = body;
@@ -705,6 +717,7 @@ static void HandleHttpClient(SOCKET client) {
       std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
       if (FileExistsW(targetWide) && AtomicWriteFileUtf8(targetWide, payloadToWrite)) {
         WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+        g_hasUnsavedChanges.store(false);
         saved = true;
       }
     }
@@ -716,6 +729,16 @@ static void HandleHttpClient(SOCKET client) {
 
   // ---- Route: Notification that fallback browser window is unloading ----
   if (method == "POST" && path == "/api/desktop/window-unloaded") {
+    if (rawTarget.find("dirty=1") != std::string::npos) {
+      g_hasUnsavedChanges.store(true);
+    } else if (rawTarget.find("dirty=0") != std::string::npos) {
+      g_hasUnsavedChanges.store(false);
+    }
+    if (rawTarget.find("autoclose=1") != std::string::npos) {
+      g_autoSaveOnClose.store(true);
+    } else if (rawTarget.find("autoclose=0") != std::string::npos) {
+      g_autoSaveOnClose.store(false);
+    }
     if (!body.empty() && body.find("\"useStaged\"") == std::string::npos) {
       AutoCsLock lock(&g_stagedCs);
       g_stagedSavePayload = body;
@@ -818,6 +841,7 @@ static void HandleHttpClient(SOCKET client) {
       AutoCsLock lock(&g_stagedCs);
       g_stagedSavePayload = jsonText;
     }
+    g_hasUnsavedChanges.store(false);
     std::string savedAt = CurrentIsoTimestamp();
     WriteDesktopConfig({cfg.lastSaveFilePath, savedAt});
     std::string fileUtf8 = WideToUtf8(BaseNameW(targetWide));
@@ -832,6 +856,7 @@ static void HandleHttpClient(SOCKET client) {
   // ---- Route: Unlink Last Save File On Start Fresh Reset ----
   if (method == "POST" && path == "/api/desktop/clear-save-link") {
     WriteDesktopConfig({"", ""});
+    g_hasUnsavedChanges.store(false);
     {
       AutoCsLock lock(&g_stagedCs);
       g_stagedSavePayload.clear();
@@ -874,6 +899,7 @@ static void HandleHttpClient(SOCKET client) {
       AutoCsLock lock(&g_stagedCs);
       g_stagedSavePayload = jsonText;
     }
+    g_hasUnsavedChanges.store(false);
     std::string chosenUtf8 = WideToUtf8(chosenPath);
     std::string fileUtf8 = WideToUtf8(BaseNameW(chosenPath));
     std::string savedAt = CurrentIsoTimestamp();
@@ -1015,15 +1041,21 @@ static void HandleHttpClient(SOCKET client) {
       AtomicWriteFileUtf8(g_installDir + L"\\version.json", versionJsonContent);
     }
 
+    g_hasUnsavedChanges.store(false);
+    g_browserWindowUnloaded.store(false);
+
+    // Return needsPageReload: true so the active window reloads in-place into the new version without spawning a second window!
     std::string resp = "{\"ok\":true,\"targetVersion\":" + JsonEscape(targetVersion) +
       ",\"installDir\":" + JsonEscape(WideToUtf8(g_installDir)) +
-      ",\"updatedTargets\":[" + JsonEscape(WideToUtf8(htmlTarget)) + "]}";
+      ",\"updatedTargets\":[" + JsonEscape(WideToUtf8(htmlTarget)) + "]" +
+      ",\"needsPageReload\":true}";
     SendHttpResponse(client, 200, "OK", "application/json", resp);
     closesocket(client);
 
-    g_allowClose.store(true);
-    g_pendingClose.store(false);
-    if (g_hwnd) PostMessageW(g_hwnd, WM_APP_RELAUNCH_EXIT, 0, 0);
+    if (g_wvWebView && g_webviewReady.load()) {
+      std::wstring url = Utf8ToWide("http://127.0.0.1:" + std::to_string(g_port) + "/?updated=" + targetVersion);
+      g_wvWebView->lpVtbl->Navigate(g_wvWebView, url.c_str());
+    }
     return;
   }
 
@@ -1036,26 +1068,34 @@ static void HandleHttpClient(SOCKET client) {
       closesocket(client);
       return;
     }
-    // Inject native desktop host flag + pre-load linked save file directly into #embedded-league-state
+    // Inject native desktop host flag + pre-load staged or linked save file directly into #embedded-league-state
     DesktopConfig cfg = ReadDesktopConfig();
     std::string inject = "<script>window.__BOWLING_NATIVE_HOST__=true;</script>";
-    if (!cfg.lastSaveFilePath.empty()) {
+    std::string stateToInject;
+    {
+      AutoCsLock lock(&g_stagedCs);
+      if (!g_stagedSavePayload.empty()) {
+        stateToInject = g_stagedSavePayload;
+      }
+    }
+    if (stateToInject.empty() && !cfg.lastSaveFilePath.empty()) {
       std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
       std::string savedJson;
       if (FileExistsW(targetWide) && ReadFileUtf8(targetWide, savedJson) && !savedJson.empty()) {
-        {
-          AutoCsLock lock(&g_stagedCs);
-          g_stagedSavePayload = savedJson;
-        }
-        // Escape </script so it can never break out of the script tag
-        std::string safeJson = savedJson;
-        size_t pos = 0;
-        while ((pos = safeJson.find("</", pos)) != std::string::npos) {
-          safeJson.replace(pos, 2, "<\\/");
-          pos += 3;
-        }
-        inject += "<script id=\"embedded-league-state\" type=\"application/json\">" + safeJson + "</script>";
+        stateToInject = savedJson;
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = savedJson;
       }
+    }
+    if (!stateToInject.empty()) {
+      // Escape </script so it can never break out of the script tag
+      std::string safeJson = stateToInject;
+      size_t pos = 0;
+      while ((pos = safeJson.find("</", pos)) != std::string::npos) {
+        safeJson.replace(pos, 2, "<\\/");
+        pos += 3;
+      }
+      inject += "<script id=\"embedded-league-state\" type=\"application/json\">" + safeJson + "</script>";
     }
     const char* marker = "<head>";
     size_t headPos = html.find(marker);
@@ -1130,10 +1170,11 @@ static std::string GetAppUrlUtf8() {
 static DWORD WINAPI FallbackProcessWaitThread(LPVOID param) {
   HANDLE hProc = (HANDLE)param;
   if (hProc) {
-    WaitForSingleObject(hProc, INFINITE);
+    // Do not block infinitely on msedge.exe in case Edge Startup Boost or background processes stay alive
+    WaitForSingleObject(hProc, 1500);
     CloseHandle(hProc);
   }
-  // If browser delegated to another process (e.g. Edge Startup Boost), wait up to 12s for UI connection
+  // Wait up to 12s for initial UI connection
   for (int i = 0; i < 30 && g_serverRunning.load() && !g_uiConnected.load() &&
                   !g_browserWindowUnloaded.load() && !g_allowClose.load(); ++i) {
     Sleep(400);
@@ -1404,30 +1445,56 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             staged = g_stagedSavePayload;
           }
           std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
-          if (!cfg.lastSaveFilePath.empty() && FileExistsW(targetWide) && !staged.empty() &&
+          bool saveFileExists = !cfg.lastSaveFilePath.empty() && FileExistsW(targetWide);
+          bool isDirty = g_hasUnsavedChanges.load();
+          bool autoSaveOnClose = g_autoSaveOnClose.load();
+
+          if (autoSaveOnClose && saveFileExists && !staged.empty() &&
               AtomicWriteFileUtf8(targetWide, staged)) {
             WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+            g_hasUnsavedChanges.store(false);
+            g_allowClose.store(true);
+            DestroyWindow(hwnd);
+            return 0;
+          }
+
+          if (!isDirty && (!autoSaveOnClose || saveFileExists)) {
             g_allowClose.store(true);
             DestroyWindow(hwnd);
             return 0;
           }
 
           if (g_uiConnected.load() || g_webviewReady.load()) {
+            std::wstring promptMsg = (isDirty && saveFileExists)
+              ? (L"You have unsaved changes in Bowling League Helper.\n\n"
+                 L"Save changes to:\n\"" + targetWide + L"\"\nbefore closing?\n\n"
+                 L"Yes = Save Changes & Close\n"
+                 L"No = Don't Save (Close Without Saving)\n"
+                 L"Cancel = Stay Open")
+              : L"You have unsaved changes and no save file location has been selected yet (or your last save file cannot be found).\n\n"
+                L"Yes = Pick Save Location & Close\n"
+                L"No = Don't Save (Close Without Saving)\n"
+                L"Cancel = Stay Open";
             int choice = MessageBoxW(
               hwnd,
-              L"No save file location has been selected yet (or your last save file cannot be found).\n\n"
-              L"Yes = Pick Save Location & Close\n"
-              L"No = Don't Save (Close Anyway)\n"
-              L"Cancel = Stay Open",
-              L"Save Before Closing — Bowling League Helper",
+              promptMsg.c_str(),
+              L"Save Changes Before Closing — Bowling League Helper",
               MB_YESNOCANCEL | MB_ICONWARNING | MB_DEFBUTTON1);
             if (choice == IDYES) {
+              if (saveFileExists && !staged.empty() && AtomicWriteFileUtf8(targetWide, staged)) {
+                WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+                g_hasUnsavedChanges.store(false);
+                g_allowClose.store(true);
+                DestroyWindow(hwnd);
+                return 0;
+              }
               std::wstring chosenPath;
               if (ShowSaveFileDialogOnUiThread(L"Pick Save File Location Before Closing",
                                                GetDocumentsDirW(),
                                                L"BowlingLeagueTrackerSave.json", chosenPath)) {
                 if (!staged.empty() && AtomicWriteFileUtf8(chosenPath, staged)) {
                   WriteDesktopConfig({WideToUtf8(chosenPath), CurrentIsoTimestamp()});
+                  g_hasUnsavedChanges.store(false);
                   g_allowClose.store(true);
                   DestroyWindow(hwnd);
                 }
@@ -1511,33 +1578,68 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
       }
 
       std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
-      if (!cfg.lastSaveFilePath.empty() && FileExistsW(targetWide) &&
-          AtomicWriteFileUtf8(targetWide, staged)) {
-        WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+      bool saveFileExists = !cfg.lastSaveFilePath.empty() && FileExistsW(targetWide);
+      bool isDirty = g_hasUnsavedChanges.load();
+      bool autoSaveOnClose = g_autoSaveOnClose.load();
+
+      // 1. If Auto-Backup is set to "On Closing Program" and the save file exists, auto-save and exit cleanly
+      if (autoSaveOnClose && saveFileExists) {
+        if (AtomicWriteFileUtf8(targetWide, staged)) {
+          WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+          g_hasUnsavedChanges.store(false);
+          g_allowClose.store(true);
+          g_fallbackPromptActive.store(false);
+          DestroyWindow(hwnd);
+          return 0;
+        }
+      }
+
+      // 2. If no changes were made since the last save (and either not auto-saving on close or file already exists), exit cleanly
+      if (!isDirty && (!autoSaveOnClose || saveFileExists)) {
         g_allowClose.store(true);
         g_fallbackPromptActive.store(false);
         DestroyWindow(hwnd);
         return 0;
       }
 
-      std::wstring msgText = cfg.lastSaveFilePath.empty()
-        ? L"No save file location has been selected yet.\n\n"
-          L"Yes = Pick Save Location & Close\n"
-          L"No = Don't Save (Close Without Saving)\n"
-          L"Cancel = Reopen Bowling League Helper"
-        : (L"Cannot find your last save file at:\n\"" + targetWide + L"\"\n\n"
-           L"Yes = Pick Save Location & Close\n"
-           L"No = Don't Save (Close Without Saving)\n"
-           L"Cancel = Reopen Bowling League Helper");
+      // 3. Otherwise, the user made changes without saving (or Auto-Backup "On Closing Program" needs a save location): prompt the user!
+      std::wstring msgText;
+      if (isDirty && saveFileExists) {
+        msgText = L"You have unsaved changes in Bowling League Helper.\n\n"
+                  L"Would you like to save your changes to:\n\"" + targetWide + L"\"\nbefore closing?\n\n"
+                  L"Yes = Save Changes & Close\n"
+                  L"No = Don't Save (Close Without Saving)\n"
+                  L"Cancel = Stay Open (Reopen Bowling League Helper)";
+      } else if (cfg.lastSaveFilePath.empty()) {
+        msgText = L"You have unsaved changes in Bowling League Helper and no save file location has been selected yet.\n\n"
+                  L"Yes = Pick Save Location & Close\n"
+                  L"No = Don't Save (Close Without Saving)\n"
+                  L"Cancel = Stay Open (Reopen Bowling League Helper)";
+      } else {
+        msgText = L"You have unsaved changes, and your previous save file could not be found at:\n\"" + targetWide + L"\"\n\n"
+                  L"Yes = Pick Save Location & Close\n"
+                  L"No = Don't Save (Close Without Saving)\n"
+                  L"Cancel = Stay Open (Reopen Bowling League Helper)";
+      }
 
       while (true) {
         int choice = MessageBoxW(
           nullptr,
           msgText.c_str(),
-          L"Save Before Closing — Bowling League Helper",
+          L"Save Changes Before Closing — Bowling League Helper",
           MB_YESNOCANCEL | MB_ICONWARNING | MB_DEFBUTTON1 | MB_SETFOREGROUND | MB_TOPMOST);
 
         if (choice == IDYES) {
+          // If a linked save file already exists on disk, save directly to it and close!
+          if (saveFileExists && AtomicWriteFileUtf8(targetWide, staged)) {
+            WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+            g_hasUnsavedChanges.store(false);
+            g_allowClose.store(true);
+            g_fallbackPromptActive.store(false);
+            DestroyWindow(hwnd);
+            return 0;
+          }
+
           std::wstring startDir = GetDocumentsDirW();
           if (!cfg.lastSaveFilePath.empty()) {
             std::wstring prevParent = ParentDirW(targetWide);
@@ -1549,6 +1651,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                                            L"BowlingLeagueTrackerSave.json", chosenPath)) {
             if (AtomicWriteFileUtf8(chosenPath, staged)) {
               WriteDesktopConfig({WideToUtf8(chosenPath), CurrentIsoTimestamp()});
+              g_hasUnsavedChanges.store(false);
               g_allowClose.store(true);
               g_fallbackPromptActive.store(false);
               DestroyWindow(hwnd);
@@ -1565,7 +1668,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
           DestroyWindow(hwnd);
           return 0;
         } else {
-          // Cancel: reopen the app window with all local data intact
+          // Cancel: reopen the app window with all local data & unsaved changes intact
           g_fallbackPromptActive.store(false);
           g_browserWindowUnloaded.store(false);
           g_uiConnected.store(false);
@@ -1627,7 +1730,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
-  // Support clean zero-console relaunch after self-update
+  // Support clean zero-console relaunch after self-update from older host binaries
   if (cmdLine && wcsstr(cmdLine, L"--relaunch-wait=")) {
     const wchar_t* p = wcsstr(cmdLine, L"--relaunch-wait=") + 16;
     DWORD oldPid = (DWORD)_wtoi(p);
@@ -1638,6 +1741,19 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int nCmdShow) {
         CloseHandle(hOld);
       }
     }
+    // Ensure any previous Bowling League Helper browser window is closed before opening the new window
+    EnumWindows([](HWND h, LPARAM) -> BOOL {
+      if (!IsWindowVisible(h)) return TRUE;
+      wchar_t title[512] = {0};
+      if (GetWindowTextW(h, title, 511) > 0) {
+        if (wcsstr(title, L"Bowling League Helper") != nullptr) {
+          PostMessageW(h, WM_SYSCOMMAND, SC_CLOSE, 0);
+          PostMessageW(h, WM_CLOSE, 0, 0);
+        }
+      }
+      return TRUE;
+    }, 0);
+    Sleep(250);
   }
 
   InitializeCriticalSection(&g_configCs);

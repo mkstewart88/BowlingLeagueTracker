@@ -1,8 +1,8 @@
 {
   "appName": "Bowling League Helper",
-  "latestVersion": "1.0.19",
+  "latestVersion": "1.0.20",
   "releaseDate": "November 15, 2026",
-  "title": "Zero-404 Desktop Save Compatibility, Guaranteed Startup Auto-Load & Synchronized Installer",
+  "title": "In-Place Window Update, Unsaved-Changes Close Prompt, \"On Closing Program\" Auto-Backup & Top-to-Bottom BLS 2026 Workflow",
   "htmlBundlePath": "BowlingLeagueHelper.html",
   "fallbackHtmlPaths": [
     "public/BowlingLeagueHelper.html",
@@ -11,10 +11,39 @@
   ],
   "releases": [
     {
+      "version": "1.0.20",
+      "date": "November 15, 2026",
+      "title": "In-Place Window Update, Unsaved-Changes Close Prompt, \"On Closing Program\" Auto-Backup & Top-to-Bottom BLS 2026 Workflow",
+      "isLatest": true,
+      "highlights": [
+        "Single-Window In-Place Update & Restart: Updating now replaces the running window directly in-place (with Win32 EnumWindows cleanup for older hosts) so the old version window never stays open alongside the new version.",
+        "Unsaved-Changes Close Prompt & \"On Closing Program\" Auto-Backup Option: Added \"On Closing Program\" to Automatic Backup settings (Tab 5C). When not enabled, closing after making a change prompts you to Save Changes & Close, Don't Save, or Cancel.",
+        "Top-to-Bottom Ordered Workflow & Full BLS 2026 Auto-Population: Reordered every tab from Top (Step 1: Setup & Score Entry) to Middle (Step 2: Live Individual & Team Charts / Selection) to Bottom (Step 3: Generated Standings / Finish Week & Exports), with scores entered in Tab 1 automatically populating Averages, Brackets, Dues, and Lane Matchups."
+      ],
+      "changes": [
+        {
+          "category": "Improvement",
+          "description": "Updated Update and Restart to reload the existing desktop window in-place into the new release instead of spawning a second Edge/WebView2 window."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Added \"On Closing Program\" as an Automatic Backup frequency option in Tab 5C and added unsaved-change close prompts (Save Changes & Close / Don't Save / Cancel) whenever you edit scores or settings and close without saving."
+        },
+        {
+          "category": "New Feature",
+          "description": "Added Live Team Standings Bar Chart alongside the Live Top 10 Individual Leaderboard Bar Chart in Tab 1A and wired automatic cross-tab population from Tab 1 into Recap Grid (1B), Averages (Tab 2), 8-Bowler Brackets (Tab 3), Weekly Dues (Tab 4), and Round-Robin Lane Schedule (Tab 5)."
+        },
+        {
+          "category": "Improvement",
+          "description": "Ordered all 5 tabs and sub-tabs naturally from Top (Step 1: Inputs & Rules) to Middle (Step 2: Active Lists & Charts) to Bottom (Step 3: Generated Outputs & Exports)."
+        }
+      ]
+    },
+    {
       "version": "1.0.19",
       "date": "November 15, 2026",
       "title": "Zero-404 Desktop Save Compatibility, Guaranteed Startup Auto-Load & Synchronized Installer",
-      "isLatest": true,
+      "isLatest": false,
       "highlights": [
         "Eliminated \"Desktop host request failed (404)\" on Save: Added backward-compatible desktop host fallback so clicking Save works on both current and older installed BowlingLeagueHelper.exe binaries without ever throwing a 404 error.",
         "Guaranteed Startup Save-File Auto-Load & Fixed Localhost Port: Pre-loads your linked BowlingLeagueTrackerSave.json directly on launch and binds the desktop host to a consistent localhost port so localStorage never resets between sessions.",

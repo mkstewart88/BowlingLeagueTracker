@@ -229,62 +229,155 @@ export const BracketsTab: React.FC<BracketsTabProps> = ({
       {/* ===================================================================== */}
       {subTab === 'tree' && (
         <div className="space-y-6">
-          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                8-Player Tournament Brackets (Handicap & Scratch)
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Automatically resolves Game 1 Quarterfinals → Game 2 Semifinals → Game 3 Championship Finals from your entered scores.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setBracketMode('handicap')}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                    bracketMode === 'handicap'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Handicap Bracket
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBracketMode('scratch')}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                    bracketMode === 'scratch'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Scratch Bracket
-                </button>
+          {/* STEP 1 (TOP): Bracket Rules, Payouts & Entrant Selection (Auto-Populated from Tab 1) */}
+          <section className="bg-white border-2 border-blue-300 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Step 1: Bracket Mode, Payouts &amp; Entrant Selection ({selectedBowlers.length} Selected)
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Auto-populated from Tab 1 scores. Choose Handicap or Scratch, set payouts, and check/uncheck bowlers to generate brackets below.
+                </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleShuffleSeeds}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                <Shuffle className="w-3.5 h-3.5" />
-                Shuffle Bracket Draw
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setBracketMode('handicap')}
+                    className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                      bracketMode === 'handicap'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Handicap Bracket
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBracketMode('scratch')}
+                    className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                      bracketMode === 'scratch'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Scratch Bracket
+                  </button>
+                </div>
 
-              <button
-                type="button"
-                onClick={handleExportBracketCsv}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export Brackets CSV
-              </button>
+                <div className="flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                  <label htmlFor="brk-top-1st" className="font-semibold text-slate-700">
+                    1st ($):
+                  </label>
+                  <input
+                    id="brk-top-1st"
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={settings.bracketFirstPlacePayout}
+                    onChange={(e) =>
+                      onUpdateSettings({
+                        bracketFirstPlacePayout: Math.max(1, Number(e.target.value) || 25),
+                      })
+                    }
+                    className="w-14 px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono text-center"
+                  />
+                  <label htmlFor="brk-top-2nd" className="font-semibold text-slate-700 ml-1">
+                    2nd ($):
+                  </label>
+                  <input
+                    id="brk-top-2nd"
+                    type="number"
+                    min={0}
+                    max={500}
+                    value={settings.bracketSecondPlacePayout}
+                    onChange={(e) =>
+                      onUpdateSettings({
+                        bracketSecondPlacePayout: Math.max(0, Number(e.target.value) || 10),
+                      })
+                    }
+                    className="w-14 px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono text-center"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleShuffleSeeds}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  Shuffle Bracket Draw
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportBracketCsv}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Brackets CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Entrant Selection Grid */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">
+                  Active Bowlers in Draw ({selectedBowlers.length} of {activeBowlers.length} Entered in Tab 1):
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateBracketEntrants(activeBowlers.map((b) => b.id))}
+                    className="text-blue-700 hover:underline font-bold cursor-pointer"
+                  >
+                    Select All ({activeBowlers.length})
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateBracketEntrants(activeBowlers.slice(0, 8).map((b) => b.id))}
+                    className="text-slate-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    First 8 Only
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {activeBowlers.map((b) => {
+                  const isChecked = bracketEntrantIds.includes(b.id);
+                  return (
+                    <label
+                      key={b.id}
+                      className={`px-3 py-2 border rounded-lg flex items-center justify-between cursor-pointer text-xs ${
+                        isChecked
+                          ? 'bg-blue-50/70 border-blue-300 text-slate-900 font-bold'
+                          : 'bg-white border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleEntrant(b.id)}
+                          className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 shrink-0"
+                        />
+                        <span className="truncate">{b.name}</span>
+                      </div>
+                      <span className="font-mono tabular-nums text-slate-500 ml-1">
+                        {b.grandTotal}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </section>
 
+          {/* STEP 2 (BOTTOM): Generated 8-Player Elimination Bracket Trees */}
           {bracketsList.map((brk) => {
             if (!brk) return null;
             return (

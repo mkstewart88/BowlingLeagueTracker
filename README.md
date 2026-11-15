@@ -6,7 +6,7 @@
   </p>
   <p>
     <a href="CHANGELOG.md">
-      <img src="https://img.shields.io/badge/version-v1.0.19-1d4ed8?style=for-the-badge" alt="Version v1.0.19" />
+      <img src="https://img.shields.io/badge/version-v1.0.20-1d4ed8?style=for-the-badge" alt="Version v1.0.20" />
     </a>
     <img src="https://img.shields.io/badge/platform-Windows%2011%20%7C%20Linux-0f172a?style=for-the-badge" alt="Supported Platforms: Windows 11 and Linux" />
     <img src="https://img.shields.io/badge/offline--first-Zero%20Server%20Required-047857?style=for-the-badge" alt="Offline First" />
@@ -63,15 +63,15 @@
 
 ## Core Modules & Features
 
-Bowling League Helper organizes every weekly night-of-league task into five structured workspaces with dedicated sub-tabs (`1A–1D`, `2A–2D`, `3A–3C`, `4A–4B`, `5A–5C`):
+Bowling League Helper organizes every weekly night-of-league task into five structured workspaces with dedicated sub-tabs (`1A–1D`, `2A–2D`, `3A–3C`, `4A–4B`, `5A–5C`), ordered naturally from **Top (Step 1: Setup &amp; Inputs)** → **Middle (Step 2: Active Lists &amp; Live Charts)** → **Bottom (Step 3: Generated Standings &amp; Exports)**, with scores entered in Tab 1 automatically populating all downstream modules:
 
 | Workspace | Sub-Tabs | Capabilities |
 |---|---|---|
-| **1. Quick Score Entry** | `1A` Entry &amp; Roster<br>`1B` Team Recap Grid<br>`1C` Master Roster<br>`1D` League Rules | • Rapid keyboard-driven entry for **3-Game Series** or **Single-Game** leagues (**Handicap** or **Scratch**)<br>• Live **Top 10 Leaderboard**, search/filter/sort, **Missing from Roster** quick-fill &amp; one-click Absent toggle<br>• **Week Notes** card for recording tournament details, lane conditions, or special league events (archived weekly &amp; printed on standing sheets)<br>• **30-Step Undo History (`Ctrl+Z`)** + inline Toast **Undo** button<br>• **Team vs. Team Recap Grid** with `7pt`, `8pt`, or custom matchup point rules<br>• Configurable handicap formulas (basis score, %, max cap), absentee rules (Fixed / Avg Minus Pins / % of Avg), team size (`1–5` bowlers), and **USBC ID** roster tracking<br>• **One-Click Finish Week, Print &amp; PDF:** Archives results + Week Notes to Season History, exports an Excel-ready `.csv` sheet, and generates a formatted landscape **Print to PDF** / **Print Standing Sheet** |
+| **1. Quick Score Entry** | `1A` Entry &amp; Live Charts<br>`1B` Team Recap Grid<br>`1C` Master Roster<br>`1D` League Rules | • Rapid keyboard-driven entry for **3-Game Series** or **Single-Game** leagues (**Handicap** or **Scratch**)<br>• Live **Top 10 Individual Leaderboard Chart** + **Live Team Standings Bar Chart**, search/filter/sort, **Missing from Roster** quick-fill &amp; one-click Absent toggle<br>• **Automatic Cross-Tab Sync:** Bowlers and teams entered in `1A` automatically populate `1B` Recap Grid, `Tab 2` Averages, `Tab 3` Brackets, `Tab 4` Dues, and `Tab 5B` Lane Schedules<br>• **Week Notes** card for recording tournament details, lane conditions, or special league events (archived weekly &amp; printed on standing sheets)<br>• **30-Step Undo History (`Ctrl+Z`)** + inline Toast **Undo** button<br>• **Team vs. Team Recap Grid** with `7pt`, `8pt`, or custom matchup point rules<br>• Configurable handicap formulas (basis score, %, max cap), absentee rules (Fixed / Avg Minus Pins / % of Avg), team size (`1–5` bowlers), and **USBC ID** roster tracking<br>• **One-Click Finish Week, Print &amp; PDF:** Archives results + Week Notes to Season History, exports an Excel-ready `.csv` sheet, and generates a formatted landscape **Print to PDF** / **Print Standing Sheet** |
 | **2. Averages &amp; High Scores** | `2A` Team Performance<br>`2B` Bowler Averages<br>`2C` High Games / Series<br>`2D` Season History | • Weekly team score trend bar charts, season variance (`± pins`), high/low spread, and consistency rankings<br>• Rolling season averages, recalculated handicaps, Honor Roll thresholds, and individual high scratch/handicap series<br>• Reload or manage archived weeks (including saved **Week Notes**) across the season |
 | **3. Brackets** | `3A` Active Brackets<br>`3B` Multi-Bracket Manager<br>`3C` Side Pots | • Single and simultaneous **8-Player Knockout Brackets** (Game 1 Quarterfinals → Game 2 Semifinals → Game 3 Finals, Scratch or Handicap)<br>• Automatic champion &amp; runner-up payout calculation<br>• **Strike**, **High Game**, and **Mystery Score** side pot tracking |
 | **4. Dues &amp; Treasurer** | `4A` Weekly Dues Ledger<br>`4B` Prize Fund Calculator | • Track Paid / Owing status per bowler, house lineage vs. secretary fees, and weekly arrears<br>• End-of-season prize pool projection and team payout breakdown calculator |
-| **5. Schedule &amp; League Hub** | `5A` Multi-League Manager<br>`5B` Lane Schedule<br>`5C` Backups &amp; Restore | • Manage and switch between unlimited active or inactive leagues in a single database<br>• **Round-Robin Lane Schedule Generator** starting on any lane pair plus live **Position Round** pairings<br>• Universal import/export for full multi-league `.json` saves, spreadsheet `.csv` rosters, and portable standalone `.html` copies |
+| **5. Schedule &amp; League Hub** | `5A` Multi-League Manager<br>`5B` Lane Schedule<br>`5C` Backups &amp; Restore | • Manage and switch between unlimited active or inactive leagues in a single database<br>• **Round-Robin Lane Schedule Generator** starting on any lane pair plus live **Position Round** pairings<br>• Universal import/export for full multi-league `.json` saves, spreadsheet `.csv` rosters, and configurable **Automatic Backup** schedules including **On Closing Program** |
 
 ---
 
@@ -79,10 +79,12 @@ Bowling League Helper organizes every weekly night-of-league task into five stru
 
 Bowling League Helper protects league records across **Windows 11** and **Linux** with redundant local persistence, 1-click top-bar saves, automatic startup loading, and close-time verification:
 
-- **Top-Bar `Save` Button & Missing-File Fallback:** Click the green **Save** button next to the version/update button in the top bar anytime to overwrite your linked `BowlingLeagueTrackerSave.json` file in one click. If no save file is linked or found yet, the app displays *"No save file found. Please choose where to save."* and opens the system Save As dialog so you can pick where to save `BowlingLeagueTrackerSave.json`.
+- **Top-Bar `Save` Button & Missing-File Fallback:** Click the green **Save** button next to the version/update button in the top bar anytime to overwrite your linked `BowlingLeagueTrackerSave.json` file in one click (shows `Save *` whenever you have unsaved edits). If no save file is linked or found yet, the app displays *"No save file found. Please choose where to save."* and opens the system Save As dialog so you can pick where to save `BowlingLeagueTrackerSave.json`.
 - **Automatic Save-File Load on Startup:** Whenever you launch **Bowling League Helper**, it automatically opens and restores your linked `BowlingLeagueTrackerSave.json` file (all leagues, rosters, scores, Week Notes, dues, brackets, and season history).
-- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** You can also click **Save New File (.json)...** in the footer or Tab `5C` at any time to choose a new folder or filename. That file stays linked and continues to be updated on Save and on close.
-- **Automatic Save on Closing:** Closing the window or clicking **Save &amp; Close** automatically overwrites your remembered `BowlingLeagueTrackerSave.json` in place before exiting and terminates the desktop host process cleanly with zero background tasks left in Task Manager.
+- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** You can also click **Save New File (.json)...** in the footer or Tab `5C` at any time to choose a new folder or filename. That file stays linked and continues to be updated on Save.
+- **Unsaved-Changes Close Prompt & `"On Closing Program"` Auto-Backup (`Tab 5C`):**
+  - If you make a change and close the program, it prompts you to **Save Changes &amp; Close**, **Save As...**, **Don't Save**, or **Cancel (Stay Open)** so you never lose edits by accident.
+  - Or, select **`On Closing Program (Auto-Save When Exiting)`** in **Tab 5C → Automatic Backup Schedule Frequency** to automatically save to your linked `BowlingLeagueTrackerSave.json` file every time you exit without being prompted.
 - **Missing-File Close Protection:** If your last save file cannot be found when closing (e.g., moved, deleted, disconnected drive, or not yet configured), the program **cancels closing**, keeps your data intact on screen, and prompts you to:
   1. **Pick New Save Location &amp; Close** — select a valid folder/file to save and exit cleanly.
   2. **Don't Save** — exit immediately without writing a backup file.
@@ -138,8 +140,7 @@ Click the version button in the top bar (or **Check for Updates &amp; Patch Note
 │   └── utils/                           # Scoring engine, updater, backups, desktop bridge & unit tests
 └── .github/
     ├── ISSUE_TEMPLATE/                  # Bug report & feature request issue forms
-    ├── PULL_REQUEST_TEMPLATE.md         # Pull request verification checklist
-    └── workflows/                       # Automated CI verification & artifact workflow
+    └── PULL_REQUEST_TEMPLATE.md         # Pull request verification checklist
 ```
 
 ---

@@ -185,21 +185,30 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
           document.title = 'Bowling League Helper [Updating]';
           if (installRes.needsPageReload) {
             setTimeout(() => {
-              window.location.reload();
-            }, 400);
+              window.location.replace(
+                `${window.location.origin}/?updated=${encodeURIComponent(effectiveLatestVersion)}&t=${Date.now()}`
+              );
+            }, 300);
           } else {
+            // Legacy desktop host (v1.0.14–v1.0.19) spawns a new host process; close this window or reload it into the new server
             setTimeout(() => {
-              try {
-                window.close();
-              } catch {
-                // Ignore
-              }
               try {
                 window.open('', '_self')?.close();
               } catch {
                 // Ignore
               }
-            }, 250);
+              try {
+                window.close();
+              } catch {
+                // Ignore
+              }
+              // If Chromium/Edge --app mode blocked window.close(), poll until the relaunched host responds and navigate this window to it, or close via force-close
+              setTimeout(() => {
+                window.location.replace(
+                  `${window.location.origin}/?updated=${encodeURIComponent(effectiveLatestVersion)}&t=${Date.now()}`
+                );
+              }, 1400);
+            }, 200);
           }
           return;
         }

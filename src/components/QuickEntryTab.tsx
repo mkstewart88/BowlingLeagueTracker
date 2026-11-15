@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AppState, BowlerEntry, LeagueSettings, RosterPlayer } from '../types/bowling';
 import {
+  buildTeamStandings,
   calculateBowlerHandicap,
   computeBowlerAbsentScore,
   computeSeasonPlayerStats,
@@ -355,11 +356,13 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
     .filter((r) => !enteredNamesSet.has(r.name.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Top 10 Live Leaderboard
+  // Top 10 Live Leaderboard & Live Team Standings
   const rankedActive = rankWeeklyBowlers(bowlers).filter((b) => !b.isAbsent);
   const top10Leaders = rankedActive.slice(0, 10);
   const maxLeaderScore = Math.max(1, ...top10Leaders.map((b) => b.grandTotal));
   const highBowler = top10Leaders[0];
+  const liveTeams = buildTeamStandings(bowlers);
+  const maxTeamScore = Math.max(1, ...liveTeams.map((t) => t.total));
 
   const uniqueTeams = [...new Set(roster.map((r) => r.team).filter(Boolean))].sort();
 
@@ -483,63 +486,20 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
       </div>
 
       {/* ===================================================================== */}
-      {/* SUB-TAB 1A: CLEAN QUICK SCORE ENTRY (UNCLUTTERED DEFAULT VIEW)        */}
+      {/* SUB-TAB 1A: ORDERED TOP-TO-BOTTOM SCORE ENTRY & CHART GENERATOR       */}
       {/* ===================================================================== */}
       {subTab === 'quick_entry' && (
         <div className="space-y-6">
-          {/* 4-Column Summary KPI Row */}
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Current week overview">
-            <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-slate-600">Bowlers Entered</div>
-              <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
-                {bowlers.length}
-              </div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                Week {settings.weekNumber || 'Current'} active entries
-              </div>
-            </div>
-
-            <div className="bg-blue-50/70 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-blue-900">Highest Week Total</div>
-              <div className="text-2xl font-bold text-blue-700 font-mono tabular-nums mt-1">
-                {highBowler ? highBowler.grandTotal : '—'}
-              </div>
-              <div className="text-xs text-blue-900/80 font-medium mt-0.5 truncate">
-                {highBowler ? `${highBowler.name} (${highBowler.scratchScore} scr)` : 'Waiting for scores'}
-              </div>
-            </div>
-
-            <div className="bg-amber-50/70 border-2 border-amber-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-amber-900">Absent Bowlers</div>
-              <div className="text-2xl font-bold text-amber-800 font-mono tabular-nums mt-1">
-                {bowlers.filter((b) => b.isAbsent).length}
-              </div>
-              <div className="text-xs text-amber-900/80 font-medium mt-0.5 truncate">
-                Rule: {sampleAbsentPreview.ruleDescription}
-              </div>
-            </div>
-
-            <div className="bg-emerald-50/60 border-2 border-emerald-300 rounded-xl p-4 shadow-xs">
-              <div className="text-xs font-bold text-emerald-900">Still Missing from Roster</div>
-              <div className="text-2xl font-bold text-emerald-900 font-mono tabular-nums mt-1">
-                {missingPlayers.length}
-              </div>
-              <div className="text-xs text-emerald-800 font-medium mt-0.5">
-                Click any missing name below to fill
-              </div>
-            </div>
-          </section>
-
-          {/* Main 2-Column Split: Left = Fast Entry + Side-by-Side Lists, Right = Print/CSV Action + Live Leaderboard */}
+          {/* STEP 1 (TOP): ENTER SCORES, MISSING ROSTER QUICK-SELECT & WEEK NOTES */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* LEFT COLUMN (7 Cols) */}
+            {/* LEFT COLUMN (7 Cols): Step 1A Score Entry Form + Week Notes */}
             <div className="lg:col-span-7 space-y-6">
-              {/* Score Entry Frame */}
+              {/* Step 1A: Score Entry Frame */}
               <div className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
                 <div className="bg-blue-50/90 border-b-2 border-blue-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h2 className="text-base font-bold text-slate-900">
-                      {editingId ? 'Update Bowler Score' : 'Enter Bowler Score'}
+                      {editingId ? 'Step 1: Update Bowler Score' : 'Step 1: Enter Bowler Score'}
                     </h2>
                     <p className="text-xs text-slate-600">
                       Type a bowler name (or click a name from Missing on the right), enter their games, and press Enter.
@@ -769,229 +729,6 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                 </div>
               </div>
 
-              {/* Side-by-Side Lists Frame: Currently Entered vs Missing from Roster */}
-              <div className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-slate-100 border-b-2 border-slate-300 px-5 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                  <input
-                    type="search"
-                    value={enteredSearch}
-                    onChange={(e) => setEnteredSearch(e.target.value)}
-                    placeholder="Search entered players or teams..."
-                    aria-label="Search entered players or teams"
-                    className="flex-1 px-3 py-2 text-xs text-slate-900 bg-white border-2 border-slate-300 rounded-lg"
-                  />
-                  <select
-                    value={enteredSort}
-                    onChange={(e) =>
-                      setEnteredSort(e.target.value as 'entry' | 'score' | 'name' | 'team')
-                    }
-                    aria-label="Sort entered players"
-                    className="px-3 py-2 text-xs font-semibold text-slate-800 bg-white border-2 border-slate-300 rounded-lg"
-                  >
-                    <option value="entry">Sort: Entry Order (Newest First)</option>
-                    <option value="score">Sort: Score High → Low</option>
-                    <option value="name">Sort: Name A–Z</option>
-                    <option value="team">Sort: Team A–Z</option>
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!canUndo}
-                    onClick={onUndo}
-                    className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border shrink-0 transition-colors ${
-                      canUndo
-                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-400 cursor-pointer'
-                        : 'bg-white text-slate-400 border-slate-200 cursor-not-allowed'
-                    }`}
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>Undo Last Delete / Edit</span>
-                  </button>
-                </div>
-
-                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Currently Entered Box */}
-                  <div className="border-2 border-blue-300 rounded-xl overflow-hidden flex flex-col bg-white">
-                    <div className="bg-blue-100/80 px-3.5 py-2.5 border-b-2 border-blue-200 flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-950">
-                        Currently Entered ({visibleEntered.length})
-                      </span>
-                      <span className="text-[11px] font-semibold text-blue-800">Week {settings.weekNumber || 'Current'}</span>
-                    </div>
-                    <div className="h-80 overflow-y-auto divide-y divide-slate-200 p-2 bg-white">
-                      {visibleEntered.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-slate-400 text-center p-4">
-                          No matching entries yet.
-                        </div>
-                      ) : (
-                        visibleEntered.map((b) => (
-                          <div
-                            key={b.id}
-                            className="py-2 px-2 flex items-center justify-between gap-2 hover:bg-slate-50 rounded"
-                          >
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-slate-900 truncate">
-                                {b.team ? `[${b.team}] ` : ''}
-                                {b.name}{' '}
-                                <span className="font-mono tabular-nums text-blue-700 ml-1">
-                                  {b.isAbsent ? '[Absent]' : b.grandTotal}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-slate-500 font-mono tabular-nums">
-                                {b.isAbsent
-                                  ? `Absent score applied (${b.grandTotal})`
-                                  : b.entryMode === 'three'
-                                  ? `${b.g1} / ${b.g2} / ${b.g3} (${b.scratchScore} scr + ${b.handicap} hdcp)`
-                                  : `Single game: ${b.scratchScore} scr + ${b.handicap} hdcp`}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleStartEdit(b)}
-                                aria-label={`Edit ${b.name}`}
-                                className="px-2 py-1 text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onDeleteBowler(b.id)}
-                                aria-label={`Delete ${b.name}`}
-                                className="px-2 py-1 text-[11px] font-semibold bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 rounded cursor-pointer"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Missing from Roster Box */}
-                  <div className="border-2 border-amber-300 rounded-xl overflow-hidden flex flex-col bg-white">
-                    <div className="bg-amber-100/80 px-3.5 py-2.5 border-b-2 border-amber-200 flex items-center justify-between">
-                      <span className="text-xs font-bold text-amber-950">
-                        Missing from Roster ({missingPlayers.length})
-                      </span>
-                      <span className="text-[11px] font-semibold text-amber-800">Click name to fill</span>
-                    </div>
-                    <div className="h-80 overflow-y-auto divide-y divide-slate-200 p-2 bg-white">
-                      {missingPlayers.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-slate-500 font-medium text-center p-4">
-                          {roster.length === 0
-                            ? 'No roster bowlers yet. Enter a bowler on the left (or add bowlers in 1C Master Roster).'
-                            : 'All roster players are accounted for!'}
-                        </div>
-                      ) : (
-                        missingPlayers.map((p) => (
-                          <div
-                            key={p.id}
-                            className="py-2 px-2 flex items-center justify-between gap-2 hover:bg-slate-50 rounded"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleSelectMissing(p)}
-                              className="text-left min-w-0 flex-1 cursor-pointer group"
-                            >
-                              <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate">
-                                {p.team ? `[${p.team}] ` : ''}
-                                {p.name}
-                              </div>
-                              <div className="text-[11px] text-slate-500 font-mono tabular-nums">
-                                Book Avg: {p.bookAverage || 165}
-                              </div>
-                            </button>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => onMarkAbsent(p)}
-                                aria-label={`Mark ${p.name} Absent`}
-                                className="px-2 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded cursor-pointer"
-                              >
-                                Absent
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN (5 Cols): Primary Output Action + Live Top 10 Leaderboard */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* Primary Action Frame: Finish Week & Generate CSV + Printout */}
-              <div className="bg-slate-900 text-white border-2 border-blue-500 rounded-xl p-5 shadow-md space-y-4">
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-blue-300">
-                    Weekly Standing Sheet & Spreadsheet Output
-                  </div>
-                  <h2 className="text-base font-bold mt-0.5">
-                    Finish Week, Export CSV & Print Standings
-                  </h2>
-                  <p className="text-xs text-slate-300 mt-1">
-                    Archives Week {settings.weekNumber || 'Current'} to Season History, downloads the official Excel/CSV spreadsheet, and opens the Landscape Print Standing Sheet.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleFinishAndGenerate}
-                  className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-lg shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>FINISH WEEK & GENERATE CSV + PRINTOUT</span>
-                </button>
-
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => triggerStandingSheetPrint(true)}
-                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
-                  >
-                    <FileDown className="w-3.5 h-3.5 shrink-0" />
-                    <span>Print to PDF</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => triggerStandingSheetPrint(false)}
-                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5 shrink-0" />
-                    <span>Print Only</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (bowlers.length === 0) {
-                        onShowToast('Enter at least one bowler score first.', true);
-                        return;
-                      }
-                      const name = exportWeeklyResultsCsv(appState);
-                      onShowToast(`Exported ${name}.`);
-                    }}
-                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5 shrink-0" />
-                    <span>CSV Only</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onStartNewWeek}
-                    className="py-2 px-3 rounded-lg text-xs font-semibold bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800/60 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-                    <span>Start New Week</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Week Notes Frame (Saved with Weekly Archive & Included on PDF Standing Sheet) */}
               <section className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
                 <div className="bg-blue-50/90 border-b-2 border-blue-200 px-5 py-3 flex items-center justify-between gap-2">
@@ -999,7 +736,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                     <FileText className="w-4 h-4 text-blue-700 shrink-0" />
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">
-                        Week Notes
+                        Week Notes &amp; Announcements
                       </h3>
                       <p className="text-xs text-slate-600">
                         Tournament details, honor scores &amp; special league events
@@ -1017,7 +754,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                   </label>
                   <textarea
                     id="quick-week-notes"
-                    rows={3}
+                    rows={2}
                     value={appState.weekNotes || ''}
                     onChange={(e) => onUpdateWeekNotes(e.target.value)}
                     placeholder="Document sweeper tournaments, 300-game honors, special payouts, lane conditions, or upcoming announcements..."
@@ -1033,16 +770,154 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                   </div>
                 </div>
               </section>
+            </div>
 
+            {/* RIGHT COLUMN (5 Cols): Missing from Roster Quick-Select + Auto-Populated BLS Modules Status */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Missing from Roster Box */}
+              <div className="border-2 border-amber-300 rounded-xl overflow-hidden flex flex-col bg-white shadow-sm">
+                <div className="bg-amber-100/80 px-4 py-3 border-b-2 border-amber-200 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-950">
+                      Missing from Roster ({missingPlayers.length})
+                    </h3>
+                    <p className="text-xs text-amber-900/80">
+                      Click any bowler below to auto-fill their name, team &amp; handicap
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-amber-900 bg-white/80 px-2.5 py-1 rounded border border-amber-300">
+                    Quick Fill
+                  </span>
+                </div>
+                <div className="h-72 overflow-y-auto divide-y divide-slate-200 p-2.5 bg-white">
+                  {missingPlayers.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-500 font-medium text-center p-4">
+                      {roster.length === 0
+                        ? 'No roster bowlers yet. Enter a bowler on the left (they will be added to your Master Roster automatically).'
+                        : 'All roster players are accounted for this week!'}
+                    </div>
+                  ) : (
+                    missingPlayers.map((p) => (
+                      <div
+                        key={p.id}
+                        className="py-2 px-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 rounded"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMissing(p)}
+                          className="text-left min-w-0 flex-1 cursor-pointer group"
+                        >
+                          <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate">
+                            {p.team ? `[${p.team}] ` : ''}
+                            {p.name}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                            Book Avg: {p.bookAverage || 165}
+                          </div>
+                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => onMarkAbsent(p)}
+                            aria-label={`Mark ${p.name} Absent`}
+                            className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded cursor-pointer"
+                          >
+                            Absent
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* BLS 2026 Automatic Module Population Summary */}
+              <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-xl p-4 shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+                    Auto-Populated League Secretary Modules
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                    Live Sync Active
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  Every bowler and team entered in Step 1 automatically populates your charts and all downstream league tabs:
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white border border-emerald-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
+                    • 1B: {liveTeams.length} Teams in Recap Grid
+                  </div>
+                  <div className="bg-white border border-emerald-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
+                    • Tab 2: {seasonStats.length} Bowler Averages
+                  </div>
+                  <div className="bg-white border border-emerald-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
+                    • Tab 3: {appState.bracketEntrantIds.length} Bracket Entrants
+                  </div>
+                  <div className="bg-white border border-emerald-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800">
+                    • Tab 4: {roster.length} Dues Accounts
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* STEP 2 (MIDDLE): GENERATED LIVE CHARTS, KPI TOTALS & ENTERED BOWLERS LIST */}
+          <section className="space-y-5" aria-label="Step 2: Generated Charts and Entered Bowlers">
+            {/* 4-Column Summary KPI Row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Current week overview">
+              <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-slate-600">Bowlers Entered</div>
+                <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1">
+                  {bowlers.length}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  Week {settings.weekNumber || 'Current'} active entries
+                </div>
+              </div>
+
+              <div className="bg-blue-50/70 border-2 border-blue-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-blue-900">Highest Week Total</div>
+                <div className="text-2xl font-bold text-blue-700 font-mono tabular-nums mt-1">
+                  {highBowler ? highBowler.grandTotal : '—'}
+                </div>
+                <div className="text-xs text-blue-900/80 font-medium mt-0.5 truncate">
+                  {highBowler ? `${highBowler.name} (${highBowler.scratchScore} scr)` : 'Waiting for scores'}
+                </div>
+              </div>
+
+              <div className="bg-amber-50/70 border-2 border-amber-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-amber-900">Absent Bowlers</div>
+                <div className="text-2xl font-bold text-amber-800 font-mono tabular-nums mt-1">
+                  {bowlers.filter((b) => b.isAbsent).length}
+                </div>
+                <div className="text-xs text-amber-900/80 font-medium mt-0.5 truncate">
+                  Rule: {sampleAbsentPreview.ruleDescription}
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/60 border-2 border-emerald-300 rounded-xl p-4 shadow-xs">
+                <div className="text-xs font-bold text-emerald-900">Still Missing from Roster</div>
+                <div className="text-2xl font-bold text-emerald-900 font-mono tabular-nums mt-1">
+                  {missingPlayers.length}
+                </div>
+                <div className="text-xs text-emerald-800 font-medium mt-0.5">
+                  Click any missing name above to fill
+                </div>
+              </div>
+            </div>
+
+            {/* Live Chart Creation Tool: Individual Top 10 Bar Chart + Team Standings Bar Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Live Top 10 Leaderboard Bar Chart Frame */}
               <div className="bg-white border-2 border-emerald-300 rounded-xl overflow-hidden shadow-sm">
                 <div className="bg-emerald-50/90 border-b-2 border-emerald-200 px-5 py-3.5 flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">
-                      Live Week Leaderboard (Top 10)
+                      Step 2A: Live Week Leaderboard Chart (Top 10)
                     </h3>
                     <p className="text-xs text-slate-600">
-                      Updates automatically as scores are entered
+                      Generated automatically from scores entered above
                     </p>
                   </div>
                   <span className="text-xs font-bold text-emerald-800">
@@ -1053,7 +928,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                 <div className="p-5">
                   {top10Leaders.length === 0 ? (
                     <div className="py-10 text-center text-xs text-slate-400">
-                      Enter bowler scores on the left to see the live leaderboard.
+                      Enter bowler scores in Step 1 above to generate the live leaderboard chart.
                     </div>
                   ) : (
                     <div className="space-y-2.5">
@@ -1089,6 +964,234 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Live Team Standings Bar Chart Frame */}
+              <div className="bg-white border-2 border-blue-300 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-blue-50/90 border-b-2 border-blue-200 px-5 py-3.5 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Step 2B: Live Team Standings Chart ({liveTeams.length} Teams)
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Included on your printed Standing Sheet &amp; PDF chart
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-blue-800">
+                    Team Pins
+                  </span>
+                </div>
+
+                <div className="p-5">
+                  {liveTeams.length === 0 ? (
+                    <div className="py-10 text-center text-xs text-slate-400">
+                      Enter bowlers with team names in Step 1 above to generate the team chart.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {liveTeams.map((t, index) => {
+                        const pct = Math.max(8, Math.round((t.total / maxTeamScore) * 100));
+                        const isFirst = index === 0;
+                        const bowlerCount = t.players.length;
+                        const teamAvg = Math.round(t.total / Math.max(1, bowlerCount));
+                        return (
+                          <div key={t.name} className="space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-800 truncate">
+                                #{t.placement} {t.name}{' '}
+                                <span className="font-normal text-slate-500">
+                                  ({bowlerCount} {bowlerCount === 1 ? 'bowler' : 'bowlers'} · Avg {teamAvg})
+                                </span>
+                              </span>
+                              <span className="font-mono tabular-nums font-bold text-slate-900">
+                                {t.total} pins
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 border border-slate-200 h-5 rounded-md overflow-hidden">
+                              <div
+                                className={`h-full transition-all ${
+                                  isFirst ? 'bg-emerald-600' : 'bg-blue-600'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2C: Currently Entered Bowlers Table */}
+            <div className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-slate-100 border-b-2 border-slate-300 px-5 py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Step 2C: Currently Entered Week {settings.weekNumber || 'Current'} Scores ({visibleEntered.length})
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    Review, search, sort, edit, or delete any entered score before finishing the week
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="search"
+                    value={enteredSearch}
+                    onChange={(e) => setEnteredSearch(e.target.value)}
+                    placeholder="Search entered players or teams..."
+                    aria-label="Search entered players or teams"
+                    className="px-3 py-1.5 text-xs text-slate-900 bg-white border-2 border-slate-300 rounded-lg"
+                  />
+                  <select
+                    value={enteredSort}
+                    onChange={(e) =>
+                      setEnteredSort(e.target.value as 'entry' | 'score' | 'name' | 'team')
+                    }
+                    aria-label="Sort entered players"
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white border-2 border-slate-300 rounded-lg"
+                  >
+                    <option value="entry">Sort: Entry Order (Newest First)</option>
+                    <option value="score">Sort: Score High → Low</option>
+                    <option value="name">Sort: Name A–Z</option>
+                    <option value="team">Sort: Team A–Z</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!canUndo}
+                    onClick={onUndo}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border shrink-0 transition-colors ${
+                      canUndo
+                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-400 cursor-pointer'
+                        : 'bg-white text-slate-400 border-slate-200 cursor-not-allowed'
+                    }`}
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>Undo Last Delete / Edit</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-80 overflow-y-auto divide-y divide-slate-200 p-3 bg-white">
+                {visibleEntered.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    No matching entries yet. Enter a bowler score in Step 1 above.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {visibleEntered.map((b) => (
+                      <div
+                        key={b.id}
+                        className="py-2 px-3 flex items-center justify-between gap-2 bg-slate-50/70 hover:bg-blue-50/50 border border-slate-200 rounded-lg"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 truncate">
+                            {b.team ? `[${b.team}] ` : ''}
+                            {b.name}{' '}
+                            <span className="font-mono tabular-nums text-blue-700 ml-1">
+                              {b.isAbsent ? '[Absent]' : b.grandTotal}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                            {b.isAbsent
+                              ? `Absent score applied (${b.grandTotal})`
+                              : b.entryMode === 'three'
+                              ? `${b.g1} / ${b.g2} / ${b.g3} (${b.scratchScore} scr + ${b.handicap} hdcp)`
+                              : `Single game: ${b.scratchScore} scr + ${b.handicap} hdcp`}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(b)}
+                            aria-label={`Edit ${b.name}`}
+                            className="px-2 py-1 text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteBowler(b.id)}
+                            aria-label={`Delete ${b.name}`}
+                            className="px-2 py-1 text-[11px] font-semibold bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 rounded cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* STEP 3 (BOTTOM): FINISH WEEK, EXPORT CSV & PRINT STANDING SHEET / PDF */}
+          <div className="bg-slate-900 text-white border-2 border-blue-500 rounded-xl p-5 shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="space-y-1 max-w-xl">
+              <div className="text-xs font-bold uppercase tracking-wider text-blue-300">
+                Step 3: Weekly Standing Sheet, Chart &amp; Spreadsheet Output
+              </div>
+              <h2 className="text-base font-bold">
+                Finish Week {settings.weekNumber || 'Current'}, Export CSV &amp; Print Standings / Charts
+              </h2>
+              <p className="text-xs text-slate-300">
+                Archives Week {settings.weekNumber || 'Current'} to Season History, downloads the official Excel/CSV spreadsheet, and opens the Landscape Print Standing Sheet &amp; Charts.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleFinishAndGenerate}
+                className="py-3 px-5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-lg shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4 shrink-0" />
+                <span>FINISH WEEK &amp; GENERATE CSV + PRINTOUT</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => triggerStandingSheetPrint(true)}
+                className="py-2.5 px-3.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <FileDown className="w-3.5 h-3.5 shrink-0" />
+                <span>Print to PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => triggerStandingSheetPrint(false)}
+                className="py-2.5 px-3.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5 shrink-0" />
+                <span>Print Only</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (bowlers.length === 0) {
+                    onShowToast('Enter at least one bowler score first.', true);
+                    return;
+                  }
+                  const name = exportWeeklyResultsCsv(appState);
+                  onShowToast(`Exported ${name}.`);
+                }}
+                className="py-2.5 px-3.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                <span>CSV Only</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onStartNewWeek}
+                className="py-2.5 px-3.5 rounded-lg text-xs font-semibold bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800/60 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                <span>Start New Week</span>
+              </button>
             </div>
           </div>
         </div>
