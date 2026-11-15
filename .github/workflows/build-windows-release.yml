@@ -1,17 +1,18 @@
-name: Build Windows Installer & Release Assets
+name: CI — Build, Test & Verify Windows 11 / Linux Assets
 
 on:
   push:
     branches:
       - main
       - master
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  build-windows:
+  build-and-verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -27,39 +28,26 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build single-file bundle & compile root installer.exe
+      - name: Install dependencies, lint, unit test & build single-file bundle
         run: |
           npm ci
+          npm run lint
+          npx tsx --test src/utils/bowlingLogic.test.ts
           npm run build
-          node desktop/scripts/build-installer.mjs
-          mkdir -p dist-win/BowlingLeagueHelper-Package
-          cp installer.exe dist-win/BowlingLeagueHelper-Package/installer.exe
-          cp desktop/README-Windows.txt dist-win/BowlingLeagueHelper-Package/README.txt
-          (cd dist-win/BowlingLeagueHelper-Package && zip -r ../../BowlingLeagueHelper-Windows.zip .)
 
-      - name: Read app version from version.json
-        id: ver
+      - name: Compile Windows 11 host & root installer.exe
         run: |
-          VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('version.json','utf8')).latestVersion)")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          node desktop/scripts/build-installer.mjs
+          chmod +x install-linux.sh
+          test -f installer.exe
+          test -f BowlingLeagueHelper.html
 
-      - name: Upload Windows Installer Artifact
+      - name: Upload Build Verification Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BowlingLeagueHelper-Windows-v${{ steps.ver.outputs.version }}
+          name: BowlingLeagueHelper-Build-Artifacts
           path: |
             installer.exe
-            BowlingLeagueHelper-Windows.zip
-
-      - name: Publish Release Assets to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.ver.outputs.version }}
-          name: Bowling League Helper v${{ steps.ver.outputs.version }}
-          body: |
-            Download the repository ZIP (or `installer.exe` directly), run **`installer.exe`** to install into `C:\BowlingLeagueHelper\` with the Desktop icon shortcut, and delete the ZIP afterward.
-          files: |
-            installer.exe
-            BowlingLeagueHelper-Windows.zip
+            install-linux.sh
             BowlingLeagueHelper.html
             version.json

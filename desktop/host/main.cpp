@@ -24,12 +24,11 @@
 #include <vector>
 
 #define IDI_APP_ICON 101
-#define IDC_OPEN_BROWSER_BTN 201
-#define IDC_EXIT_BTN 202
 
 #define WM_APP_SAVE_DIALOG (WM_APP + 1)
 #define WM_APP_EXIT_NOW (WM_APP + 2)
 #define WM_APP_RELAUNCH_EXIT (WM_APP + 3)
+#define IDT_CLOSE_ACK_TIMEOUT 1001
 
 // ============================================================================
 // Minimal Verified Microsoft WebView2 C-ABI Definitions (from WebView2.h)
@@ -107,6 +106,8 @@ static std::atomic<bool> g_allowClose{false};
 static std::atomic<bool> g_pendingClose{false};
 static std::atomic<bool> g_serverRunning{true};
 static std::atomic<bool> g_webviewReady{false};
+static std::atomic<bool> g_uiConnected{false};
+static std::atomic<bool> g_closeAcked{false};
 static std::atomic<bool> g_fallbackLaunched{false};
 static int g_port = 0;
 static std::wstring g_installDir;
@@ -584,6 +585,7 @@ static void HandleHttpClient(SOCKET client) {
 
   // ---- Route: SSE close interception stream ----
   if (method == "GET" && path == "/api/desktop/events") {
+    g_uiConnected.store(true);
     const char* sseHeader =
       "HTTP/1.1 200 OK\r\n"
       "Content-Type: text/event-stream\r\n"
@@ -598,8 +600,35 @@ static void HandleHttpClient(SOCKET client) {
     return;
   }
 
+  // ---- Route: Acknowledge receipt of close-save request ----
+  if (method == "POST" && path == "/api/desktop/close-ack") {
+    g_closeAcked.store(true);
+    if (g_hwnd) KillTimer(g_hwnd, IDT_CLOSE_ACK_TIMEOUT);
+    SendHttpResponse(client, 200, "OK", "application/json", "{\"ok\":true}");
+    closesocket(client);
+    return;
+  }
+
+  // ---- Route: Background auto-save beacon when a browser window unloads ----
+  if (method == "POST" && path == "/api/desktop/autosave-beacon") {
+    DesktopConfig cfg = ReadDesktopConfig();
+    bool saved = false;
+    if (!cfg.lastSaveFilePath.empty() && !body.empty()) {
+      std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
+      if (FileExistsW(targetWide) && AtomicWriteFileUtf8(targetWide, body)) {
+        WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
+        saved = true;
+      }
+    }
+    SendHttpResponse(client, 200, "OK", "application/json",
+                     saved ? "{\"ok\":true}" : "{\"ok\":false}");
+    closesocket(client);
+    return;
+  }
+
   // ---- Route: Polling check for pending close ----
   if (method == "GET" && path == "/api/desktop/pending-close") {
+    g_uiConnected.store(true);
     bool pending = g_pendingClose.exchange(false);
     SendHttpResponse(client, 200, "OK", "application/json",
                      pending ? "{\"pending\":true}" : "{\"pending\":false}");
@@ -609,6 +638,7 @@ static void HandleHttpClient(SOCKET client) {
 
   // ---- Route: Desktop Environment Info ----
   if (method == "GET" && path == "/api/desktop/info") {
+    g_uiConnected.store(true);
     DesktopConfig cfg = ReadDesktopConfig();
     std::wstring lastWide = Utf8ToWide(cfg.lastSaveFilePath);
     bool exists = FileExistsW(lastWide);
@@ -626,10 +656,10 @@ static void HandleHttpClient(SOCKET client) {
     return;
   }
 
-  // ---- Route: Save Dated Backup File ----
+  // ---- Route: Save New League Data File ----
   if (method == "POST" && path == "/api/desktop/save-backup") {
     std::string jsonText;
-    std::string defaultFilename = "BowlingLeagueHelper_Backup.json";
+    std::string defaultFilename = "BowlingLeagueTrackerSave.json";
     ExtractJsonStringField(body, "jsonText", jsonText);
     ExtractJsonStringField(body, "defaultFilename", defaultFilename);
 
@@ -641,7 +671,7 @@ static void HandleHttpClient(SOCKET client) {
     }
 
     std::wstring chosenPath;
-    if (!ShowSaveFileDialogOnUiThread(L"Save Dated Bowling League Backup", startDir,
+    if (!ShowSaveFileDialogOnUiThread(L"Save Bowling League File", startDir,
                                       Utf8ToWide(defaultFilename), chosenPath)) {
       SendHttpResponse(client, 200, "OK", "application/json", "{\"saved\":false,\"canceled\":true}");
       closesocket(client);
@@ -712,7 +742,7 @@ static void HandleHttpClient(SOCKET client) {
   // ---- Route: Pick New Save Location & Finish Close ----
   if (method == "POST" && path == "/api/desktop/pick-save-and-close") {
     std::string jsonText;
-    std::string defaultFilename = "BowlingLeagueHelper_Backup.json";
+    std::string defaultFilename = "BowlingLeagueTrackerSave.json";
     ExtractJsonStringField(body, "jsonText", jsonText);
     ExtractJsonStringField(body, "defaultFilename", defaultFilename);
 
@@ -885,13 +915,41 @@ static std::string GetAppUrlUtf8() {
   return "http://127.0.0.1:" + std::to_string(g_port) + "/";
 }
 
+static DWORD WINAPI FallbackProcessWaitThread(LPVOID param) {
+  HANDLE hProc = (HANDLE)param;
+  if (hProc) {
+    WaitForSingleObject(hProc, INFINITE);
+    CloseHandle(hProc);
+  }
+  // If browser delegated to another process, wait until UI SSE stream disconnects before exiting
+  Sleep(600);
+  while (g_serverRunning.load()) {
+    bool hasClients = false;
+    {
+      AutoCsLock lock(&g_sseCs);
+      hasClients = !g_sseClients.empty();
+    }
+    if (!hasClients) break;
+    Sleep(500);
+  }
+  if (g_hwnd) {
+    PostMessageW(g_hwnd, WM_APP_EXIT_NOW, 0, 0);
+  }
+  return 0;
+}
+
 static void LaunchBrowserFallbackWindow() {
   if (g_fallbackLaunched.exchange(true)) return;
+  // Hide the native host window immediately so the user NEVER sees two windows
+  if (g_hwnd && IsWindow(g_hwnd)) {
+    ShowWindow(g_hwnd, SW_HIDE);
+  }
+
   std::wstring url = Utf8ToWide(GetAppUrlUtf8());
-  std::wstring profileDir = g_installDir + L"\\EdgeAppProfile";
+  std::wstring profileDir = GetLocalAppDataConfigDirW() + L"\\EdgeAppProfile";
   EnsureDirRecursiveW(profileDir);
 
-  // Prefer Microsoft Edge in isolated --app window mode (no browser tabs/address bar, isolated cache)
+  // Prefer Microsoft Edge in isolated --app window mode (single window, isolated cache)
   const wchar_t* edgeCandidates[] = {
     L"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
     L"C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -899,7 +957,7 @@ static void LaunchBrowserFallbackWindow() {
   for (const wchar_t* edgePath : edgeCandidates) {
     if (FileExistsW(edgePath)) {
       std::wstring args = L"\"" + std::wstring(edgePath) + L"\" --app=" + url +
-                          L" --user-data-dir=\"" + profileDir + L"\"";
+                          L" --user-data-dir=\"" + profileDir + L"\" --new-window";
       STARTUPINFOW si = {};
       si.cb = sizeof(si);
       PROCESS_INFORMATION pi = {};
@@ -908,22 +966,50 @@ static void LaunchBrowserFallbackWindow() {
       if (CreateProcessW(edgePath, cmdBuf.data(), nullptr, nullptr, FALSE, 0, nullptr,
                          g_installDir.c_str(), &si, &pi)) {
         CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
+        HANDLE hWait = CreateThread(nullptr, 0, FallbackProcessWaitThread, (LPVOID)pi.hProcess, 0, nullptr);
+        if (!hWait) {
+          CloseHandle(pi.hProcess);
+        } else {
+          CloseHandle(hWait);
+        }
         return;
       }
     }
   }
-  ShellExecuteW(g_hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+  ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-// COM Callback implementations using exact IUnknown + Invoke vtables
+// COM Callback implementations using exact IUnknown + Handler IID checks and Invoke vtables
+static const GUID IID_WV2_IUnknown =
+  {0x00000000, 0x0000, 0x0000, {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static const GUID IID_WV2_EnvHandler =
+  {0x4e8a3389, 0xc9d8, 0x4bd2, {0xb6, 0xb5, 0x12, 0x4f, 0xee, 0x6c, 0xc1, 0x4d}};
+static const GUID IID_WV2_CtrlHandler =
+  {0x6c4819f3, 0xc9b7, 0x4260, {0x81, 0x27, 0xc9, 0xf5, 0xbd, 0xe7, 0xf6, 0x8c}};
+
 struct EnvCompletedCallback;
 struct CtrlCompletedCallback;
 
-static HRESULT STDMETHODCALLTYPE CbQueryInterface(void* This, REFIID, void** ppv) {
-  *ppv = This;
-  return S_OK;
+static HRESULT STDMETHODCALLTYPE EnvCbQueryInterface(EnvCompletedCallback* This, REFIID riid, void** ppv) {
+  if (!ppv) return E_POINTER;
+  if (IsEqualGUID(riid, IID_WV2_IUnknown) || IsEqualGUID(riid, IID_WV2_EnvHandler)) {
+    *ppv = This;
+    return S_OK;
+  }
+  *ppv = nullptr;
+  return E_NOINTERFACE;
 }
+
+static HRESULT STDMETHODCALLTYPE CtrlCbQueryInterface(CtrlCompletedCallback* This, REFIID riid, void** ppv) {
+  if (!ppv) return E_POINTER;
+  if (IsEqualGUID(riid, IID_WV2_IUnknown) || IsEqualGUID(riid, IID_WV2_CtrlHandler)) {
+    *ppv = This;
+    return S_OK;
+  }
+  *ppv = nullptr;
+  return E_NOINTERFACE;
+}
+
 static ULONG STDMETHODCALLTYPE CbAddRef(void*) { return 1; }
 static ULONG STDMETHODCALLTYPE CbRelease(void*) { return 1; }
 
@@ -960,7 +1046,7 @@ static HRESULT STDMETHODCALLTYPE OnControllerCreated(CtrlCompletedCallback*, HRE
 }
 
 static CtrlCompletedCallbackVtbl g_ctrlCbVtbl = {
-  (HRESULT (STDMETHODCALLTYPE*)(CtrlCompletedCallback*, REFIID, void**))CbQueryInterface,
+  CtrlCbQueryInterface,
   (ULONG (STDMETHODCALLTYPE*)(CtrlCompletedCallback*))CbAddRef,
   (ULONG (STDMETHODCALLTYPE*)(CtrlCompletedCallback*))CbRelease,
   OnControllerCreated
@@ -980,12 +1066,15 @@ static HRESULT STDMETHODCALLTYPE OnEnvironmentCreated(EnvCompletedCallback*, HRE
     LaunchBrowserFallbackWindow();
     return S_OK;
   }
-  env->lpVtbl->CreateCoreWebView2Controller(env, g_hwnd, (WV2CtrlHandler*)&g_ctrlCb);
+  HRESULT hr = env->lpVtbl->CreateCoreWebView2Controller(env, g_hwnd, (WV2CtrlHandler*)&g_ctrlCb);
+  if (FAILED(hr)) {
+    LaunchBrowserFallbackWindow();
+  }
   return S_OK;
 }
 
 static EnvCompletedCallbackVtbl g_envCbVtbl = {
-  (HRESULT (STDMETHODCALLTYPE*)(EnvCompletedCallback*, REFIID, void**))CbQueryInterface,
+  EnvCbQueryInterface,
   (ULONG (STDMETHODCALLTYPE*)(EnvCompletedCallback*))CbAddRef,
   (ULONG (STDMETHODCALLTYPE*)(EnvCompletedCallback*))CbRelease,
   OnEnvironmentCreated
@@ -1005,7 +1094,7 @@ static bool InitEmbeddedWebView2(HWND /*hwnd*/) {
   }
   if (!fnCreateEnv) return false;
 
-  std::wstring dataDir = g_installDir + L"\\WebViewData";
+  std::wstring dataDir = GetLocalAppDataConfigDirW() + L"\\WebViewData";
   EnsureDirRecursiveW(dataDir);
   HRESULT hr = fnCreateEnv(nullptr, dataDir.c_str(), nullptr, (WV2EnvHandler*)&g_envCb);
   return SUCCEEDED(hr);
@@ -1018,13 +1107,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   switch (msg) {
     case WM_CREATE: {
       if (!InitEmbeddedWebView2(hwnd)) {
-        // Fallback control UI only shown if WebView2 Runtime is unavailable
-        CreateWindowW(L"BUTTON", L"Open Bowling League Helper Window",
-                      WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                      32, 32, 280, 40, hwnd, (HMENU)IDC_OPEN_BROWSER_BTN, nullptr, nullptr);
-        CreateWindowW(L"BUTTON", L"Save & Close Program",
-                      WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                      328, 32, 220, 40, hwnd, (HMENU)IDC_EXIT_BTN, nullptr, nullptr);
         LaunchBrowserFallbackWindow();
       }
       return 0;
@@ -1039,17 +1121,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
       return 0;
     }
 
-    case WM_COMMAND: {
-      int id = LOWORD(wParam);
-      if (id == IDC_OPEN_BROWSER_BTN) {
-        g_fallbackLaunched.store(false);
-        LaunchBrowserFallbackWindow();
-      } else if (id == IDC_EXIT_BTN) {
-        PostMessageW(hwnd, WM_CLOSE, 0, 0);
-      }
-      return 0;
-    }
-
     case WM_PAINT: {
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
@@ -1058,19 +1129,32 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         GetClientRect(hwnd, &r);
         FillRect(hdc, &r, (HBRUSH)(COLOR_WINDOW + 1));
         SetBkMode(hdc, TRANSPARENT);
-        std::wstring status = L"Bowling League Helper — Running in " + g_installDir +
-                              L"\nUse the Save & Close button (or close this window) to auto-save before exiting.";
-        RECT textRect = {32, 96, r.right - 32, r.bottom - 32};
-        DrawTextW(hdc, status.c_str(), -1, &textRect, DT_LEFT | DT_WORDBREAK);
+        std::wstring status = L"Loading Bowling League Helper...";
+        RECT textRect = {32, 32, r.right - 32, r.bottom - 32};
+        DrawTextW(hdc, status.c_str(), -1, &textRect, DT_LEFT | DT_SINGLELINE);
       }
       EndPaint(hwnd, &ps);
       return 0;
     }
 
+    case WM_TIMER: {
+      if (wParam == IDT_CLOSE_ACK_TIMEOUT) {
+        KillTimer(hwnd, IDT_CLOSE_ACK_TIMEOUT);
+        if (!g_closeAcked.load() && !g_allowClose.load()) {
+          // UI did not acknowledge close prompt in time: never trap user with an unclosable window
+          g_allowClose.store(true);
+          DestroyWindow(hwnd);
+        }
+      }
+      return 0;
+    }
+
     case WM_CLOSE: {
-      if (!g_allowClose.load()) {
-        // Intercept native [X] close button: notify app to verify & save to last save file first!
+      if (!g_allowClose.load() && g_webviewReady.load() && g_uiConnected.load()) {
+        // Intercept native [X] close button: notify live UI to auto-save to last save file first
+        g_closeAcked.store(false);
         BroadcastCloseRequestEvent();
+        SetTimer(hwnd, IDT_CLOSE_ACK_TIMEOUT, 1500, nullptr);
         return 0;
       }
       DestroyWindow(hwnd);

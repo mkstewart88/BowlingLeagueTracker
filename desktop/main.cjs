@@ -209,7 +209,7 @@ app.on('window-all-closed', () => {
 });
 
 // ============================================================================
-// IPC HANDLERS: Real Folder Updates, Dated Backups & Safe Close-on-Save
+// IPC HANDLERS: Real Folder Updates, Save Files & Safe Close-on-Save
 // ============================================================================
 
 ipcMain.handle('desktop:get-info', () => {
@@ -234,9 +234,9 @@ ipcMain.handle('desktop:save-backup-dated', async (_evt, { jsonText, defaultFile
         : null) || detectPreferredDocumentsDir();
 
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Save Dated Bowling League Backup',
-      defaultPath: path.join(startDir, defaultFilename),
-      buttonLabel: 'Save Backup File',
+      title: 'Save Bowling League File',
+      defaultPath: path.join(startDir, defaultFilename || 'BowlingLeagueTrackerSave.json'),
+      buttonLabel: 'Save File',
       filters: [
         { name: 'Bowling League Save File (*.json)', extensions: ['json'] },
         { name: 'All Files', extensions: ['*'] },

@@ -1,33 +1,36 @@
 # Bowling League Helper — Complete User Guide
 
-This manual walks through installing **Bowling League Helper** on Windows, running weekly league nights, configuring league rules and payouts, managing backups, and keeping the program up to date.
+This manual walks through installing **Bowling League Helper** on **Windows 11** or **Linux**, running weekly league nights, configuring league rules and payouts, managing backups, and keeping the program up to date.
 
 ---
 
 ## Table of Contents
 
-1. [Windows Installation & Removal](#1-windows-installation--removal)
+1. [Installation & Removal (Windows 11 & Linux)](#1-installation--removal-windows-11--linux)
 2. [Weekly League Night Workflow (Tab 1)](#2-weekly-league-night-workflow-tab-1)
 3. [Team Performance, Averages & History (Tab 2)](#3-team-performance-averages--history-tab-2)
 4. [8-Player Brackets & Side Pots (Tab 3)](#4-8-player-brackets--side-pots-tab-3)
 5. [Treasurer Ledger & Prize Fund Calculator (Tab 4)](#5-treasurer-ledger--prize-fund-calculator-tab-4)
 6. [Multi-League Hub, Lane Schedule & Backups (Tab 5)](#6-multi-league-hub-lane-schedule--backups-tab-5)
-7. [Dated Backups & Auto-Save on Closing](#7-dated-backups--auto-save-on-closing)
+7. [Persistent Save File & Auto-Save on Closing](#7-persistent-save-file--auto-save-on-closing)
 8. [Updating the Application](#8-updating-the-application)
 
 ---
 
-## 1. Windows Installation & Removal
+## 1. Installation & Removal (Windows 11 & Linux)
 
-### Installing
-1. Download and extract the repository `.zip` (or release archive).
-2. Double-click **`installer.exe`** in the root folder.
-3. The installer places the executable and support files in **`C:\BowlingLeagueHelper\`** and creates shortcuts on your **Desktop** and **Start Menu**.
-4. You may delete the downloaded `.zip` and extracted folder right after installation completes.
+### Windows 11
+- **Install:** Download `installer.exe` (or download and extract the repository `.zip` via **Code → Download ZIP**) and double-click **`installer.exe`** in the root folder. It installs all program files into **`C:\BowlingLeagueHelper\`** and creates shortcuts on your **Desktop** and **Start Menu**. You can delete the `.zip` and extracted folder right after installation.
+- **Uninstall:** Open **Windows Settings → Apps → Installed apps → Bowling League Helper → Uninstall**, or run `C:\BowlingLeagueHelper\Uninstall.exe`. Any `.json` backup files saved outside the install folder remain untouched.
 
-### Uninstalling
-- Open **Windows Settings → Apps → Installed apps → Bowling League Helper → Uninstall**, or run `C:\BowlingLeagueHelper\Uninstall.exe`.
-- Removing the program folder does not delete any `.json` backup files saved to your Documents or custom backup folders.
+### Linux
+- **Install:** Requires Node.js 20+. Download and extract the repository ZIP (or `git clone`), then run:
+  ```bash
+  chmod +x install-linux.sh
+  ./install-linux.sh
+  ```
+  This installs all application files into **`~/BowlingLeagueHelper/`**, places the `bowling-league-helper` launcher in `~/.local/bin`, and creates a Desktop / Application Menu shortcut with the custom bowling ball & pins icon. You can delete the downloaded `.zip` and extracted folder right afterward.
+- **Uninstall:** Remove `~/BowlingLeagueHelper`, `~/.local/bin/bowling-league-helper`, `~/.local/share/applications/bowling-league-helper.desktop`, and `~/Desktop/Bowling League Helper.desktop`. External `.json` backup files remain untouched.
 
 ---
 
@@ -92,11 +95,11 @@ Click **Finish Week & Export Standing Sheet** when all scores are recorded:
 
 ---
 
-## 7. Dated Backups & Auto-Save on Closing
+## 7. Persistent Save File & Auto-Save on Closing
 
-1. Click **Save Dated Backup (.json)...** in the footer or Tab `5C`.
-2. Pick any folder on your PC, external drive, or synced folder—the filename automatically includes today's date (`BowlingLeagueHelper_Backup_YYYY-MM-DD.json`).
-3. Every time you close **Bowling League Helper** afterward, the program automatically saves all current league data to that exact save file.
+1. Click **Save New File (.json)...** in the footer or Tab `5C`.
+2. Pick any folder on your PC, external drive, or synced folder—the default save file is named **`BowlingLeagueTrackerSave.json`** (no date attached).
+3. Every time you close **Bowling League Helper** afterward, the program automatically overwrites that exact `BowlingLeagueTrackerSave.json` file with all updated league data, unless you click **Save New File (.json)...** to switch to a different file.
 4. **If the file cannot be found on closing** (for example if it was deleted, moved, or not yet created):
    - The window **stays open** instead of closing silently.
    - Choose **Pick New Save Location & Close** to save safely before exiting, **Don't Save** to close immediately, or **Cancel (Stay Open)** to keep working.
@@ -108,5 +111,5 @@ Click **Finish Week & Export Standing Sheet** when all scores are recorded:
 1. Click the blue version button in the top bar (e.g., `v1.0.14 · Updates & Patch Notes`) or **Check for Updates & Patch Notes** in the footer.
 2. Click **Check for Updates** to query the latest release manifest (`version.json`).
 3. When a newer release is available, click **Update and Restart**.
-   - On the installed Windows desktop program, the updater downloads the new version files, overwrites `C:\BowlingLeagueHelper\BowlingLeagueHelper.html` and `C:\BowlingLeagueHelper\version.json`, and restarts automatically.
-   - All your league data, rosters, history, and save links stay 100% intact.
+   - On the installed desktop program (`C:\BowlingLeagueHelper\` on Windows 11 or `~/BowlingLeagueHelper/` on Linux), the updater downloads the new version files, overwrites `BowlingLeagueHelper.html` and `version.json` in place, and restarts automatically.
+   - All league data, rosters, history, and save links stay 100% intact.

@@ -41,7 +41,7 @@ import {
   saveLeagueFileToComputer,
   verifyAndSaveBeforeClose,
 } from './utils/fileExport';
-import { getDesktopBridge } from './utils/desktopBridge';
+import { getDesktopBridge, serializeMasterSavePayload } from './utils/desktopBridge';
 import {
   RefreshCw,
   Calendar,
@@ -150,6 +150,8 @@ export default function App() {
   }, []);
 
   const closeInFlightRef = React.useRef(false);
+  const closeHandledCleanlyRef = React.useRef(false);
+  const [desktopInstallDir, setDesktopInstallDir] = useState<string>('C:\\BowlingLeagueHelper');
 
   // Register native desktop close interception + load last remembered disk save path
   useEffect(() => {
@@ -159,6 +161,9 @@ export default function App() {
     bridge
       .getDesktopInfo()
       .then((info) => {
+        if (info.installDir) {
+          setDesktopInstallDir(info.installDir);
+        }
         if (info.lastSaveFilePath) {
           setAppState((prev) =>
             syncActiveLeagueInRegistry({
@@ -174,11 +179,14 @@ export default function App() {
       .catch(() => {});
 
     const unsubscribe = bridge.onRequestCloseSave(async () => {
+      bridge.ackCloseRequest?.().catch(() => {});
       if (closeInFlightRef.current) return;
       closeInFlightRef.current = true;
       try {
         const result = await verifyAndSaveBeforeClose(appStateRef.current);
-        if (!result.ok && result.missing) {
+        if (result.ok) {
+          closeHandledCleanlyRef.current = true;
+        } else if (result.missing) {
           setCloseModalState({
             isOpen: true,
             missingPath: result.missingPath || null,
@@ -195,8 +203,17 @@ export default function App() {
       }
     });
 
+    const onPageHide = () => {
+      if (closeHandledCleanlyRef.current) return;
+      if (typeof bridge.sendAutoSaveBeacon === 'function') {
+        bridge.sendAutoSaveBeacon(serializeMasterSavePayload(appStateRef.current));
+      }
+    };
+    window.addEventListener('pagehide', onPageHide);
+
     return () => {
       unsubscribe();
+      window.removeEventListener('pagehide', onPageHide);
     };
   }, []);
 
@@ -790,6 +807,7 @@ export default function App() {
   const handleSafeExitProgram = async () => {
     const result = await verifyAndSaveBeforeClose(appStateRef.current);
     if (result.ok) {
+      closeHandledCleanlyRef.current = true;
       if (result.savedPath) {
         handleRecordBackupTimestamp('local', result.savedPath);
       }
@@ -815,6 +833,7 @@ export default function App() {
     setCloseModalState((prev) => ({ ...prev, isBusy: true }));
     const res = await pickNewSaveLocationAndFinishClose(appStateRef.current);
     if (res.closed) {
+      closeHandledCleanlyRef.current = true;
       closeInFlightRef.current = false;
       if (res.filePath) {
         handleRecordBackupTimestamp('local', res.filePath);
@@ -834,6 +853,7 @@ export default function App() {
   };
 
   const handleCloseDontSave = async () => {
+    closeHandledCleanlyRef.current = true;
     setCloseModalState((prev) => ({ ...prev, isBusy: true }));
     await forceCloseProgramWithoutSaving();
     closeInFlightRef.current = false;
@@ -1098,7 +1118,7 @@ export default function App() {
           <div className="space-y-0.5">
             <div>
               Bowling League Helper · {appState.settings.leagueName || 'Thursday Night Rollers'} · Version {appState.version}
-              {getDesktopBridge() ? ' · Desktop Program (C:\\BowlingLeagueHelper)' : ' · Auto-saved locally'}
+              {getDesktopBridge() ? ` · Desktop Program (${desktopInstallDir})` : ' · Auto-saved locally'}
             </div>
             {appState.settings.autoBackupDirectoryLabel && (
               <div className="text-[11px] text-slate-500 font-mono">
@@ -1114,7 +1134,7 @@ export default function App() {
                   const res = await saveLeagueFileToComputer(appState);
                   handleRecordBackupTimestamp('local', res.filePath || res.filename);
                   showToast(
-                    `Saved dated backup "${res.filePath || res.filename}". Future closes will auto-save here.`
+                    `Saved "${res.filePath || res.filename}". Future closes will auto-save to this file.`
                   );
                 } catch {
                   // Cancelled
@@ -1122,7 +1142,7 @@ export default function App() {
               }}
               className="font-semibold text-slate-800 hover:text-blue-700 cursor-pointer"
             >
-              Save Dated Backup (.json)...
+              Save New File (.json)...
             </button>
             <span>·</span>
             <button

@@ -23,7 +23,8 @@ import {
   stripBootFromCacheFlag,
 } from './runtimeUpdater';
 import {
-  getDatedBackupFilename,
+  DEFAULT_SAVE_FILENAME,
+  getDefaultSaveFilename,
   serializeMasterSavePayload,
 } from './desktopBridge';
 import {
@@ -61,9 +62,9 @@ test('runtimeUpdater injects and strips cached runtime boot flag cleanly', () =>
   assert.equal(stripped, sampleHtml);
 });
 
-test('getDatedBackupFilename formats current date and serializeMasterSavePayload includes all leagues', () => {
-  const dated = getDatedBackupFilename(new Date(2026, 10, 14));
-  assert.equal(dated, 'BowlingLeagueHelper_Backup_2026-11-14.json');
+test('getDefaultSaveFilename returns BowlingLeagueTrackerSave.json without dates and serializeMasterSavePayload includes all leagues', () => {
+  assert.equal(DEFAULT_SAVE_FILENAME, 'BowlingLeagueTrackerSave.json');
+  assert.equal(getDefaultSaveFilename(), 'BowlingLeagueTrackerSave.json');
   const seed = createInitialSeedState();
   const payload = serializeMasterSavePayload(seed);
   const parsed = JSON.parse(payload);

@@ -2,13 +2,13 @@
   <img src="public/bowling-icon.png" alt="Bowling League Helper Icon" width="112" height="112" />
   <h1>Bowling League Helper</h1>
   <p>
-    <strong>An offline-ready Windows desktop &amp; single-file league management suite for bowling secretaries, treasurers, and league coordinators.</strong>
+    <strong>An offline-ready Windows 11 &amp; Linux desktop application for bowling league secretaries, treasurers, and league coordinators.</strong>
   </p>
   <p>
-    <a href="https://github.com/mkstewart88/BowlingLeagueTracker/releases">
+    <a href="CHANGELOG.md">
       <img src="https://img.shields.io/badge/version-v1.0.14-1d4ed8?style=for-the-badge" alt="Version v1.0.14" />
     </a>
-    <img src="https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0f172a?style=for-the-badge" alt="Windows 10 / 11" />
+    <img src="https://img.shields.io/badge/platform-Windows%2011%20%7C%20Linux-0f172a?style=for-the-badge" alt="Supported Platforms: Windows 11 and Linux" />
     <img src="https://img.shields.io/badge/offline--first-Zero%20Server%20Required-047857?style=for-the-badge" alt="Offline First" />
     <a href="LICENSE">
       <img src="https://img.shields.io/badge/license-MIT-475569?style=for-the-badge" alt="MIT License" />
@@ -20,9 +20,9 @@
 
 ## Table of Contents
 
-- [Quick Installation (Windows)](#quick-installation-windows)
+- [Quick Installation (Windows 11 &amp; Linux)](#quick-installation-windows-11--linux)
 - [Core Modules &amp; Features](#core-modules--features)
-- [Data Safety, Dated Backups &amp; Auto-Save on Closing](#data-safety-dated-backups--auto-save-on-closing)
+- [Data Safety, Persistent Save File &amp; Auto-Save on Closing](#data-safety-persistent-save-file--auto-save-on-closing)
 - [Built-In Self-Updater](#built-in-self-updater)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Repository Architecture](#repository-architecture)
@@ -32,17 +32,32 @@
 
 ---
 
-## Quick Installation (Windows)
+## Quick Installation (Windows 11 & Linux)
 
-**Bowling League Helper** ships with a standalone Windows installer directly in the repository root so no runtime setup, Node.js installation, or manual folder management is required.
+**Bowling League Helper** ships with ready-to-run installers directly inside this repository (`installer.exe` for Windows 11 and `install-linux.sh` for Linux) so no manual compilation is needed.
 
-1. Download the repository ZIP (**Code → Download ZIP**) or grab the latest release from [**Releases**](https://github.com/mkstewart88/BowlingLeagueTracker/releases).
-2. Extract the downloaded `.zip` archive to any temporary location.
-3. Open the extracted folder and double-click **`installer.exe`**.
-4. The installer automatically copies all program files to **`C:\BowlingLeagueHelper\`**, configures write permissions for in-app self-updates, and creates a **Bowling League Helper** shortcut (with the custom bowling ball &amp; pins icon) on your **Desktop** and **Start Menu**.
-5. Delete the downloaded `.zip` and extracted temporary folder—launch **Bowling League Helper** anytime straight from your **Desktop** icon.
+### Windows 11
+1. Click [**installer.exe**](https://github.com/mkstewart88/BowlingLeagueTracker/raw/main/installer.exe) directly, or download the full repository ZIP (**Code → Download ZIP**) and extract it anywhere.
+2. Double-click **`installer.exe`** in the root folder.
+3. The installer copies all required program files to **`C:\BowlingLeagueHelper\`**, grants update write permissions, and places a **Bowling League Helper** shortcut (with the custom bowling ball &amp; pins icon) on your **Desktop** and **Start Menu**.
+4. Delete the downloaded `.zip` and extracted folder—launch **Bowling League Helper** anytime from your Desktop icon.
 
-> **Browser Cache Independence:** Once installed to `C:\BowlingLeagueHelper\`, the application runs inside its own dedicated Windows host with isolated data storage. Clearing Google Chrome or Microsoft Edge browsing history, cookies, or cache will never delete updates or league data.
+### Linux (Desktop & App Mode)
+*Requires Node.js 20+ installed.*
+1. Download the repository ZIP (**Code → Download ZIP**), or clone it:
+   ```bash
+   git clone https://github.com/mkstewart88/BowlingLeagueTracker.git
+   cd BowlingLeagueTracker
+   ```
+2. Run the Linux installer from the extracted folder:
+   ```bash
+   chmod +x install-linux.sh
+   ./install-linux.sh
+   ```
+3. The installer copies the application files into **`~/BowlingLeagueHelper/`**, sets up `bowling-league-helper` in `~/.local/bin`, and creates a **Bowling League Helper** Desktop &amp; Application Menu launcher with the custom icon (`bowling-icon.png`).
+4. You may delete the downloaded ZIP/extracted folder afterward and launch **Bowling League Helper** from your Desktop/Application Menu (or run `bowling-league-helper`).
+
+> **Browser Cache Independence:** On both **Windows 11** (`C:\BowlingLeagueHelper\`) and **Linux** (`~/BowlingLeagueHelper/`), the application runs through its dedicated desktop host with isolated storage outside your regular web browser. Clearing Google Chrome, Microsoft Edge, or Chromium browsing history, cookies, or cache will never remove updates or saved league data.
 
 ---
 
@@ -60,13 +75,13 @@ Bowling League Helper organizes every weekly night-of-league task into five stru
 
 ---
 
-## Data Safety, Dated Backups & Auto-Save on Closing
+## Data Safety, Persistent Save File & Auto-Save on Closing
 
-Bowling League Helper protects league records with redundant local persistence, user-directed file backups, and close-time verification:
+Bowling League Helper protects league records across **Windows 11** and **Linux** with redundant local persistence, user-directed file saves, and close-time verification:
 
-- **Dated Backup Files:** Click **Save Dated Backup (.json)...** in the footer or Tab `5C` to write a complete multi-league snapshot named with today's date (`BowlingLeagueHelper_Backup_YYYY-MM-DD.json`) into any chosen folder (local drive, Documents, USB drive, or synced cloud folder). That location automatically becomes your active auto-save file.
-- **Automatic Save on Closing:** Closing the window (`[X]`) or clicking **Save &amp; Close** automatically writes the latest state to your last used save file before exiting.
-- **Missing-File Close Protection:** If your last save file cannot be found (e.g., moved, deleted, disconnected external drive, or not yet configured), the program **cancels closing**, keeps your unsaved data intact on screen, and prompts you to:
+- **Persistent Save File (`BowlingLeagueTrackerSave.json`):** Click **Save New File (.json)...** in the footer or Tab `5C` to save a complete multi-league snapshot (default filename `BowlingLeagueTrackerSave.json`, with no date attached) into any chosen folder (local drive, Documents, USB drive, or synced cloud folder). That exact file stays linked and continues to be updated on close unless you click **Save New File (.json)...** again to pick a different file.
+- **Automatic Save on Closing:** Closing the window or clicking **Save &amp; Close** automatically overwrites your remembered `BowlingLeagueTrackerSave.json` (or last chosen save file) in place before exiting.
+- **Missing-File Close Protection:** If your last save file cannot be found (e.g., moved, deleted, disconnected drive, or not yet configured), the program **cancels closing**, keeps your data intact on screen, and prompts you to:
   1. **Pick New Save Location &amp; Close** — select a valid folder/file to save and exit cleanly.
   2. **Don't Save** — exit immediately without writing a backup file.
   3. **Cancel (Stay Open)** — abort closing and return to your league data.
@@ -75,9 +90,9 @@ Bowling League Helper protects league records with redundant local persistence, 
 
 ## Built-In Self-Updater
 
-Click the version button in the top bar (or **Check for Updates &amp; Patch Notes** in the footer) to check GitHub for newer releases and browse full version patch notes:
+Click the version button in the top bar (or **Check for Updates &amp; Patch Notes** in the footer) to check this GitHub repository for newer versions and browse full patch notes:
 
-- Clicking **`Update and Restart`** downloads the latest verified release bundle (`BowlingLeagueHelper.html` and `version.json`), overwrites the program files directly inside **`C:\BowlingLeagueHelper\`**, and restarts the application automatically into the new version.
+- Clicking **`Update and Restart`** downloads the latest verified release bundle (`BowlingLeagueHelper.html` and `version.json`), overwrites the program files directly inside your installation directory (**`C:\BowlingLeagueHelper\`** on Windows 11 or **`~/BowlingLeagueHelper/`** on Linux), and restarts into the updated build.
 - All scores, rosters, schedules, financial records, and archived weeks remain preserved across updates.
 
 ---
@@ -96,9 +111,10 @@ Click the version button in the top bar (or **Check for Updates &amp; Patch Note
 
 ```text
 .
-├── installer.exe                        # Prebuilt Windows installer (installs to C:\BowlingLeagueHelper\)
+├── installer.exe                        # Windows 11 installer (installs to C:\BowlingLeagueHelper\)
+├── install-linux.sh                     # Linux installer (installs to ~/BowlingLeagueHelper/)
 ├── BowlingLeagueHelper.html             # Compiled standalone single-file HTML/JS UI bundle
-├── version.json                         # Release manifest & patch notes checked by the updater
+├── version.json                         # Release manifest & patch notes checked by the auto-updater
 ├── README.md                            # Project overview & quick start
 ├── CHANGELOG.md                         # Release history (Keep a Changelog format)
 ├── CONTRIBUTING.md                      # Contribution workflow, coding standards & testing guide
@@ -108,12 +124,11 @@ Click the version button in the top bar (or **Check for Updates &amp; Patch Note
 │   └── USER_GUIDE.md                    # Complete step-by-step coordinator & treasurer manual
 ├── desktop/
 │   ├── assets/                          # Application icon assets (icon.ico, icon.png)
-│   ├── host/                            # Native Win64 C++ host runtime (WebView2 + loopback IPC + close guard)
-│   ├── installer/                       # NSIS installer script (installer.nsi)
-│   ├── scripts/                         # Cross-platform & Windows installer build scripts
+│   ├── host/                            # Desktop hosts: Windows 11 Win32/WebView2 (main.cpp) & Linux Node host (linux-host.mjs)
+│   ├── installer/                       # NSIS Windows installer script (installer.nsi)
+│   ├── scripts/                         # Build scripts for Windows 11 & Linux installer packaging
 │   ├── vendor/                          # Redistributable WebView2Loader.dll & license notice
-│   ├── main.cjs / preload.cjs           # Optional Electron desktop wrapper
-│   └── README-Windows.txt               # Bundled Windows setup notes
+│   └── README-Windows.txt               # Windows 11 setup quick reference
 ├── public/                              # Static icons & web template assets
 ├── src/
 │   ├── components/                      # Modular workspace tabs, standing sheets, and modals
@@ -122,21 +137,23 @@ Click the version button in the top bar (or **Check for Updates &amp; Patch Note
 └── .github/
     ├── ISSUE_TEMPLATE/                  # Bug report & feature request issue forms
     ├── PULL_REQUEST_TEMPLATE.md         # Pull request verification checklist
-    └── workflows/                       # CI build pipeline for installer & release ZIP
+    └── workflows/                       # Automated CI verification & artifact workflow
 ```
 
 ---
 
 ## Building from Source
 
+Both **Windows 11** and **Linux** can build the web bundle, run tests, and regenerate desktop packages cleanly from source:
+
 ### Prerequisites
 
-- **Web / UI Bundle:** [Node.js](https://nodejs.org/) `20+` and `npm`
-- **Windows Executable &amp; `installer.exe`:**
-  - *On Linux / Debian / Ubuntu:* `mingw-w64` (`x86_64-w64-mingw32-g++`, `x86_64-w64-mingw32-windres`) and `nsis` (`makensis`)
-  - *On Windows:* MinGW-w64 (`g++`, `windres`) and [NSIS 3.x](https://nsis.sourceforge.io/)
+- **Core App & Linux Host:** [Node.js](https://nodejs.org/) `20+` and `npm`
+- **Rebuilding Windows 11 `installer.exe` (optional):**
+  - *On Windows 11:* MinGW-w64 (`g++`, `windres`) and [NSIS 3.x](https://nsis.sourceforge.io/)
+  - *Cross-compiling from Linux:* `mingw-w64` (`x86_64-w64-mingw32-g++`, `x86_64-w64-mingw32-windres`) and `nsis` (`makensis`)
 
-### Commands
+### Commands (Windows 11 & Linux)
 
 ```bash
 # 1. Install dependencies
@@ -145,24 +162,22 @@ npm install
 # 2. Run local development server on http://localhost:3000
 npm run dev
 
-# 3. Type-check and run deterministic unit tests
+# 3. Type-check and run unit tests
 npm run lint
 npx tsx --test src/utils/bowlingLogic.test.ts
 
 # 4. Build standalone single-file UI bundle (dist/index.html)
 npm run build
 
-# 5. Compile Windows desktop host (BowlingLeagueHelper.exe) and regenerate root installer.exe
+# 5. Build native Windows 11 executable (BowlingLeagueHelper.exe) and regenerate root installer.exe
 node desktop/scripts/build-installer.mjs
 ```
-
-See [`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml) for the automated CI build pipeline.
 
 ---
 
 ## Documentation & Community
 
-- 📖 [**Full User Guide**](docs/USER_GUIDE.md) — Walkthroughs for weekly score entry, handicap formulas, brackets, dues, backups, and upgrades.
+- 📖 [**Full User Guide**](docs/USER_GUIDE.md) — Walkthroughs for Windows 11 & Linux setup, score entry, handicap formulas, brackets, dues, backups, and upgrades.
 - 📋 [**Changelog**](CHANGELOG.md) — Detailed history of features and fixes per version.
 - 🤝 [**Contributing Guide**](CONTRIBUTING.md) — Guidelines for local setup, unit testing, and pull requests.
 - 🔒 [**Security Policy**](SECURITY.md) — Local-first data architecture details and vulnerability reporting instructions.

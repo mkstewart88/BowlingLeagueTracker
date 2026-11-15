@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('bowlingDesktop', {
   isDesktopApp: true,
   getDesktopInfo: () => ipcRenderer.invoke('desktop:get-info'),
-  saveDatedBackup: (jsonText, defaultFilename) =>
+  saveNewLeagueFile: (jsonText, defaultFilename) =>
     ipcRenderer.invoke('desktop:save-backup-dated', { jsonText, defaultFilename }),
   attemptCloseWithSave: (jsonText) =>
     ipcRenderer.invoke('desktop:attempt-close-with-save', { jsonText }),

@@ -671,7 +671,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     const res = await saveLeagueFileToComputer(appState);
                     onRecordBackupTimestamp('local', res.filePath || res.filename);
                     onShowToast(
-                      `Saved dated backup (${res.filePath || res.filename}). Auto-save on closing is now linked to this file.`
+                      `Saved (${res.filePath || res.filename}). Auto-save on closing is now linked to this file.`
                     );
                   } catch {
                     // Cancelled
@@ -680,7 +680,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer"
               >
                 <HardDrive className="w-4 h-4" />
-                Save Dated Backup (.json)...
+                Save New File (.json)...
               </button>
               <button
                 type="button"
@@ -781,7 +781,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   onChange={(e) =>
                     onUpdateSettings({ autoBackupDirectoryLabel: e.target.value })
                   }
-                  placeholder="e.g., D:\Bowling_Backups\Master_League.json"
+                  placeholder="e.g., Documents/BowlingLeagueTrackerSave.json"
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900"
                 />
               </div>

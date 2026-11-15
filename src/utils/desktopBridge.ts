@@ -39,13 +39,14 @@ export interface DesktopInstallUpdateResult {
   targetVersion?: string;
   installDir?: string;
   updatedTargets?: string[];
+  needsPageReload?: boolean;
   error?: string;
 }
 
 export interface BowlingDesktopBridge {
   isDesktopApp: boolean;
   getDesktopInfo: () => Promise<DesktopInfo>;
-  saveDatedBackup: (
+  saveNewLeagueFile: (
     jsonText: string,
     defaultFilename: string
   ) => Promise<DesktopBackupSaveResult>;
@@ -62,6 +63,8 @@ export interface BowlingDesktopBridge {
     versionJsonContent: string;
   }) => Promise<DesktopInstallUpdateResult>;
   onRequestCloseSave: (callback: () => void) => () => void;
+  ackCloseRequest?: () => Promise<void>;
+  sendAutoSaveBeacon?: (jsonText: string) => void;
 }
 
 export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
@@ -89,7 +92,7 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
       }
       return resp.json() as Promise<DesktopInfo>;
     },
-    saveDatedBackup: async (jsonText, defaultFilename) =>
+    saveNewLeagueFile: async (jsonText, defaultFilename) =>
       postJson<DesktopBackupSaveResult>('/api/desktop/save-backup', {
         jsonText,
         defaultFilename,
@@ -158,6 +161,24 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
         }
       };
     },
+    ackCloseRequest: async () => {
+      try {
+        await fetch(api('/api/desktop/close-ack'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          cache: 'no-store',
+        });
+      } catch {
+        // Ignore network errors during close
+      }
+    },
+    sendAutoSaveBeacon: (jsonText) => {
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const blob = new Blob([jsonText], { type: 'application/json' });
+        navigator.sendBeacon(api('/api/desktop/autosave-beacon'), blob);
+      }
+    },
   };
 }
 
@@ -185,15 +206,14 @@ export function getDesktopBridge(): BowlingDesktopBridge | null {
   return null;
 }
 
+export const DEFAULT_SAVE_FILENAME = 'BowlingLeagueTrackerSave.json';
+
 /**
- * Generates a standardized dated backup filename containing the current local date,
- * e.g. `BowlingLeagueHelper_Backup_2026-11-14.json`.
+ * Returns the persistent save filename (`BowlingLeagueTrackerSave.json`) so
+ * auto-save on closing repeatedly writes to the same file without appending dates.
  */
-export function getDatedBackupFilename(date: Date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `BowlingLeagueHelper_Backup_${yyyy}-${mm}-${dd}.json`;
+export function getDefaultSaveFilename(): string {
+  return DEFAULT_SAVE_FILENAME;
 }
 
 export function serializeMasterSavePayload(state: AppState): string {

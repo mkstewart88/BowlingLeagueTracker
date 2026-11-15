@@ -18,7 +18,7 @@
       "highlights": [
         "Real Windows Desktop Program & installer.exe: Installs straight into C:\\BowlingLeagueHelper\\ with a custom Bowling Ball & Pins desktop icon shortcut.",
         "Direct Folder Self-Updates: Clicking Update and Restart overwrites the real program files inside C:\\BowlingLeagueHelper\\ so clearing Chrome or Edge cache never removes updates or saved data.",
-        "Dated Backups & Auto-Save on Closing: Saves dated files (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) to your chosen folder and automatically saves to your last file when closing—if that file is missing, closing pauses so you can pick a new location or click Don't Save."
+        "Persistent Save File & Auto-Save on Closing: Writes to BowlingLeagueTrackerSave.json in your chosen folder and keeps updating that exact file when closing (unless you click to save a new file)—if that file is missing, closing pauses so you can pick a new location or click Don't Save."
       ],
       "changes": [
         {
@@ -27,7 +27,7 @@
         },
         {
           "category": "Data & Backup",
-          "description": "Added dated backup naming (BowlingLeagueHelper_Backup_YYYY-MM-DD.json) to any user-selected folder plus automatic save-on-close with missing-file recovery prompt."
+          "description": "Configured persistent save naming (BowlingLeagueTrackerSave.json) in any user-selected folder plus automatic save-on-close with missing-file recovery prompt."
         },
         {
           "category": "Improvement",

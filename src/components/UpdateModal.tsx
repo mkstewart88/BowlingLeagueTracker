@@ -56,10 +56,24 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const [checkCompleted, setCheckCompleted] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateErrorHint, setUpdateErrorHint] = useState<string | null>(null);
+  const [desktopInstallDir, setDesktopInstallDir] = useState<string>('C:\\BowlingLeagueHelper');
 
   useEffect(() => {
     setSelectedPatchVersion(effectiveLatestVersion);
   }, [effectiveLatestVersion]);
+
+  useEffect(() => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    bridge
+      .getDesktopInfo()
+      .then((info) => {
+        if (info.installDir) {
+          setDesktopInstallDir(info.installDir);
+        }
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -167,9 +181,15 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
           versionJsonContent: versionJsonText,
         });
         if (installRes.ok) {
+          const targetDir = installRes.installDir || desktopInstallDir;
           onShowToast(
-            `Updated files in ${installRes.installDir || 'C:\\BowlingLeagueHelper'} to v${effectiveLatestVersion}! Restarting...`
+            `Updated files in ${targetDir} to v${effectiveLatestVersion}! Restarting...`
           );
+          if (installRes.needsPageReload) {
+            setTimeout(() => {
+              window.location.reload();
+            }, 600);
+          }
           return;
         }
         const errMsg =
@@ -348,11 +368,11 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 {hasNewUpdate
                   ? getDesktopBridge()
-                    ? `Click Update and Restart to download v${effectiveLatestVersion} and automatically overwrite the program files inside C:\\BowlingLeagueHelper\\ — clearing any browser cache will never remove this update.`
+                    ? `Click Update and Restart to download v${effectiveLatestVersion} and automatically overwrite the program files inside ${desktopInstallDir} — clearing any browser cache will never remove this update.`
                     : `Click Update and Restart to automatically install v${effectiveLatestVersion} and restart your BowlingLeagueHelper app right here—no choosing folders or replacing files required.`
                   : getDesktopBridge()
-                  ? `Your Windows desktop program inside C:\\BowlingLeagueHelper\\ is up to date (v${effectiveLatestVersion}).`
-                  : `Your BowlingLeagueHelper program is up to date. Download the Windows Installer ZIP (installer.exe) to install permanently into C:\\BowlingLeagueHelper\\ with a Desktop bowling icon.`}
+                  ? `Your desktop program inside ${desktopInstallDir} is up to date (v${effectiveLatestVersion}).`
+                  : `Your BowlingLeagueHelper program is up to date. Download the Windows 11 installer (installer.exe) or full repository ZIP (Windows 11 & Linux installer) for permanent desktop installation.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -373,15 +393,26 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </button>
 
               {!getDesktopBridge() && (
-                <a
-                  href={`${OFFICIAL_GITHUB_URL}/releases/latest/download/BowlingLeagueHelper-Windows.zip`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  <Download className="w-3.5 h-3.5 text-blue-700" />
-                  Download Windows Installer ZIP (installer.exe)
-                </a>
+                <>
+                  <a
+                    href={`${OFFICIAL_GITHUB_URL}/raw/main/installer.exe`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5 text-blue-700" />
+                    Download Windows 11 Installer (installer.exe)
+                  </a>
+                  <a
+                    href={`${OFFICIAL_GITHUB_URL}/archive/refs/heads/main.zip`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-700" />
+                    Download Repository ZIP (Windows 11 &amp; Linux)
+                  </a>
+                </>
               )}
 
               {hasNewUpdate && (

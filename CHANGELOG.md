@@ -9,15 +9,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 ## [1.0.14] - 2026-11-14
 
 ### Added
-- Native Windows desktop executable (`BowlingLeagueHelper.exe`) and standalone root installer (`installer.exe`) installing directly into `C:\BowlingLeagueHelper\`.
-- Custom multi-resolution bowling ball & pins application icon (`.ico` and `.png`) for Windows shortcuts and taskbar integration.
-- Dated full-league backup workflow generating `BowlingLeagueHelper_Backup_YYYY-MM-DD.json` files in any user-selected directory.
+- **Windows 11 Native Desktop App & Installer (`installer.exe`):** Installs `BowlingLeagueHelper.exe` and support files directly into `C:\BowlingLeagueHelper\` with a custom bowling ball & pins Desktop shortcut.
+- **Linux Desktop Support & Installer (`install-linux.sh` + `linux-host.mjs`):** Installs the isolated Linux desktop runtime into `~/BowlingLeagueHelper/` with Desktop and Application Menu shortcuts.
+- Custom multi-resolution bowling ball & pins application icon (`.ico` and `.png`).
+- Persistent full-league save workflow (`BowlingLeagueTrackerSave.json` with no date suffix) that keeps writing to your last chosen save file on every close unless you click **Save New File (.json)...** to choose a new file.
 - Automatic save-on-closing verification: closing automatically saves to the last used save file, or pauses closing and prompts (**Pick New Save Location & Close**, **Don't Save**, or **Cancel (Stay Open)**) if that file cannot be located.
 - Professional GitHub documentation suite (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, `docs/USER_GUIDE.md`, and issue/PR templates).
 
 ### Changed
-- **Update and Restart** in desktop mode now overwrites `BowlingLeagueHelper.html` and `version.json` directly inside `C:\BowlingLeagueHelper\` and relaunches seamlessly without reliance on browser cache.
-- Cross-platform Linux (`mingw-w64` + `makensis`) and GitHub Actions CI build pipeline configured to output `installer.exe` directly to repository root.
+- **Update and Restart** in desktop mode overwrites `BowlingLeagueHelper.html` and `version.json` directly inside the installation directory (`C:\BowlingLeagueHelper\` on Windows 11 or `~/BowlingLeagueHelper/` on Linux) and restarts cleanly without reliance on browser cache.
+- Cross-platform (`mingw-w64` + `makensis`) and GitHub Actions CI build pipeline configured to output `installer.exe` directly to repository root.
 
 ---
 
@@ -25,7 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 
 ### Added
 - Persistent IndexedDB runtime bundle storage enabling zero-prompt **Update and Restart** inside standalone HTML mode.
-- Standardized program bundle filename (`BowlingLeagueHelper.html`) across releases, web hosting, and backup exports.
+- Standardized program bundle filename (`BowlingLeagueHelper.html`) across repository builds, web hosting, and backup exports.
 
 ---
 

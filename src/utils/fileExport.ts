@@ -6,7 +6,8 @@ import {
 } from './bowlingLogic';
 import { loadUpdatedRuntimeBundle, stripBootFromCacheFlag } from './runtimeUpdater';
 import {
-  getDatedBackupFilename,
+  DEFAULT_SAVE_FILENAME,
+  getDefaultSaveFilename,
   getDesktopBridge,
   serializeMasterSavePayload,
 } from './desktopBridge';
@@ -119,12 +120,7 @@ export function exportMasterRosterCsv(state: AppState): void {
 }
 
 export function exportMasterLeagueBackupJson(state: AppState): string {
-  const d = new Date();
-  const dateStamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate()
-  ).padStart(2, '0')}`;
-  const cleanLeague = (state.settings.leagueName || 'Bowling_League').replace(/[^a-zA-Z0-9]+/g, '_');
-  const filename = `${cleanLeague}_Master_Backup_${dateStamp}.json`;
+  const filename = DEFAULT_SAVE_FILENAME;
 
   const payload = {
     app: 'Bowling League Helper',
@@ -348,7 +344,7 @@ export async function chooseAutoBackupLocation(
   const suggestedName =
     format === 'html'
       ? `${cleanLeague}_AutoBackup_Standalone.html`
-      : `${cleanLeague}_AutoBackup_Master.json`;
+      : DEFAULT_SAVE_FILENAME;
 
   const content =
     format === 'html'
@@ -388,6 +384,9 @@ export async function chooseAutoBackupLocation(
               ],
       });
       activeAutoBackupFileHandle = handle;
+      if (format === 'json') {
+        await saveLastBackupHandle(handle);
+      }
       const writable = await handle.createWritable();
       await writable.write(content);
       await writable.close();
@@ -419,14 +418,10 @@ export async function executeAutoBackupWrite(
 ): Promise<{ wrote: boolean; targetName: string; method: 'handle' | 'download' | 'skipped' }> {
   const format = state.settings.autoBackupFormat || 'json';
   const cleanLeague = (state.settings.leagueName || 'Bowling_League').replace(/[^a-zA-Z0-9]+/g, '_');
-  const d = new Date();
-  const dateStamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate()
-  ).padStart(2, '0')}`;
   const fallbackName =
     format === 'html'
-      ? `${cleanLeague}_AutoBackup_Week_${state.settings.weekNumber || '4'}_${dateStamp}.html`
-      : `${cleanLeague}_AutoBackup_Week_${state.settings.weekNumber || '4'}_${dateStamp}.json`;
+      ? `${cleanLeague}_AutoBackup_Standalone.html`
+      : DEFAULT_SAVE_FILENAME;
 
   const content =
     format === 'html'
@@ -777,18 +772,18 @@ async function clearLastBackupHandle(): Promise<void> {
 }
 
 /**
- * Saves a dated full-league backup file (`BowlingLeagueHelper_Backup_YYYY-MM-DD.json`) to
+ * Saves the league data file (`BowlingLeagueTrackerSave.json` by default) to
  * whatever folder the user chooses, and sets it as the automatic save-on-close target.
  */
 export async function saveLeagueFileToComputer(
   state: AppState
 ): Promise<{ method: 'desktop' | 'filesystem' | 'download'; filename: string; filePath?: string }> {
-  const suggestedName = getDatedBackupFilename();
+  const suggestedName = getDefaultSaveFilename();
   const payload = serializeMasterSavePayload(state);
 
   const bridge = getDesktopBridge();
   if (bridge) {
-    const res = await bridge.saveDatedBackup(payload, suggestedName);
+    const res = await bridge.saveNewLeagueFile(payload, suggestedName);
     if (res.canceled) {
       throw new Error('Cancelled file save.');
     }
@@ -906,7 +901,7 @@ export async function pickNewSaveLocationAndFinishClose(state: AppState): Promis
   error?: string;
 }> {
   const payload = serializeMasterSavePayload(state);
-  const defaultName = getDatedBackupFilename();
+  const defaultName = getDefaultSaveFilename();
   const bridge = getDesktopBridge();
   if (bridge) {
     return bridge.pickNewSaveAndClose(payload, defaultName);

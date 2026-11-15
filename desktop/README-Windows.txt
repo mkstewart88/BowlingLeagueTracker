@@ -7,9 +7,9 @@ Bowling League Helper — Windows Desktop Installer & User Guide
      and places a "Bowling League Helper" bowling ball & pins icon on your Desktop.
 
 2. BACKUP & DATA SAVES
-   - Click "Save Dated Backup..." in the app to save a file named with today's
-     date (e.g. BowlingLeagueHelper_Backup_2026-11-14.json) anywhere you want,
-     such as your Documents folder or a synced cloud drive.
+   - Click "Save New File (.json)..." in the app to save "BowlingLeagueTrackerSave.json"
+     (no date attached) anywhere you want, such as your Documents folder or a synced
+     cloud drive.
    - Clearing browser history or cache will NOT delete this program or your saves.
 
 3. AUTOMATIC SAVE ON CLOSING
