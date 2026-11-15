@@ -111,51 +111,91 @@ function isValidVersionManifest(obj: unknown): obj is VersionManifest {
  */
 export async function fetchVersionManifest(): Promise<{
   manifest: VersionManifest;
+  githubConnected: boolean;
+  errorHint?: string;
 }> {
   const fallback = getBuiltInFallbackManifest();
   let bestManifest: VersionManifest = fallback;
+  let githubConnected = false;
+  let lastHttpStatus: number | null = null;
+  let hadNetworkError = false;
+
   const cacheBuster = Date.now();
   const branchesToTry = ['main', 'master'];
+  const manifestPaths = ['version.json', 'public/version.json'];
 
   if (typeof fetch === 'function') {
     for (const branch of branchesToTry) {
-      // 1. Check GitHub API raw media type
-      const apiUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}/contents/version.json?ref=${branch}&_t=${cacheBuster}`;
-      try {
-        const apiResp = await fetch(apiUrl, {
-          headers: { Accept: 'application/vnd.github.v3.raw' },
-          cache: 'no-store',
-        });
-        if (apiResp.ok) {
-          const data = await apiResp.json();
-          if (
-            isValidVersionManifest(data) &&
-            compareSemverVersions(data.latestVersion, bestManifest.latestVersion) >= 0
-          ) {
-            bestManifest = data;
-            break;
+      for (const relPath of manifestPaths) {
+        // 1. Check GitHub API raw media type (instant, bypasses raw CDN cache)
+        const apiUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}/contents/${relPath}?ref=${branch}&_t=${cacheBuster}`;
+        try {
+          const apiResp = await fetch(apiUrl, {
+            headers: { Accept: 'application/vnd.github.v3.raw' },
+            cache: 'no-store',
+          });
+          lastHttpStatus = apiResp.status;
+          if (apiResp.ok) {
+            const data = await apiResp.json();
+            if (isValidVersionManifest(data)) {
+              githubConnected = true;
+              if (compareSemverVersions(data.latestVersion, bestManifest.latestVersion) >= 0) {
+                bestManifest = data;
+              }
+              break;
+            }
           }
+        } catch {
+          hadNetworkError = true;
         }
-      } catch {
-        // Silent fallback
-      }
 
-      // 2. Check raw.githubusercontent.com
-      const rawUrl = `https://raw.githubusercontent.com/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}/${branch}/version.json?t=${cacheBuster}`;
-      try {
-        const resp = await fetch(rawUrl, { cache: 'no-store' });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (
-            isValidVersionManifest(data) &&
-            compareSemverVersions(data.latestVersion, bestManifest.latestVersion) >= 0
-          ) {
-            bestManifest = data;
-            break;
+        // 2. Check raw.githubusercontent.com
+        const rawUrl = `https://raw.githubusercontent.com/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}/${branch}/${relPath}?t=${cacheBuster}`;
+        try {
+          const resp = await fetch(rawUrl, { cache: 'no-store' });
+          lastHttpStatus = resp.status;
+          if (resp.ok) {
+            const data = await resp.json();
+            if (isValidVersionManifest(data)) {
+              githubConnected = true;
+              if (compareSemverVersions(data.latestVersion, bestManifest.latestVersion) >= 0) {
+                bestManifest = data;
+              }
+              break;
+            }
           }
+        } catch {
+          hadNetworkError = true;
         }
-      } catch {
-        // Silent fallback
+      }
+      if (githubConnected) break;
+    }
+
+    // If GitHub returned 404 for all manifest paths, verify whether the repo itself is visible/public
+    let errorHint: string | undefined;
+    if (!githubConnected) {
+      if (lastHttpStatus === 404) {
+        try {
+          const repoResp = await fetch(
+            `https://api.github.com/repos/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}?_t=${cacheBuster}`,
+            { cache: 'no-store' }
+          );
+          if (repoResp.status === 404) {
+            errorHint = `GitHub repository "${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}" returned HTTP 404. If the repository is set to Private, automatic update checks cannot read it — change repository Visibility to Public in GitHub Settings so updates can be detected.`;
+          } else if (repoResp.ok) {
+            errorHint = `Connected to GitHub, but "version.json" was not found at the root of the main/master branch.`;
+          } else {
+            errorHint = `GitHub returned HTTP ${repoResp.status} while checking for updates.`;
+          }
+        } catch {
+          errorHint = `Could not reach GitHub to check for updates (check your internet connection).`;
+        }
+      } else if (lastHttpStatus === 403 || lastHttpStatus === 429) {
+        errorHint = `GitHub API rate limit reached (HTTP ${lastHttpStatus}). Please try again in a few minutes.`;
+      } else if (hadNetworkError) {
+        errorHint = `Unable to reach GitHub right now (offline or blocked by network).`;
+      } else if (lastHttpStatus) {
+        errorHint = `GitHub returned HTTP ${lastHttpStatus} while checking for updates.`;
       }
     }
 
@@ -176,6 +216,15 @@ export async function fetchVersionManifest(): Promise<{
         // Silent fallback
       }
     }
+
+    return {
+      manifest: {
+        ...bestManifest,
+        releases: mergePatchNotesHistory(bestManifest.releases),
+      },
+      githubConnected,
+      errorHint,
+    };
   }
 
   return {
@@ -183,6 +232,7 @@ export async function fetchVersionManifest(): Promise<{
       ...bestManifest,
       releases: mergePatchNotesHistory(bestManifest.releases),
     },
+    githubConnected: false,
   };
 }
 
@@ -205,17 +255,35 @@ export async function fetchRemoteHtmlTemplateFromGithub(
 
   const branchesToTry = ['main', 'master'];
   const cacheBuster = Date.now();
+  const targetVer = manifest?.latestVersion || LATEST_AVAILABLE_VERSION;
 
   for (const branch of branchesToTry) {
     for (const filePath of candidatePaths) {
       const cleanPath = filePath.replace(/^\/+/, '');
+
+      // 1. Try GitHub API raw endpoint first (no 5-minute raw CDN cache lag)
+      const apiUrl = `https://api.github.com/repos/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}/contents/${cleanPath}?ref=${branch}&_t=${cacheBuster}`;
+      try {
+        const apiResp = await fetch(apiUrl, {
+          headers: { Accept: 'application/vnd.github.v3.raw' },
+          cache: 'no-store',
+        });
+        if (apiResp.ok) {
+          const html = await apiResp.text();
+          if (html.includes('id="root"') && html.includes('<script') && html.includes(targetVer)) {
+            return html;
+          }
+        }
+      } catch {
+        // Silent fallback to raw.githubusercontent.com
+      }
+
+      // 2. Fallback to raw.githubusercontent.com
       const rawUrl = `https://raw.githubusercontent.com/${OFFICIAL_GITHUB_OWNER}/${OFFICIAL_GITHUB_REPO}/${branch}/${cleanPath}?t=${cacheBuster}`;
       try {
         const resp = await fetch(rawUrl, { cache: 'no-store' });
         if (resp.ok) {
           const html = await resp.text();
-          // Only use the remote HTML template if it contains the latest version string
-          const targetVer = manifest?.latestVersion || LATEST_AVAILABLE_VERSION;
           if (html.includes('id="root"') && html.includes('<script') && html.includes(targetVer)) {
             return html;
           }

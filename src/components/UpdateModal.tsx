@@ -20,6 +20,7 @@ import {
   FileCode2,
   X,
   History,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface UpdateModalProps {
@@ -54,6 +55,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const [isChecking, setIsChecking] = useState(false);
   const [checkCompleted, setCheckCompleted] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [updateErrorHint, setUpdateErrorHint] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedPatchVersion(effectiveLatestVersion);
@@ -69,19 +71,26 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const handleCheckForUpdates = async () => {
     setIsChecking(true);
     setCheckCompleted(false);
+    setUpdateErrorHint(null);
     try {
       const result = await fetchVersionManifest();
       onUpdateManifest(result.manifest);
       setSelectedPatchVersion(result.manifest.latestVersion);
-      const isNewer =
-        compareSemverVersions(result.manifest.latestVersion, currentVersion) > 0;
-      onShowToast(
-        isNewer
-          ? `Update v${result.manifest.latestVersion} is ready to install!`
-          : `You are running the latest version (v${result.manifest.latestVersion}).`
-      );
+      if (!result.githubConnected && result.errorHint) {
+        setUpdateErrorHint(result.errorHint);
+        onShowToast('Could not reach update server on GitHub.', true);
+      } else {
+        const isNewer =
+          compareSemverVersions(result.manifest.latestVersion, currentVersion) > 0;
+        onShowToast(
+          isNewer
+            ? `Update v${result.manifest.latestVersion} is ready to install!`
+            : `You are running the latest version (v${result.manifest.latestVersion}).`
+        );
+      }
     } catch {
-      onShowToast(`You are running v${currentVersion}.`);
+      setUpdateErrorHint('Could not reach GitHub to check for updates.');
+      onShowToast('Could not reach GitHub to check for updates.', true);
     } finally {
       setIsChecking(false);
       setCheckCompleted(true);
@@ -222,6 +231,16 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </button>
             </div>
           </div>
+
+          {updateErrorHint && (
+            <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-lg flex items-start gap-2.5 text-xs text-amber-950">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Could not check GitHub for newer updates</div>
+                <p className="mt-0.5 leading-relaxed text-amber-900">{updateErrorHint}</p>
+              </div>
+            </div>
+          )}
 
           {/* Primary Overwrite & Update Action Box */}
           <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-lg space-y-3">
