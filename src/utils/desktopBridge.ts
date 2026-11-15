@@ -66,6 +66,7 @@ export interface BowlingDesktopBridge {
   ackCloseRequest?: () => Promise<void>;
   stageSavePayload?: (jsonText: string) => Promise<void>;
   sendAutoSaveBeacon?: (jsonText: string) => void;
+  sendWindowUnloadedBeacon?: (jsonText: string) => void;
 }
 
 export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
@@ -194,6 +195,24 @@ export function createHttpDesktopBridge(baseUrl = ''): BowlingDesktopBridge {
           const smallRef = new Blob(['{"useStaged":true}'], { type: 'application/json' });
           navigator.sendBeacon(api('/api/desktop/autosave-beacon'), smallRef);
         }
+      }
+    },
+    sendWindowUnloadedBeacon: (jsonText) => {
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const blob = new Blob([jsonText], { type: 'application/json' });
+        const queued = navigator.sendBeacon(api('/api/desktop/window-unloaded'), blob);
+        if (!queued) {
+          const smallRef = new Blob(['{"useStaged":true}'], { type: 'application/json' });
+          navigator.sendBeacon(api('/api/desktop/window-unloaded'), smallRef);
+        }
+      } else if (typeof fetch === 'function') {
+        fetch(api('/api/desktop/window-unloaded'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: jsonText,
+          keepalive: true,
+          cache: 'no-store',
+        }).catch(() => {});
       }
     },
   };

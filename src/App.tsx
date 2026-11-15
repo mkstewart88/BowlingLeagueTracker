@@ -222,31 +222,26 @@ export default function App() {
       }
     });
 
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+    const notifyDesktopWindowUnloading = () => {
       if (closeHandledCleanlyRef.current) return;
-      if (!desktopLastSaveExistsRef.current) {
-        e.preventDefault();
-        e.returnValue = '';
-        openMissingSavePrompt(desktopLastSavePathRef.current);
-      }
-    };
-
-    const onPageHide = () => {
-      if (closeHandledCleanlyRef.current) return;
+      const payload = serializeMasterSavePayload(appStateRef.current);
       if (desktopLastSaveExistsRef.current && typeof bridge.sendAutoSaveBeacon === 'function') {
-        bridge.sendAutoSaveBeacon(serializeMasterSavePayload(appStateRef.current));
+        bridge.sendAutoSaveBeacon(payload);
+      }
+      if (typeof bridge.sendWindowUnloadedBeacon === 'function') {
+        bridge.sendWindowUnloadedBeacon(payload);
       }
     };
 
-    window.addEventListener('beforeunload', onBeforeUnload);
-    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pagehide', notifyDesktopWindowUnloading);
+    window.addEventListener('unload', notifyDesktopWindowUnloading);
 
     return () => {
       clearInterval(statusPoll);
       window.removeEventListener('focus', refreshDesktopSaveStatus);
       unsubscribe();
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pagehide', notifyDesktopWindowUnloading);
+      window.removeEventListener('unload', notifyDesktopWindowUnloading);
     };
   }, []);
 
@@ -262,7 +257,7 @@ export default function App() {
       if (bridge?.stageSavePayload) {
         const stageTimer = setTimeout(() => {
           bridge.stageSavePayload?.(serializeMasterSavePayload(synced)).catch(() => {});
-        }, 600);
+        }, 150);
         return () => clearTimeout(stageTimer);
       }
     } catch (e) {
