@@ -11,6 +11,7 @@ import {
   exportMasterRosterCsv,
   exportWeeklyResultsCsv,
   getConnectedAutoBackupHandleName,
+  overwriteOrDownloadSingleHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import {
@@ -402,6 +403,27 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await overwriteOrDownloadSingleHtmlFile(
+                    appState,
+                    appState.version
+                  );
+                  onShowToast(
+                    `Downloaded ${res.filename}! Put this single file on your Desktop and double-click to run.`
+                  );
+                } catch {
+                  // Cancelled
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              title="Download the entire program + all league data as a single double-clickable .html file for your Desktop or USB drive."
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download Desktop App (.html)
+            </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}

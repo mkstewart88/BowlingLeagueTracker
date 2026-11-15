@@ -213,6 +213,65 @@ export function generateStandaloneSingleHtmlBundle(
 </html>`;
 }
 
+/**
+ * Builds the 100% interactive, full 5-tab Single-File HTML desktop application (`Bowling_League_Helper_v1.0.06.html`)
+ * by injecting the user's complete multi-league `AppState` into the compiled `vite-plugin-singlefile` bundle!
+ * When double-clicked on any Windows/Mac desktop, it opens the complete interactive program offline with zero setup.
+ */
+export async function buildInteractiveSingleHtmlFile(
+  state: AppState,
+  targetVersion: string
+): Promise<string> {
+  const updatedState: AppState = {
+    ...state,
+    version: targetVersion,
+  };
+  const serializedState = JSON.stringify(updatedState).replace(/<\/script>/gi, '<\\/script>');
+
+  const bootstrapBlock = `<script id="embedded-league-state" type="application/json">${serializedState}</script>
+<script id="embedded-league-bootstrap">
+(function() {
+  try {
+    var raw = document.getElementById('embedded-league-state').textContent;
+    var parsed = JSON.parse(raw);
+    var existingRaw = localStorage.getItem('bowling_league_helper_state_v5');
+    if (!existingRaw) {
+      localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(parsed));
+      localStorage.setItem('bowling_league_helper_state_v4', JSON.stringify(parsed));
+      localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(parsed));
+    } else {
+      var existing = JSON.parse(existingRaw);
+      if (parsed.version && parsed.version !== existing.version) {
+        existing.version = parsed.version;
+        localStorage.setItem('bowling_league_helper_state_v5', JSON.stringify(existing));
+      }
+    }
+  } catch (e) {
+    console.warn('Embedded state bootstrap warning:', e);
+  }
+})();
+</script>`;
+
+  try {
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      const resp = await fetch('/standalone_template.html', { cache: 'no-store' });
+      if (resp.ok) {
+        const templateHtml = await resp.text();
+        if (templateHtml.includes('<div id="root">') && templateHtml.includes('<script')) {
+          const cleaned = templateHtml
+            .replace(/<script[^>]*id=["']embedded-league-state["'][^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<script[^>]*id=["']embedded-league-bootstrap["'][^>]*>[\s\S]*?<\/script>/gi, '');
+          return cleaned.replace('</head>', `${bootstrapBlock}\n</head>`);
+        }
+      }
+    }
+  } catch {
+    // Fall through to offline/fallback bundle
+  }
+
+  return generateStandaloneSingleHtmlBundle(state, targetVersion);
+}
+
 // Persistent session handle for optional user-selected Auto-Backup location
 interface WritableFileHandle {
   name: string;
@@ -248,7 +307,7 @@ export async function chooseAutoBackupLocation(
 
   const content =
     format === 'html'
-      ? generateStandaloneSingleHtmlBundle(state, state.version || '1.0.06')
+      ? await buildInteractiveSingleHtmlFile(state, state.version || '1.0.06')
       : JSON.stringify(
           {
             app: 'Bowling League Helper',
@@ -328,7 +387,7 @@ export async function executeAutoBackupWrite(
 
   const content =
     format === 'html'
-      ? generateStandaloneSingleHtmlBundle(state, state.version || '1.0.06')
+      ? await buildInteractiveSingleHtmlFile(state, state.version || '1.0.06')
       : JSON.stringify(
           {
             app: 'Bowling League Helper',
@@ -380,8 +439,8 @@ export async function overwriteOrDownloadSingleHtmlFile(
   state: AppState,
   targetVersion: string
 ): Promise<{ method: 'filesystem' | 'download'; filename: string }> {
-  const htmlContent = generateStandaloneSingleHtmlBundle(state, targetVersion);
-  const defaultFilename = `Bowling_League_Tracker_v${targetVersion}.html`;
+  const htmlContent = await buildInteractiveSingleHtmlFile(state, targetVersion);
+  const defaultFilename = `Bowling_League_Helper_v${targetVersion}.html`;
 
   const win = window as unknown as {
     showSaveFilePicker?: (options: unknown) => Promise<WritableFileHandle>;

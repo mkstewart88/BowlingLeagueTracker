@@ -63,8 +63,13 @@ export default function App() {
   const [appState, setAppState] = useState<AppState>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const embeddedScript =
+        typeof document !== 'undefined'
+          ? document.getElementById('embedded-league-state')?.textContent
+          : null;
+      const rawSource = saved || embeddedScript;
+      if (rawSource) {
+        const parsed = JSON.parse(rawSource);
         if (parsed && Array.isArray(parsed.bowlers) && Array.isArray(parsed.roster)) {
           return syncActiveLeagueInRegistry({
             version: parsed.version || CURRENT_APP_VERSION,
