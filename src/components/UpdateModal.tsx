@@ -10,6 +10,7 @@ import {
 } from '../utils/githubUpdater';
 import {
   getCurrentOpenedHtmlFilename,
+  hasRememberedProgramHandle,
   overwriteOrDownloadSingleHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
@@ -54,10 +55,24 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const [checkCompleted, setCheckCompleted] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateErrorHint, setUpdateErrorHint] = useState<string | null>(null);
+  const [hasLinkedFile, setHasLinkedFile] = useState(false);
 
   useEffect(() => {
     setSelectedPatchVersion(effectiveLatestVersion);
   }, [effectiveLatestVersion]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    hasRememberedProgramHandle()
+      .then((linked) => {
+        if (active) setHasLinkedFile(linked);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -143,8 +158,9 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       );
 
       if (res.method === 'filesystem') {
+        setHasLinkedFile(true);
         onShowToast(
-          `Overwrote ${res.filename} with v${effectiveLatestVersion}! Restarting app...`
+          `Updated ${res.filename} with v${effectiveLatestVersion}! Restarting...`
         );
         setTimeout(() => {
           window.location.reload();
@@ -152,7 +168,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       } else {
         onShowToast(
           hasNewUpdate
-            ? `Downloaded ${res.filename} (v${effectiveLatestVersion}). Replace your old file with this download and open it to restart in v${effectiveLatestVersion}.`
+            ? `Downloaded ${res.filename} (v${effectiveLatestVersion}). Replace your existing file with this copy and open it to launch in v${effectiveLatestVersion}.`
             : `Saved ${res.filename} (v${effectiveLatestVersion}) with all league data intact!`
         );
       }
@@ -279,13 +295,15 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             <div>
               <h3 className="text-sm font-bold text-slate-900">
                 {hasNewUpdate
-                  ? `Update from v${currentVersion} to v${effectiveLatestVersion} (Overwrite & Restart)`
+                  ? `Update Available: v${currentVersion} → v${effectiveLatestVersion}`
                   : `You Are Running the Latest Version (v${effectiveLatestVersion})`}
               </h3>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 {hasNewUpdate
-                  ? `Select "${openedFilename}" to overwrite the HTML file you opened with v${effectiveLatestVersion} (keeping 100% of your saved leagues, scores, teams, and history) and automatically restart.`
-                  : `Your program is up to date. You can overwrite or save "${openedFilename}" with all current league data embedded inside.`}
+                  ? hasLinkedFile
+                    ? `Overwrites "${openedFilename}" in place at its remembered folder (keeping 100% of your saved leagues, scores, teams, and history) and restarts right back into the same file.`
+                    : `Updates "${openedFilename}" with 100% of your saved leagues, scores, teams, and history preserved and restarts. Select your "${openedFilename}" file once and the app remembers that location automatically for future updates.`
+                  : `Your program is up to date. You can save "${openedFilename}" with all current league data embedded inside.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -296,11 +314,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
               >
                 <FileCode2 className="w-4 h-4" />
-                {isUpdating
-                  ? `Overwriting ${openedFilename}...`
-                  : hasNewUpdate
-                  ? `Update, Overwrite "${openedFilename}" & Restart (v${effectiveLatestVersion})`
-                  : `Overwrite / Save "${openedFilename}" (v${effectiveLatestVersion})`}
+                {hasNewUpdate
+                  ? isUpdating
+                    ? 'Updating & Restarting...'
+                    : 'Update and Restart'
+                  : isUpdating
+                  ? `Saving "${openedFilename}"...`
+                  : `Save "${openedFilename}"`}
               </button>
             </div>
           </div>
@@ -308,9 +328,9 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
           {/* Selectable Patch Notes Viewer */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-slate-100 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-slate-700" />
-                <label htmlFor="patch-version-select" className="text-xs font-bold text-slate-800">
+              <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                <History className="w-4 h-4 text-slate-700 shrink-0" />
+                <label htmlFor="patch-version-select" className="text-xs font-bold text-slate-800 whitespace-nowrap">
                   Select Version Patch Notes:
                 </label>
               </div>
@@ -318,7 +338,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 id="patch-version-select"
                 value={selectedPatchVersion}
                 onChange={(e) => setSelectedPatchVersion(e.target.value)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-md"
+                className="min-w-0 w-full sm:w-auto sm:max-w-md px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-md truncate"
               >
                 {allPatches.map((rel) => (
                   <option key={rel.version} value={rel.version}>

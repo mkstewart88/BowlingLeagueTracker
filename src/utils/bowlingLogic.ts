@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.11';
-export const LATEST_AVAILABLE_VERSION = '1.0.11';
+export const CURRENT_APP_VERSION = '1.0.12';
+export const LATEST_AVAILABLE_VERSION = '1.0.12';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'thursday-night-rollers',
@@ -67,10 +67,38 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.12',
+    date: 'November 14, 2026',
+    title: 'Clean "Update and Restart" Button, Version-Free Filename & Remembered File Location',
+    isLatest: true,
+    highlights: [
+      'Clean "Update and Restart" Button: Simplified the update action button to read simply "Update and Restart" with zero version clutter.',
+      'Consistent "Bowling League Helper.html" Filename: Removed version numbers from the saved desktop file name so restarting launches the exact same file name cleanly.',
+      'Remembered Save Location Across Restarts: Persists your granted file handle in browser IndexedDB so once linked, future updates overwrite "Bowling League Helper.html" in place without prompting for a folder again.',
+    ],
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Changed the primary updater action label to "Update and Restart" and removed version tags from default saved .html filenames.',
+      },
+      {
+        category: 'Data & Backup',
+        description:
+          'Added persistent IndexedDB FileSystemFileHandle storage with readwrite permission reuse so subsequent updates overwrite your existing "Bowling League Helper.html" directly at its launch location.',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Normalized default single-file program downloads and saves to "Bowling League Helper.html" across the updater and backup hub.',
+      },
+    ],
+  },
+  {
     version: '1.0.11',
     date: 'November 14, 2026',
     title: 'Direct Overwrite & Auto-Restart Updater + GitHub Diagnostics',
-    isLatest: true,
+    isLatest: false,
     highlights: [
       'Direct HTML File Overwrite & Automatic Restart: Removed the confusing in-memory "Update Live App" button. Updating now downloads the new build, preserves 100% of your league data, overwrites your opened HTML file, and restarts directly into the new version.',
       'Pre-Filled Active Filename: Automatically detects the exact .html filename you opened so saving overwrites your existing desktop file cleanly instead of creating duplicate copies.',

@@ -303,6 +303,8 @@ export async function buildInteractiveSingleHtmlFile(
 // Persistent session handle for optional user-selected Auto-Backup location
 interface WritableFileHandle {
   name: string;
+  queryPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<'granted' | 'denied' | 'prompt'>;
+  requestPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<'granted' | 'denied' | 'prompt'>;
   createWritable: () => Promise<{
     write: (data: string) => Promise<void>;
     close: () => Promise<void>;
@@ -457,36 +459,172 @@ export async function executeAutoBackupWrite(
   return { wrote: false, targetName: '', method: 'skipped' };
 }
 
+export const DEFAULT_PROGRAM_HTML_FILENAME = 'Bowling League Helper.html';
+
+const HANDLE_DB_NAME = 'BowlingLeagueHelperFS';
+const HANDLE_STORE_NAME = 'handles';
+const PROGRAM_HANDLE_KEY = 'programHtmlFile';
+
+function openHandleDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(null);
+      }
+    }, 1200);
+    try {
+      const req = indexedDB.open(HANDLE_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        try {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(HANDLE_STORE_NAME)) {
+            db.createObjectStore(HANDLE_STORE_NAME);
+          }
+        } catch {
+          // Ignore upgrade errors
+        }
+      };
+      req.onsuccess = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(req.result);
+        }
+      };
+      req.onerror = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      };
+    } catch {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
+    }
+  });
+}
+
+async function loadRememberedProgramHandle(): Promise<WritableFileHandle | null> {
+  const db = await openHandleDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(HANDLE_STORE_NAME, 'readonly');
+      const store = tx.objectStore(HANDLE_STORE_NAME);
+      const req = store.get(PROGRAM_HANDLE_KEY);
+      req.onsuccess = () => resolve((req.result as WritableFileHandle) || null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function saveRememberedProgramHandle(handle: WritableFileHandle): Promise<void> {
+  const db = await openHandleDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(HANDLE_STORE_NAME);
+      const req = store.put(handle, PROGRAM_HANDLE_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function clearRememberedProgramHandle(): Promise<void> {
+  const db = await openHandleDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(HANDLE_STORE_NAME);
+      const req = store.delete(PROGRAM_HANDLE_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function ensureReadWritePermission(handle: WritableFileHandle): Promise<boolean> {
+  try {
+    if (typeof handle.queryPermission === 'function') {
+      const current = await handle.queryPermission({ mode: 'readwrite' });
+      if (current === 'granted') return true;
+      if (current === 'prompt' && typeof handle.requestPermission === 'function') {
+        const requested = await handle.requestPermission({ mode: 'readwrite' });
+        return requested === 'granted';
+      }
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 let activeOpenedHtmlHandle: WritableFileHandle | null = null;
 
+export async function hasRememberedProgramHandle(): Promise<boolean> {
+  if (activeOpenedHtmlHandle) return true;
+  const saved = await loadRememberedProgramHandle();
+  return saved !== null;
+}
+
 /**
- * Extracts the exact `.html` filename currently open in the browser (when launched from disk via `file://`),
- * falling back to `Bowling_League_Helper_Latest.html`.
+ * Extracts the exact `.html` filename currently open in the browser when launched from disk (`file://`),
+ * falling back to `Bowling League Helper.html` (with no version numbers in the filename).
  */
-export function getCurrentOpenedHtmlFilename(): string {
-  if (typeof window !== 'undefined' && window.location) {
+export function getCurrentOpenedHtmlFilename(rawPathnameOverride?: string): string {
+  if (typeof rawPathnameOverride === 'string') {
+    try {
+      const lastSeg = decodeURIComponent(rawPathnameOverride.split('/').pop() || '').trim();
+      if (/\.html?$/i.test(lastSeg) && lastSeg.toLowerCase() !== 'index.html') {
+        return lastSeg;
+      }
+    } catch {
+      // Ignore malformed URI components
+    }
+    return DEFAULT_PROGRAM_HTML_FILENAME;
+  }
+
+  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
     try {
       const rawPath = window.location.pathname || '';
       const lastSeg = decodeURIComponent(rawPath.split('/').pop() || '').trim();
-      if (/\.html?$/i.test(lastSeg)) {
+      if (/\.html?$/i.test(lastSeg) && lastSeg.toLowerCase() !== 'index.html') {
         return lastSeg;
       }
     } catch {
       // Ignore malformed URI components
     }
   }
-  return 'Bowling_League_Helper_Latest.html';
+  return DEFAULT_PROGRAM_HTML_FILENAME;
 }
 
 /**
- * Overwrites the `.html` file that was used to open the app via the File System Access API
- * (`window.showSaveFilePicker`) if supported by Chrome/Edge, or falls back to downloading with the same filename.
+ * Overwrites the remembered `.html` file handle in-place (persisted in IndexedDB across restarts)
+ * or opens the File System Access API picker once to link the file location, falling back to a browser
+ * download named `Bowling League Helper.html` if direct disk access is unavailable.
  */
 export async function overwriteOrDownloadSingleHtmlFile(
   state: AppState,
   targetVersion: string,
   remoteHtmlTemplate?: string | null
-): Promise<{ method: 'filesystem' | 'download'; filename: string }> {
+): Promise<{ method: 'filesystem' | 'download'; filename: string; reusedSavedHandle?: boolean }> {
   const htmlContent = await buildInteractiveSingleHtmlFile(
     state,
     targetVersion,
@@ -494,18 +632,29 @@ export async function overwriteOrDownloadSingleHtmlFile(
   );
   const openedFilename = getCurrentOpenedHtmlFilename();
 
-  // If we already have a writable handle to the HTML file from earlier in this session, overwrite it directly
-  if (activeOpenedHtmlHandle) {
+  // 1. Try active session handle or previously linked IndexedDB handle so no save picker is needed
+  const candidateHandle = activeOpenedHtmlHandle || (await loadRememberedProgramHandle());
+  if (candidateHandle) {
     try {
-      const writable = await activeOpenedHtmlHandle.createWritable();
-      await writable.write(htmlContent);
-      await writable.close();
-      return { method: 'filesystem', filename: activeOpenedHtmlHandle.name || openedFilename };
+      const allowed = await ensureReadWritePermission(candidateHandle);
+      if (allowed) {
+        const writable = await candidateHandle.createWritable();
+        await writable.write(htmlContent);
+        await writable.close();
+        activeOpenedHtmlHandle = candidateHandle;
+        return {
+          method: 'filesystem',
+          filename: candidateHandle.name || openedFilename,
+          reusedSavedHandle: true,
+        };
+      }
     } catch {
       activeOpenedHtmlHandle = null;
+      await clearRememberedProgramHandle();
     }
   }
 
+  // 2. Ask once for the file location and remember it in IndexedDB for all future updates
   const win = window as unknown as {
     showSaveFilePicker?: (options: unknown) => Promise<WritableFileHandle>;
   };
@@ -523,10 +672,15 @@ export async function overwriteOrDownloadSingleHtmlFile(
         ],
       });
       activeOpenedHtmlHandle = handle;
+      await saveRememberedProgramHandle(handle);
       const writable = await handle.createWritable();
       await writable.write(htmlContent);
       await writable.close();
-      return { method: 'filesystem', filename: handle.name || openedFilename };
+      return {
+        method: 'filesystem',
+        filename: handle.name || openedFilename,
+        reusedSavedHandle: false,
+      };
     } catch (err: unknown) {
       const errorName = (err as { name?: string })?.name;
       if (errorName === 'AbortError') {
@@ -536,7 +690,7 @@ export async function overwriteOrDownloadSingleHtmlFile(
   }
 
   downloadBlob(new Blob([htmlContent], { type: 'text/html;charset=utf-8;' }), openedFilename);
-  return { method: 'download', filename: openedFilename };
+  return { method: 'download', filename: openedFilename, reusedSavedHandle: false };
 }
 
 /**
