@@ -9,10 +9,12 @@ import {
   mergePatchNotesHistory,
 } from '../utils/githubUpdater';
 import {
+  buildInteractiveSingleHtmlFile,
   saveLeagueFileToComputer,
 } from '../utils/fileExport';
 import { saveUpdatedRuntimeBundle } from '../utils/runtimeUpdater';
 import { getDesktopBridge, serializeMasterSavePayload } from '../utils/desktopBridge';
+import { saveStateToCookieVault } from '../utils/cookieVault';
 import {
   Download,
   HardDrive,
@@ -160,10 +162,16 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       }
 
       // 1. Desktop App Mode (`C:\BowlingLeagueHelper\`): overwrite real files in install folder & relaunch
+      saveStateToCookieVault(appState, false);
       const desktopBridge = getDesktopBridge();
       if (desktopBridge) {
         (window as unknown as { __BOWLING_SUPPRESS_UNLOAD__?: boolean }).__BOWLING_SUPPRESS_UNLOAD__ = true;
         await desktopBridge.quickSaveToCurrentFile?.(serializeMasterSavePayload(appState)).catch(() => {});
+        const htmlWithEmbeddedState = await buildInteractiveSingleHtmlFile(
+          appState,
+          effectiveLatestVersion,
+          remoteHtml
+        );
         const versionJsonText = JSON.stringify(
           {
             ...remoteManifest,
@@ -174,7 +182,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         );
         const installRes = await desktopBridge.installUpdateToProgramFolder({
           targetVersion: effectiveLatestVersion,
-          htmlContent: remoteHtml,
+          htmlContent: htmlWithEmbeddedState || remoteHtml,
           versionJsonContent: versionJsonText,
         });
         if (installRes.ok) {

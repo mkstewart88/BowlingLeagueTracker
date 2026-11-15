@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), syn
 
 ---
 
+## [1.0.21] - 2026-11-15
+
+### Added
+- **Cross-Port `127.0.0.1` Cookie Vault (`cookieVault.ts`) & Local Disk Auto-Save Cache (`autosave-state.json`):** Persists league state across all localhost ports via chunked RFC 6265 host cookies (`blh_v_0..14`) and `%LOCALAPPDATA%\BowlingLeagueHelper\autosave-state.json` so reopening the program always restores 100% of saved leagues, bowlers, rosters, and scores—even when running an older `BowlingLeagueHelper.exe` that binds to a different random port on each launch.
+- **Top-Bar `Open` & `Exit` Buttons:** Added 1-click **Open** (load any `.json` or `.html` save file directly from the top navigation bar) and **Exit** (safely prompt to save unsaved changes before closing) buttons right beside **Save** and **Update**.
+- **Weekly High Scores & Achievements Table on Printed Standing Sheet:** Added High Scratch Game, High Scratch Series, High Handicap Game, and High Handicap Series summary table to `PrintStandingSheet.tsx`.
+
+### Changed
+- **Print-Ready Active Table in Quick Score Entry (`Step 2C`) & Standing Sheet (`src/index.css`):** Converted `Step 2C: Currently Entered Week Scores` into a structured `<table class="quick-entry-active-table">` and added `@media print` rules in `src/index.css` so active tables in Quick Score Entry and the Standing Sheet print cleanly with crisp borders, repeating table headers, unclipped scroll containers, and hidden action buttons.
+- **Embedded State Preservation on `Update and Restart`:** Updating now embeds the current league state directly into `<script id="embedded-league-state">` inside `BowlingLeagueHelper.html` before reloading.
+
+### Fixed
+- **Guaranteed Save Prompt on Closing (`Manual Only — Prompt on Close` & `On Closing Program`):** Removed the `!getDesktopBridge()` guard in `window.onbeforeunload` that previously suppressed close prompts inside the Edge `--app` window, and updated close handlers so closing with unsaved changes always prompts to save in both `"Manual Only — Prompt on Close"` and `"On Closing Program"` modes. Also automatically syncs changes to the linked save file when `"On Closing Program"` is active.
+- **Fixed Initial Empty State Shadowing Saved Data on Startup:** Replaced `saved || embeddedScript` startup evaluation with `resolveBestInitialState()`, which compares `#embedded-league-state`, the cross-port Cookie Vault, and `localStorage` and always prioritizes populated user data over an empty initial state.
+
+---
+
 ## [1.0.20] - 2026-11-15
 
 ### Added

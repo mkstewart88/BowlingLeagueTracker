@@ -342,8 +342,17 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
 
           <button
             type="button"
+            onClick={() => window.print()}
+            className="no-print inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Print Sheet
+          </button>
+
+          <button
+            type="button"
             onClick={handleExportRecapCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+            className="no-print inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Export Recap CSV
@@ -379,8 +388,8 @@ export const TeamRecapSheet: React.FC<TeamRecapSheetProps> = ({
         </div>
 
         {/* Team Recap Spreadsheet Grid */}
-        <div className="overflow-x-auto border-2 border-slate-300 rounded-lg">
-        <table className="w-full text-left border-collapse text-xs font-mono tabular-nums">
+        <div className="quick-entry-table-scroll overflow-x-auto border-2 border-slate-300 rounded-lg">
+        <table className="quick-entry-active-table w-full text-left border-collapse text-xs font-mono tabular-nums">
           <thead>
             <tr className="bg-blue-800 text-white font-sans">
               <th className="py-2 px-2.5 border-r border-blue-700 text-center w-10">#</th>

@@ -11,17 +11,136 @@
   }
 }
 
+/* ============================================================================
+ * Screen & Print Styles for Active Tables in Quick Score Entry & Standing Sheet
+ * ============================================================================ */
+.quick-entry-active-table,
+.standing-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-entry-active-table th,
+.quick-entry-active-table td,
+.standing-sheet-table th,
+.standing-sheet-table td {
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.65rem;
+  vertical-align: middle;
+}
+
+.quick-entry-active-table thead th,
+.standing-sheet-table thead th {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.quick-entry-active-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.quick-entry-active-table tbody tr:hover {
+  background-color: #eff6ff;
+}
+
 @media print {
   @page {
     size: landscape;
-    margin: 0.4in;
+    margin: 0.35in;
   }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  html,
   body {
     background: #ffffff !important;
     color: #0f172a !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Ensure scroll containers expand cleanly when printing active tables or standing sheets */
+  .quick-entry-table-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .max-h-80 {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Clean, high-contrast borders and repeating headers for Standing Sheet & Quick Entry Active Tables */
+  #print-standing-sheet table,
+  .standing-sheet-table,
+  .quick-entry-active-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid #1e293b !important;
+    font-variant-numeric: tabular-nums !important;
+    page-break-inside: auto;
+  }
+
+  #print-standing-sheet thead,
+  .standing-sheet-table thead,
+  .quick-entry-active-table thead {
+    display: table-header-group;
+  }
+
+  #print-standing-sheet tfoot,
+  .standing-sheet-table tfoot,
+  .quick-entry-active-table tfoot {
+    display: table-footer-group;
+  }
+
+  #print-standing-sheet tr,
+  .standing-sheet-table tr,
+  .quick-entry-active-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #print-standing-sheet th,
+  #print-standing-sheet td,
+  .standing-sheet-table th,
+  .standing-sheet-table td,
+  .quick-entry-active-table th,
+  .quick-entry-active-table td {
+    border: 1px solid #334155 !important;
+    padding: 4px 6px !important;
+    color: #0f172a !important;
+  }
+
+  #print-standing-sheet thead tr.bg-slate-800 th,
+  .quick-entry-active-table thead tr.bg-blue-800 th,
+  .quick-entry-active-table thead tr.bg-slate-800 th {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+  }
+
+  #print-standing-sheet thead tr.bg-slate-200 th,
+  .standing-sheet-table thead th,
+  .quick-entry-active-table thead tr.bg-slate-100 th {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+  }
+
+  /* Make inline inputs in Team Recap Sheet print as crisp plain numbers */
+  .quick-entry-active-table input[type="number"],
+  .quick-entry-active-table input[type="text"] {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    width: auto !important;
+    text-align: right !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    appearance: textfield !important;
+  }
+
+  .no-print {
+    display: none !important;
   }
 }

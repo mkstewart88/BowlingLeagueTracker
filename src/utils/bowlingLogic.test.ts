@@ -32,11 +32,17 @@ import {
   parseGithubRepoSpec,
   mergePatchNotesHistory,
 } from './githubUpdater';
+import {
+  saveStateToCookieVault,
+  loadStateFromCookieVault,
+  clearCookieVault,
+  hasMeaningfulLeagueData,
+} from './cookieVault';
 import { BowlerEntry, RosterPlayer, WeeklyDuesRecord } from '../types/bowling';
 
-test('version is set to 1.0.20 as the latest release', () => {
-  assert.equal(CURRENT_APP_VERSION, '1.0.20');
-  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.20');
+test('version is set to 1.0.21 as the latest release', () => {
+  assert.equal(CURRENT_APP_VERSION, '1.0.21');
+  assert.equal(LATEST_AVAILABLE_VERSION, '1.0.21');
 });
 
 test('createFreshInitialState returns a clean empty Week 1 league with zero sample data', () => {
@@ -572,3 +578,113 @@ test('createHttpDesktopBridge gracefully handles 404 on older desktop hosts with
     globalThis.fetch = origFetch;
   }
 });
+
+test('hasMeaningfulLeagueData distinguishes empty initial state from populated user league data', () => {
+  const empty = createFreshInitialState();
+  assert.equal(hasMeaningfulLeagueData(empty), false);
+
+  const withBowler = createFreshInitialState();
+  withBowler.bowlers.push({
+    id: 'b-1',
+    name: 'Alex Strike',
+    team: 'Pin Kings',
+    entryMode: 'three',
+    scoringType: 'handicap',
+    g1: 205,
+    g2: 215,
+    g3: 225,
+    scratchScore: 645,
+    handicap: 45,
+    grandTotal: 690,
+    isAbsent: false,
+    isSub: false,
+    createdAt: new Date().toISOString(),
+  });
+  assert.equal(hasMeaningfulLeagueData(withBowler), true);
+
+  const withCustomName = createFreshInitialState();
+  withCustomName.settings.leagueName = 'Wednesday Night Classics';
+  assert.equal(hasMeaningfulLeagueData(withCustomName), true);
+});
+
+test('saveStateToCookieVault and loadStateFromCookieVault round-trip full league state across ports', () => {
+  const cookieMap = new Map<string, string>();
+  const origDocument = (globalThis as { document?: unknown }).document;
+
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      get cookie() {
+        return Array.from(cookieMap.entries())
+          .map(([k, v]) => `${k}=${v}`)
+          .join('; ');
+      },
+      set cookie(raw: string) {
+        const [pair, ...attrs] = raw.split(';').map((s) => s.trim());
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx < 0) return;
+        const key = pair.slice(0, eqIdx);
+        const val = pair.slice(eqIdx + 1);
+        const isExpired = attrs.some((a) => a.toLowerCase().startsWith('max-age=0'));
+        if (isExpired || val === '') {
+          cookieMap.delete(key);
+        } else {
+          cookieMap.set(key, val);
+        }
+      },
+    },
+  });
+
+  try {
+    const state = createFreshInitialState();
+    state.settings.leagueName = 'Thursday Night Stars';
+    state.weekNotes = 'Lane 3-4 oiler maintenance complete';
+    state.roster.push({
+      id: 'r-101',
+      name: 'Sammy Roller',
+      team: 'Split Happens',
+      bookAverage: 188,
+    });
+    state.bowlers.push({
+      id: 'b-101',
+      name: 'Sammy Roller',
+      team: 'Split Happens',
+      entryMode: 'three',
+      scoringType: 'handicap',
+      g1: 190,
+      g2: 210,
+      g3: 200,
+      scratchScore: 600,
+      handicap: 87,
+      grandTotal: 687,
+      isAbsent: false,
+      isSub: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    const savedOk = saveStateToCookieVault(state, true);
+    assert.equal(savedOk, true);
+
+    const loaded = loadStateFromCookieVault();
+    assert.ok(loaded);
+    assert.equal(loaded.dirty, true);
+    assert.equal(loaded.state.settings.leagueName, 'Thursday Night Stars');
+    assert.equal(loaded.state.weekNotes, 'Lane 3-4 oiler maintenance complete');
+    assert.equal(loaded.state.roster.length, 1);
+    assert.equal(loaded.state.bowlers.length, 1);
+    assert.equal(loaded.state.bowlers[0].grandTotal, 687);
+
+    clearCookieVault();
+    assert.equal(loadStateFromCookieVault(), null);
+  } finally {
+    if (origDocument === undefined) {
+      delete (globalThis as { document?: unknown }).document;
+    } else {
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: origDocument,
+      });
+    }
+  }
+});
+

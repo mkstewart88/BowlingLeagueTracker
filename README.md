@@ -6,7 +6,7 @@
   </p>
   <p>
     <a href="CHANGELOG.md">
-      <img src="https://img.shields.io/badge/version-v1.0.20-1d4ed8?style=for-the-badge" alt="Version v1.0.20" />
+      <img src="https://img.shields.io/badge/version-v1.0.21-1d4ed8?style=for-the-badge" alt="Version v1.0.21" />
     </a>
     <img src="https://img.shields.io/badge/platform-Windows%2011%20%7C%20Linux-0f172a?style=for-the-badge" alt="Supported Platforms: Windows 11 and Linux" />
     <img src="https://img.shields.io/badge/offline--first-Zero%20Server%20Required-047857?style=for-the-badge" alt="Offline First" />

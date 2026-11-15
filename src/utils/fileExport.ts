@@ -11,6 +11,21 @@ import {
   getDesktopBridge,
   serializeMasterSavePayload,
 } from './desktopBridge';
+import { saveStateToCookieVault } from './cookieVault';
+
+function persistSavedStateMirrors(state: AppState): void {
+  try {
+    saveStateToCookieVault(state, false);
+    if (typeof localStorage !== 'undefined') {
+      const raw = JSON.stringify(state);
+      localStorage.setItem('bowling_league_helper_state_v5', raw);
+      localStorage.setItem('bowling_league_helper_state_v4', raw);
+      localStorage.setItem('tnr_bowling_tracker_v3', raw);
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+}
 
 function csvCell(value: unknown): string {
   const s = String(value ?? '');
@@ -360,6 +375,20 @@ export async function chooseAutoBackupLocation(
           2
         );
 
+  // If running in the native desktop app and saving JSON, use the native desktop file dialog so bowling-desktop-config.json is linked!
+  const bridge = getDesktopBridge();
+  if (bridge && format === 'json') {
+    const res = await bridge.saveNewLeagueFile(content, suggestedName);
+    if (res.canceled) {
+      throw new Error('Cancelled folder/file selection.');
+    }
+    if (!res.saved || !res.filePath) {
+      throw new Error(res.error || 'Could not save backup file.');
+    }
+    persistSavedStateMirrors(state);
+    return { connected: true, locationName: res.filePath };
+  }
+
   const win = window as unknown as {
     showSaveFilePicker?: (options: unknown) => Promise<WritableFileHandle>;
   };
@@ -390,6 +419,7 @@ export async function chooseAutoBackupLocation(
       const writable = await handle.createWritable();
       await writable.write(content);
       await writable.close();
+      persistSavedStateMirrors(state);
       return { connected: true, locationName: handle.name || suggestedName };
     } catch (err: unknown) {
       const errorName = (err as { name?: string })?.name;
@@ -399,6 +429,7 @@ export async function chooseAutoBackupLocation(
     }
   }
 
+  persistSavedStateMirrors(state);
   downloadBlob(
     new Blob([content], {
       type: format === 'html' ? 'text/html;charset=utf-8;' : 'application/json',
@@ -410,7 +441,7 @@ export async function chooseAutoBackupLocation(
 
 /**
  * Executes an automatic or manual backup using the user's configured format (.json or .html).
- * If a FileSystem handle was chosen by the user, it silently writes directly to that file on disk!
+ * If a native desktop save file or FileSystem handle was chosen by the user, it writes directly to that file on disk!
  */
 export async function executeAutoBackupWrite(
   state: AppState,
@@ -436,6 +467,24 @@ export async function executeAutoBackupWrite(
           null,
           2
         );
+
+  persistSavedStateMirrors(state);
+
+  const bridge = getDesktopBridge();
+  if (bridge && format === 'json' && typeof bridge.quickSaveToCurrentFile === 'function') {
+    try {
+      const res = await bridge.quickSaveToCurrentFile(content);
+      if (res.saved && res.filePath) {
+        return {
+          wrote: true,
+          targetName: res.filePath,
+          method: 'handle',
+        };
+      }
+    } catch {
+      // Fall through
+    }
+  }
 
   if (activeAutoBackupFileHandle) {
     try {
@@ -790,6 +839,15 @@ export async function saveLeagueFileToComputer(
     if (!res.saved || !res.filePath) {
       throw new Error(res.error || 'Could not save backup file.');
     }
+    const updatedWithLabel: AppState = {
+      ...state,
+      settings: {
+        ...state.settings,
+        lastLocalBackupAt: new Date().toISOString(),
+        autoBackupDirectoryLabel: res.filePath,
+      },
+    };
+    persistSavedStateMirrors(updatedWithLabel);
     return {
       method: 'desktop',
       filename: res.filename || suggestedName,
@@ -817,6 +875,15 @@ export async function saveLeagueFileToComputer(
       const writable = await handle.createWritable();
       await writable.write(payload);
       await writable.close();
+      const updatedWithLabel: AppState = {
+        ...state,
+        settings: {
+          ...state.settings,
+          lastLocalBackupAt: new Date().toISOString(),
+          autoBackupDirectoryLabel: handle.name || suggestedName,
+        },
+      };
+      persistSavedStateMirrors(updatedWithLabel);
       return {
         method: 'filesystem',
         filename: handle.name || suggestedName,
@@ -830,6 +897,7 @@ export async function saveLeagueFileToComputer(
     }
   }
 
+  persistSavedStateMirrors(state);
   downloadBlob(new Blob([payload], { type: 'application/json' }), suggestedName);
   return { method: 'download', filename: suggestedName };
 }
@@ -850,6 +918,15 @@ export async function quickSaveLeagueFile(
     if (typeof bridge.quickSaveToCurrentFile === 'function') {
       const res = await bridge.quickSaveToCurrentFile(payload);
       if (res.saved && res.filePath) {
+        const updatedWithLabel: AppState = {
+          ...state,
+          settings: {
+            ...state.settings,
+            lastLocalBackupAt: new Date().toISOString(),
+            autoBackupDirectoryLabel: res.filePath,
+          },
+        };
+        persistSavedStateMirrors(updatedWithLabel);
         return {
           method: 'desktop',
           filename: res.filename || suggestedName,
@@ -876,6 +953,15 @@ export async function quickSaveLeagueFile(
         await writable.write(payload);
         await writable.close();
         activeAutoBackupFileHandle = candidateHandle;
+        const updatedWithLabel: AppState = {
+          ...state,
+          settings: {
+            ...state.settings,
+            lastLocalBackupAt: new Date().toISOString(),
+            autoBackupDirectoryLabel: candidateHandle.name || suggestedName,
+          },
+        };
+        persistSavedStateMirrors(updatedWithLabel);
         return {
           method: 'filesystem',
           filename: candidateHandle.name || suggestedName,
@@ -908,7 +994,18 @@ export async function verifyAndSaveBeforeClose(state: AppState): Promise<{
   const payload = serializeMasterSavePayload(state);
   const bridge = getDesktopBridge();
   if (bridge) {
-    return bridge.attemptCloseWithSave(payload);
+    const res = await bridge.attemptCloseWithSave(payload);
+    if (res.ok) {
+      persistSavedStateMirrors({
+        ...state,
+        settings: {
+          ...state.settings,
+          lastLocalBackupAt: new Date().toISOString(),
+          ...(res.savedPath ? { autoBackupDirectoryLabel: res.savedPath } : {}),
+        },
+      });
+    }
+    return res;
   }
 
   const candidateHandle = activeAutoBackupFileHandle || (await loadLastBackupHandle());
@@ -940,6 +1037,14 @@ export async function verifyAndSaveBeforeClose(state: AppState): Promise<{
     await writable.write(payload);
     await writable.close();
     activeAutoBackupFileHandle = candidateHandle;
+    persistSavedStateMirrors({
+      ...state,
+      settings: {
+        ...state.settings,
+        lastLocalBackupAt: new Date().toISOString(),
+        autoBackupDirectoryLabel: candidateHandle.name,
+      },
+    });
     return { ok: true, savedPath: candidateHandle.name };
   } catch {
     activeAutoBackupFileHandle = null;
@@ -963,7 +1068,18 @@ export async function pickNewSaveLocationAndFinishClose(state: AppState): Promis
   const defaultName = getDefaultSaveFilename();
   const bridge = getDesktopBridge();
   if (bridge) {
-    return bridge.pickNewSaveAndClose(payload, defaultName);
+    const res = await bridge.pickNewSaveAndClose(payload, defaultName);
+    if (res.closed) {
+      persistSavedStateMirrors({
+        ...state,
+        settings: {
+          ...state.settings,
+          lastLocalBackupAt: new Date().toISOString(),
+          ...(res.filePath ? { autoBackupDirectoryLabel: res.filePath } : {}),
+        },
+      });
+    }
+    return res;
   }
 
   try {

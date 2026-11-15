@@ -1058,9 +1058,17 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                   </select>
                   <button
                     type="button"
+                    onClick={() => triggerStandingSheetPrint(false)}
+                    className="no-print px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white border border-blue-800 shrink-0 transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Report</span>
+                  </button>
+                  <button
+                    type="button"
                     disabled={!canUndo}
                     onClick={onUndo}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border shrink-0 transition-colors ${
+                    className={`no-print px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border shrink-0 transition-colors ${
                       canUndo
                         ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-400 cursor-pointer'
                         : 'bg-white text-slate-400 border-slate-200 cursor-not-allowed'
@@ -1072,55 +1080,106 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                 </div>
               </div>
 
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-200 p-3 bg-white">
+              <div className="quick-entry-table-scroll max-h-80 overflow-x-auto overflow-y-auto bg-white">
                 {visibleEntered.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400">
                     No matching entries yet. Enter a bowler score in Step 1 above.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {visibleEntered.map((b) => (
-                      <div
-                        key={b.id}
-                        className="py-2 px-3 flex items-center justify-between gap-2 bg-slate-50/70 hover:bg-blue-50/50 border border-slate-200 rounded-lg"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-900 truncate">
-                            {b.team ? `[${b.team}] ` : ''}
-                            {b.name}{' '}
-                            <span className="font-mono tabular-nums text-blue-700 ml-1">
-                              {b.isAbsent ? '[Absent]' : b.grandTotal}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 font-mono tabular-nums">
-                            {b.isAbsent
-                              ? `Absent score applied (${b.grandTotal})`
-                              : b.entryMode === 'three'
-                              ? `${b.g1} / ${b.g2} / ${b.g3} (${b.scratchScore} scr + ${b.handicap} hdcp)`
-                              : `Single game: ${b.scratchScore} scr + ${b.handicap} hdcp`}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(b)}
-                            aria-label={`Edit ${b.name}`}
-                            className="px-2 py-1 text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded cursor-pointer"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDeleteBowler(b.id)}
-                            aria-label={`Delete ${b.name}`}
-                            className="px-2 py-1 text-[11px] font-semibold bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 rounded cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <table className="quick-entry-active-table w-full text-left border-collapse text-xs font-mono tabular-nums">
+                    <thead>
+                      <tr className="bg-slate-800 text-white font-sans">
+                        <th className="py-2 px-3 text-center w-10">#</th>
+                        <th className="py-2 px-3">Bowler Name</th>
+                        <th className="py-2 px-3">Team</th>
+                        {settings.entryMode === 'three' ? (
+                          <>
+                            <th className="py-2 px-3 text-right">G1</th>
+                            <th className="py-2 px-3 text-right">G2</th>
+                            <th className="py-2 px-3 text-right">G3</th>
+                            <th className="py-2 px-3 text-right">Scratch</th>
+                          </>
+                        ) : (
+                          <th className="py-2 px-3 text-right">Scratch</th>
+                        )}
+                        <th className="py-2 px-3 text-right">Hdcp</th>
+                        <th className="py-2 px-3 text-right">Grand Total</th>
+                        <th className="py-2 px-3 text-center">Status</th>
+                        <th className="no-print py-2 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {visibleEntered.map((b, idx) => (
+                        <tr
+                          key={b.id}
+                          className={b.isAbsent ? 'bg-amber-50/70' : 'hover:bg-blue-50/50'}
+                        >
+                          <td className="py-2 px-3 text-center font-bold text-slate-600">
+                            {idx + 1}
+                          </td>
+                          <td className="py-2 px-3 font-sans font-bold text-slate-900">
+                            {b.name}
+                          </td>
+                          <td className="py-2 px-3 font-sans text-slate-700">
+                            {b.team || '—'}
+                          </td>
+                          {settings.entryMode === 'three' ? (
+                            <>
+                              <td className="py-2 px-3 text-right">{b.g1}</td>
+                              <td className="py-2 px-3 text-right">{b.g2}</td>
+                              <td className="py-2 px-3 text-right">{b.g3}</td>
+                              <td className="py-2 px-3 text-right font-semibold">
+                                {b.scratchScore}
+                              </td>
+                            </>
+                          ) : (
+                            <td className="py-2 px-3 text-right font-semibold">
+                              {b.scratchScore}
+                            </td>
+                          )}
+                          <td className="py-2 px-3 text-right text-slate-600">
+                            {b.isAbsent ? 0 : b.handicap}
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-blue-800">
+                            {b.grandTotal}
+                          </td>
+                          <td className="py-2 px-3 text-center font-sans text-[11px] font-bold">
+                            {b.isAbsent ? (
+                              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                ABSENT
+                              </span>
+                            ) : b.isSub ? (
+                              <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300">
+                                SUB
+                              </span>
+                            ) : (
+                              <span className="text-emerald-800">Active</span>
+                            )}
+                          </td>
+                          <td className="no-print py-2 px-3 text-right font-sans">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(b)}
+                                aria-label={`Edit ${b.name}`}
+                                className="px-2 py-1 text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteBowler(b.id)}
+                                aria-label={`Delete ${b.name}`}
+                                className="px-2 py-1 text-[11px] font-semibold bg-red-50 hover:bg-red-100 text-red-800 border border-red-300 rounded cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </div>
@@ -1300,8 +1359,8 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                 </div>
               </form>
 
-              <div className="overflow-x-auto border-2 border-slate-300 rounded-xl">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="quick-entry-table-scroll overflow-x-auto border-2 border-slate-300 rounded-xl">
+                <table className="quick-entry-active-table w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-300 text-slate-800">
                       <th className="py-2.5 px-4 font-bold">Bowler Name</th>
@@ -1310,7 +1369,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                       <th className="py-2.5 px-3 font-bold">Birthday</th>
                       <th className="py-2.5 px-3 font-bold text-right">Entering / Book Avg</th>
                       <th className="py-2.5 px-3 font-bold text-right">Computed Hdcp/Gm</th>
-                      <th className="py-2.5 px-4 font-bold text-right">Actions</th>
+                      <th className="no-print py-2.5 px-4 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
@@ -1341,7 +1400,7 @@ export const QuickEntryTab: React.FC<QuickEntryTabProps> = ({
                             <td className="py-2.5 px-3 text-right font-mono text-blue-700 font-semibold">
                               +{hdcpCalc.perGame} ({hdcpCalc.totalHandicap} series)
                             </td>
-                            <td className="py-2.5 px-4 text-right">
+                            <td className="no-print py-2.5 px-4 text-right">
                               <button
                                 type="button"
                                 onClick={() => setConfirmRemoveRosterPlayer(r)}

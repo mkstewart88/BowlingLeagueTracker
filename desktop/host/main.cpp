@@ -426,21 +426,25 @@ struct DesktopConfig {
 
 static DesktopConfig ReadDesktopConfig() {
   AutoCsLock lock(&g_configCs);
-  DesktopConfig cfg;
+  DesktopConfig bestCfg;
   std::wstring primary = g_installDir + L"\\bowling-desktop-config.json";
   std::wstring secondary = GetLocalAppDataConfigDirW() + L"\\bowling-desktop-config.json";
 
-  for (const auto& candidate : {primary, secondary}) {
+  for (const auto& candidate : {secondary, primary}) {
     std::string raw;
     if (ReadFileUtf8(candidate, raw)) {
-      ExtractJsonStringField(raw, "lastSaveFilePath", cfg.lastSaveFilePath);
-      ExtractJsonStringField(raw, "lastSavedAt", cfg.lastSavedAt);
-      if (!cfg.lastSaveFilePath.empty() || !cfg.lastSavedAt.empty()) {
-        return cfg;
+      DesktopConfig c;
+      ExtractJsonStringField(raw, "lastSaveFilePath", c.lastSaveFilePath);
+      ExtractJsonStringField(raw, "lastSavedAt", c.lastSavedAt);
+      if (!c.lastSaveFilePath.empty() && FileExistsW(Utf8ToWide(c.lastSaveFilePath))) {
+        return c;
+      }
+      if (bestCfg.lastSaveFilePath.empty() && (!c.lastSaveFilePath.empty() || !c.lastSavedAt.empty())) {
+        bestCfg = c;
       }
     }
   }
-  return cfg;
+  return bestCfg;
 }
 
 static void WriteDesktopConfig(const DesktopConfig& cfg) {
@@ -456,6 +460,29 @@ static void WriteDesktopConfig(const DesktopConfig& cfg) {
   AtomicWriteFileUtf8(localCfg, json);
 }
 
+static void WriteLocalAutoSaveCache(const std::string& jsonText) {
+  if (jsonText.empty()) return;
+  AtomicWriteFileUtf8(GetLocalAppDataConfigDirW() + L"\\autosave-state.json", jsonText);
+  AtomicWriteFileUtf8(g_installDir + L"\\autosave-state.json", jsonText);
+}
+
+static bool ReadLocalAutoSaveCache(std::string& outJson) {
+  for (const auto& path : {
+         GetLocalAppDataConfigDirW() + L"\\autosave-state.json",
+         g_installDir + L"\\autosave-state.json"
+       }) {
+    if (FileExistsW(path) && ReadFileUtf8(path, outJson) && !outJson.empty()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void ClearLocalAutoSaveCache() {
+  DeleteFileW((GetLocalAppDataConfigDirW() + L"\\autosave-state.json").c_str());
+  DeleteFileW((g_installDir + L"\\autosave-state.json").c_str());
+}
+
 static std::string ReadInstalledVersion() {
   std::string raw;
   if (ReadFileUtf8(g_installDir + L"\\version.json", raw)) {
@@ -464,7 +491,7 @@ static std::string ReadInstalledVersion() {
       return ver;
     }
   }
-  return "1.0.20";
+  return "1.0.21";
 }
 
 // ============================================================================
@@ -601,7 +628,7 @@ static void HandleHttpClient(SOCKET client) {
     buffer.append(temp, n);
     headerEnd = buffer.find("\r\n\r\n");
     if (headerEnd != std::string::npos) break;
-    if (buffer.size() > 65536) break;
+    if (buffer.size() > 262144) break;
   }
 
   if (headerEnd == std::string::npos) {
@@ -691,8 +718,13 @@ static void HandleHttpClient(SOCKET client) {
       g_autoSaveOnClose.store(false);
     }
     if (!body.empty()) {
-      AutoCsLock lock(&g_stagedCs);
-      g_stagedSavePayload = body;
+      {
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = body;
+      }
+      if (!g_hasUnsavedChanges.load() || g_autoSaveOnClose.load()) {
+        WriteLocalAutoSaveCache(body);
+      }
     }
     SendHttpResponse(client, 200, "OK", "application/json", "{\"ok\":true}");
     closesocket(client);
@@ -712,6 +744,9 @@ static void HandleHttpClient(SOCKET client) {
     } else if (!payloadToWrite.empty()) {
       AutoCsLock lock(&g_stagedCs);
       g_stagedSavePayload = payloadToWrite;
+    }
+    if (!payloadToWrite.empty()) {
+      WriteLocalAutoSaveCache(payloadToWrite);
     }
     if (!cfg.lastSaveFilePath.empty() && !payloadToWrite.empty()) {
       std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
@@ -784,30 +819,35 @@ static void HandleHttpClient(SOCKET client) {
     g_uiConnected.store(true);
     DesktopConfig cfg = ReadDesktopConfig();
     std::wstring targetWide = Utf8ToWide(cfg.lastSaveFilePath);
-    if (cfg.lastSaveFilePath.empty() || !FileExistsW(targetWide)) {
-      std::string resp = "{\"ok\":false,\"exists\":false,\"filePath\":" +
-        JsonEscape(cfg.lastSaveFilePath) + "}";
-      SendHttpResponse(client, 200, "OK", "application/json", resp);
-      closesocket(client);
-      return;
-    }
-
     std::string jsonText;
-    if (!ReadFileUtf8(targetWide, jsonText)) {
-      std::string resp = "{\"ok\":false,\"exists\":false,\"filePath\":" +
-        JsonEscape(cfg.lastSaveFilePath) +
-        ",\"error\":\"Could not read linked save file.\"}";
+
+    if (!cfg.lastSaveFilePath.empty() && FileExistsW(targetWide) && ReadFileUtf8(targetWide, jsonText) && !jsonText.empty()) {
+      {
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = jsonText;
+      }
+      WriteLocalAutoSaveCache(jsonText);
+      std::string resp = "{\"ok\":true,\"exists\":true,\"filePath\":" +
+        JsonEscape(cfg.lastSaveFilePath) + ",\"jsonText\":" + JsonEscape(jsonText) + "}";
       SendHttpResponse(client, 200, "OK", "application/json", resp);
       closesocket(client);
       return;
     }
 
-    if (!jsonText.empty()) {
-      AutoCsLock lock(&g_stagedCs);
-      g_stagedSavePayload = jsonText;
+    if (ReadLocalAutoSaveCache(jsonText) && !jsonText.empty()) {
+      {
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = jsonText;
+      }
+      std::string resp = "{\"ok\":true,\"exists\":true,\"filePath\":" +
+        JsonEscape(cfg.lastSaveFilePath) + ",\"jsonText\":" + JsonEscape(jsonText) + "}";
+      SendHttpResponse(client, 200, "OK", "application/json", resp);
+      closesocket(client);
+      return;
     }
-    std::string resp = "{\"ok\":true,\"exists\":true,\"filePath\":" +
-      JsonEscape(cfg.lastSaveFilePath) + ",\"jsonText\":" + JsonEscape(jsonText) + "}";
+
+    std::string resp = "{\"ok\":false,\"exists\":false,\"filePath\":" +
+      JsonEscape(cfg.lastSaveFilePath) + "}";
     SendHttpResponse(client, 200, "OK", "application/json", resp);
     closesocket(client);
     return;
@@ -838,8 +878,11 @@ static void HandleHttpClient(SOCKET client) {
     }
 
     if (!jsonText.empty()) {
-      AutoCsLock lock(&g_stagedCs);
-      g_stagedSavePayload = jsonText;
+      {
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = jsonText;
+      }
+      WriteLocalAutoSaveCache(jsonText);
     }
     g_hasUnsavedChanges.store(false);
     std::string savedAt = CurrentIsoTimestamp();
@@ -856,6 +899,7 @@ static void HandleHttpClient(SOCKET client) {
   // ---- Route: Unlink Last Save File On Start Fresh Reset ----
   if (method == "POST" && path == "/api/desktop/clear-save-link") {
     WriteDesktopConfig({"", ""});
+    ClearLocalAutoSaveCache();
     g_hasUnsavedChanges.store(false);
     {
       AutoCsLock lock(&g_stagedCs);
@@ -896,8 +940,11 @@ static void HandleHttpClient(SOCKET client) {
     }
 
     if (!jsonText.empty()) {
-      AutoCsLock lock(&g_stagedCs);
-      g_stagedSavePayload = jsonText;
+      {
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = jsonText;
+      }
+      WriteLocalAutoSaveCache(jsonText);
     }
     g_hasUnsavedChanges.store(false);
     std::string chosenUtf8 = WideToUtf8(chosenPath);
@@ -1085,6 +1132,14 @@ static void HandleHttpClient(SOCKET client) {
         stateToInject = savedJson;
         AutoCsLock lock(&g_stagedCs);
         g_stagedSavePayload = savedJson;
+      }
+    }
+    if (stateToInject.empty()) {
+      std::string cachedJson;
+      if (ReadLocalAutoSaveCache(cachedJson) && !cachedJson.empty()) {
+        stateToInject = cachedJson;
+        AutoCsLock lock(&g_stagedCs);
+        g_stagedSavePayload = cachedJson;
       }
     }
     if (!stateToInject.empty()) {
@@ -1449,8 +1504,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
           bool isDirty = g_hasUnsavedChanges.load();
           bool autoSaveOnClose = g_autoSaveOnClose.load();
 
-          if (autoSaveOnClose && saveFileExists && !staged.empty() &&
+          if (!isDirty && autoSaveOnClose && saveFileExists && !staged.empty() &&
               AtomicWriteFileUtf8(targetWide, staged)) {
+            WriteLocalAutoSaveCache(staged);
             WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
             g_hasUnsavedChanges.store(false);
             g_allowClose.store(true);
@@ -1482,6 +1538,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
               MB_YESNOCANCEL | MB_ICONWARNING | MB_DEFBUTTON1);
             if (choice == IDYES) {
               if (saveFileExists && !staged.empty() && AtomicWriteFileUtf8(targetWide, staged)) {
+                WriteLocalAutoSaveCache(staged);
                 WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
                 g_hasUnsavedChanges.store(false);
                 g_allowClose.store(true);
@@ -1493,6 +1550,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                                                GetDocumentsDirW(),
                                                L"BowlingLeagueTrackerSave.json", chosenPath)) {
                 if (!staged.empty() && AtomicWriteFileUtf8(chosenPath, staged)) {
+                  WriteLocalAutoSaveCache(staged);
                   WriteDesktopConfig({WideToUtf8(chosenPath), CurrentIsoTimestamp()});
                   g_hasUnsavedChanges.store(false);
                   g_allowClose.store(true);
@@ -1582,9 +1640,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
       bool isDirty = g_hasUnsavedChanges.load();
       bool autoSaveOnClose = g_autoSaveOnClose.load();
 
-      // 1. If Auto-Backup is set to "On Closing Program" and the save file exists, auto-save and exit cleanly
-      if (autoSaveOnClose && saveFileExists) {
+      // 1. If no unsaved changes are pending and Auto-Backup is set to "On Closing Program" with an existing save file, sync and exit cleanly
+      if (!isDirty && autoSaveOnClose && saveFileExists) {
         if (AtomicWriteFileUtf8(targetWide, staged)) {
+          WriteLocalAutoSaveCache(staged);
           WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
           g_hasUnsavedChanges.store(false);
           g_allowClose.store(true);
@@ -1632,6 +1691,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (choice == IDYES) {
           // If a linked save file already exists on disk, save directly to it and close!
           if (saveFileExists && AtomicWriteFileUtf8(targetWide, staged)) {
+            WriteLocalAutoSaveCache(staged);
             WriteDesktopConfig({cfg.lastSaveFilePath, CurrentIsoTimestamp()});
             g_hasUnsavedChanges.store(false);
             g_allowClose.store(true);
@@ -1650,6 +1710,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                                            startDir,
                                            L"BowlingLeagueTrackerSave.json", chosenPath)) {
             if (AtomicWriteFileUtf8(chosenPath, staged)) {
+              WriteLocalAutoSaveCache(staged);
               WriteDesktopConfig({WideToUtf8(chosenPath), CurrentIsoTimestamp()});
               g_hasUnsavedChanges.store(false);
               g_allowClose.store(true);

@@ -1,8 +1,8 @@
 {
   "appName": "Bowling League Helper",
-  "latestVersion": "1.0.20",
+  "latestVersion": "1.0.21",
   "releaseDate": "November 15, 2026",
-  "title": "In-Place Window Update, Unsaved-Changes Close Prompt, \"On Closing Program\" Auto-Backup & Top-to-Bottom BLS 2026 Workflow",
+  "title": "Cross-Port Cookie Vault Persistence, Guaranteed Save Prompt on Close & Print-Ready Active Tables",
   "htmlBundlePath": "BowlingLeagueHelper.html",
   "fallbackHtmlPaths": [
     "public/BowlingLeagueHelper.html",
@@ -11,10 +11,39 @@
   ],
   "releases": [
     {
+      "version": "1.0.21",
+      "date": "November 15, 2026",
+      "title": "Cross-Port Cookie Vault Persistence, Guaranteed Save Prompt on Close & Print-Ready Active Tables",
+      "isLatest": true,
+      "highlights": [
+        "Guaranteed Data Restoration on Reopen (Even Across Random Localhost Ports): Added a cross-port 127.0.0.1 Cookie Vault, local disk autosave cache, and embedded HTML state hydration so reopening the program always restores 100% of your saved leagues, scores, and rosters—even on older v1.0.14/v1.0.15 desktop hosts.",
+        "Guaranteed Save Prompt on Closing Program: Fixed window close handling so closing the window with unsaved changes always prompts to Save Changes & Close, Save As, Don't Save, or Cancel in both \"Manual Only — Prompt on Close\" and \"On Closing Program\" modes, plus added 1-click Open and Exit buttons to the top bar.",
+        "Print-Ready Quick Entry Active Table & Standing Sheet: Converted Step 2C in Quick Score Entry into a structured active table and added @media print styles in src/index.css so Quick Score Entry tables and the Standing Sheet print cleanly with repeating headers and Weekly High Scores."
+      ],
+      "changes": [
+        {
+          "category": "Data & Backup",
+          "description": "Added a RFC 6265 cross-port 127.0.0.1 Cookie Vault (blh_v_*) and local disk autosave-state.json cache so saved league data is restored immediately on startup even when an older BowlingLeagueHelper.exe binds to a new random port."
+        },
+        {
+          "category": "Data & Backup",
+          "description": "Fixed beforeunload and close-save handlers so closing the window with unsaved changes always intercepts closing and prompts to save in both \"Manual Only — Prompt on Close\" and \"On Closing Program\" modes."
+        },
+        {
+          "category": "New Feature",
+          "description": "Added 1-click Open and Exit buttons beside Save and Update in the top navigation bar, and embedded current league data into BowlingLeagueHelper.html during Update & Restart."
+        },
+        {
+          "category": "Improvement",
+          "description": "Added print and screen table styles in src/index.css (.quick-entry-active-table and .standing-sheet-table) and added a Weekly High Scores & Achievements table to the printed Standing Sheet."
+        }
+      ]
+    },
+    {
       "version": "1.0.20",
       "date": "November 15, 2026",
       "title": "In-Place Window Update, Unsaved-Changes Close Prompt, \"On Closing Program\" Auto-Backup & Top-to-Bottom BLS 2026 Workflow",
-      "isLatest": true,
+      "isLatest": false,
       "highlights": [
         "Single-Window In-Place Update & Restart: Updating now replaces the running window directly in-place (with Win32 EnumWindows cleanup for older hosts) so the old version window never stays open alongside the new version.",
         "Unsaved-Changes Close Prompt & \"On Closing Program\" Auto-Backup Option: Added \"On Closing Program\" to Automatic Backup settings (Tab 5C). When not enabled, closing after making a change prompts you to Save Changes & Close, Don't Save, or Cancel.",

@@ -43,10 +43,17 @@ import {
 } from './utils/fileExport';
 import { getDesktopBridge, serializeMasterSavePayload } from './utils/desktopBridge';
 import {
+  clearCookieVault,
+  hasMeaningfulLeagueData,
+  loadStateFromCookieVault,
+  saveStateToCookieVault,
+} from './utils/cookieVault';
+import {
   RefreshCw,
   Calendar,
   LogOut,
   Save,
+  FolderOpen,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'bowling_league_helper_state_v5';
@@ -168,36 +175,117 @@ function autoPopulateDownstreamModules(
   };
 }
 
-export default function App() {
-  const [appState, setAppState] = useState<AppState>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const embeddedScript =
-        typeof document !== 'undefined'
-          ? document.getElementById('embedded-league-state')?.textContent
-          : null;
-      const rawSource = saved || embeddedScript;
-      if (rawSource) {
-        const parsed = JSON.parse(rawSource);
-        const { restoredState } = parseUniversalBackupPayload(
-          rawSource,
-          createFreshInitialState()
-        );
-        const hasRegistry = Boolean(parsed && typeof parsed.allLeaguesRegistry === 'object');
-        return syncActiveLeagueInRegistry({
-          ...restoredState,
-          version: CURRENT_APP_VERSION,
-          allLeaguesRegistry: hasRegistry ? restoredState.allLeaguesRegistry : undefined,
-        });
-      }
-    } catch (e) {
-      console.warn('Could not load saved bowling state, starting with a clean league.', e);
-    }
-    return createFreshInitialState();
-  });
+function extractStateTimestamp(raw: unknown, state: AppState): number {
+  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (typeof obj.__vaultSavedAt === 'number' && obj.__vaultSavedAt > 0) {
+    return obj.__vaultSavedAt;
+  }
+  if (typeof obj.exportedAt === 'string') {
+    const t = Date.parse(obj.exportedAt);
+    if (!Number.isNaN(t)) return t;
+  }
+  const localTs = state.settings?.lastLocalBackupAt
+    ? Date.parse(state.settings.lastLocalBackupAt)
+    : NaN;
+  if (!Number.isNaN(localTs)) return localTs;
+  const autoTs = state.settings?.lastAutoBackupAt
+    ? Date.parse(state.settings.lastAutoBackupAt)
+    : NaN;
+  if (!Number.isNaN(autoTs)) return autoTs;
+  return 0;
+}
 
+function resolveBestInitialState(): { state: AppState; dirty: boolean } {
+  interface Candidate {
+    state: AppState;
+    meaningful: boolean;
+    timestamp: number;
+    dirty: boolean;
+    priority: number;
+  }
+
+  const candidates: Candidate[] = [];
+
+  const tryAddRawJson = (rawJson: string | null | undefined, priority: number, dirtyFlag = false) => {
+    if (!rawJson) return;
+    try {
+      const parsed = JSON.parse(rawJson);
+      const { restoredState } = parseUniversalBackupPayload(
+        rawJson,
+        createFreshInitialState()
+      );
+      const hasRegistry = Boolean(parsed && typeof parsed.allLeaguesRegistry === 'object');
+      const synced = syncActiveLeagueInRegistry({
+        ...restoredState,
+        version: CURRENT_APP_VERSION,
+        allLeaguesRegistry: hasRegistry ? restoredState.allLeaguesRegistry : undefined,
+      });
+      candidates.push({
+        state: synced,
+        meaningful: hasMeaningfulLeagueData(synced),
+        timestamp: extractStateTimestamp(parsed, synced),
+        dirty: dirtyFlag || Boolean(parsed && parsed.__vaultDirty === 1),
+        priority,
+      });
+    } catch {
+      // Ignore malformed candidate
+    }
+  };
+
+  // 1. Check embedded-league-state script injected into HTML
+  if (typeof document !== 'undefined') {
+    const embeddedScript = document.getElementById('embedded-league-state')?.textContent;
+    tryAddRawJson(embeddedScript, 3);
+  }
+
+  // 2. Check port-agnostic 127.0.0.1 Cookie Vault (survives random port changes across launches)
+  const vaultSnap = loadStateFromCookieVault();
+  if (vaultSnap) {
+    candidates.push({
+      state: syncActiveLeagueInRegistry(vaultSnap.state),
+      meaningful: hasMeaningfulLeagueData(vaultSnap.state),
+      timestamp: vaultSnap.savedAt,
+      dirty: vaultSnap.dirty,
+      priority: 4,
+    });
+  }
+
+  // 3. Check localStorage keys
+  if (typeof localStorage !== 'undefined') {
+    tryAddRawJson(localStorage.getItem(STORAGE_KEY), 2);
+    tryAddRawJson(localStorage.getItem('bowling_league_helper_state_v4'), 1);
+  }
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => {
+      if (a.meaningful !== b.meaningful) {
+        return a.meaningful ? -1 : 1;
+      }
+      if (a.timestamp !== b.timestamp) {
+        return b.timestamp - a.timestamp;
+      }
+      return b.priority - a.priority;
+    });
+    const winner = candidates[0];
+    return { state: winner.state, dirty: winner.dirty };
+  }
+
+  return { state: createFreshInitialState(), dirty: false };
+}
+
+export default function App() {
+  const initialBootRef = React.useRef<{ state: AppState; dirty: boolean } | null>(null);
+  if (!initialBootRef.current) {
+    initialBootRef.current = resolveBestInitialState();
+  }
+
+  const [appState, setAppState] = useState<AppState>(() => initialBootRef.current!.state);
   const [undoStack, setUndoStack] = useState<AppState[]>([]);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(
+    () => initialBootRef.current!.dirty
+  );
+  const lastSavedSnapshotRef = React.useRef<AppState>(initialBootRef.current!.state);
+  const openFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('entry');
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
@@ -309,35 +397,49 @@ export default function App() {
                     res.filePath || restoredState.settings.autoBackupDirectoryLabel,
                 },
               });
+
+              const diskTs = extractStateTimestamp(parsedRaw, loaded);
+              const vaultSnap = loadStateFromCookieVault();
+              const currentHasNewerVaultData =
+                vaultSnap &&
+                hasMeaningfulLeagueData(vaultSnap.state) &&
+                vaultSnap.savedAt > diskTs + 2000;
+
               initialLoadCompleteRef.current = true;
-              setAppState(loaded);
-              setUndoStack([]);
-              setHasUnsavedChanges(false);
-              hasUnsavedChangesRef.current = false;
               desktopLastSaveExistsRef.current = true;
               desktopLastSavePathRef.current = res.filePath || null;
-              const autoSaveOnClose =
-                loaded.settings.autoBackupEnabled !== false &&
-                loaded.settings.autoBackupInterval === 'on_close';
-              bridge
-                .stageSavePayload?.(serializeMasterSavePayload(loaded), {
-                  dirty: false,
-                  autoSaveOnClose,
-                })
-                .catch(() => {});
-              setToast({
-                message: `Opened save file "${res.filePath || 'BowlingLeagueTrackerSave.json'}".`,
-                isError: false,
-              });
-              return;
+
+              if (!currentHasNewerVaultData && (hasMeaningfulLeagueData(loaded) || !hasMeaningfulLeagueData(appStateRef.current))) {
+                lastSavedSnapshotRef.current = loaded;
+                setAppState(loaded);
+                setUndoStack([]);
+                setHasUnsavedChanges(false);
+                hasUnsavedChangesRef.current = false;
+                saveStateToCookieVault(loaded, false);
+                const autoSaveOnClose =
+                  loaded.settings.autoBackupEnabled !== false &&
+                  loaded.settings.autoBackupInterval === 'on_close';
+                bridge
+                  .stageSavePayload?.(serializeMasterSavePayload(loaded), {
+                    dirty: false,
+                    autoSaveOnClose,
+                  })
+                  .catch(() => {});
+                setToast({
+                  message: `Opened save file "${res.filePath || 'BowlingLeagueTrackerSave.json'}".`,
+                  isError: false,
+                });
+                return;
+              }
             } catch (err) {
               console.warn('Could not parse linked save file on startup:', err);
             }
           }
           initialLoadCompleteRef.current = true;
+          saveStateToCookieVault(appStateRef.current, hasUnsavedChangesRef.current);
           bridge
             .stageSavePayload?.(serializeMasterSavePayload(appStateRef.current), {
-              dirty: false,
+              dirty: hasUnsavedChangesRef.current,
               autoSaveOnClose:
                 appStateRef.current.settings.autoBackupEnabled !== false &&
                 appStateRef.current.settings.autoBackupInterval === 'on_close',
@@ -346,9 +448,10 @@ export default function App() {
         })
         .catch(() => {
           initialLoadCompleteRef.current = true;
+          saveStateToCookieVault(appStateRef.current, hasUnsavedChangesRef.current);
           bridge
             .stageSavePayload?.(serializeMasterSavePayload(appStateRef.current), {
-              dirty: false,
+              dirty: hasUnsavedChangesRef.current,
               autoSaveOnClose:
                 appStateRef.current.settings.autoBackupEnabled !== false &&
                 appStateRef.current.settings.autoBackupInterval === 'on_close',
@@ -357,9 +460,10 @@ export default function App() {
         });
     } else {
       initialLoadCompleteRef.current = true;
+      saveStateToCookieVault(appStateRef.current, hasUnsavedChangesRef.current);
       bridge
         .stageSavePayload?.(serializeMasterSavePayload(appStateRef.current), {
-          dirty: false,
+          dirty: hasUnsavedChangesRef.current,
           autoSaveOnClose:
             appStateRef.current.settings.autoBackupEnabled !== false &&
             appStateRef.current.settings.autoBackupInterval === 'on_close',
@@ -394,7 +498,25 @@ export default function App() {
           appStateRef.current.settings.autoBackupInterval === 'on_close';
         const isDirty = hasUnsavedChangesRef.current;
 
-        // 1. If Auto-Backup is set to "On Closing Program", attempt automatic save on close
+        // Whenever the user made changes since their last save, prompt them to confirm saving before closing!
+        if (isDirty) {
+          setCloseModalState({
+            isOpen: true,
+            promptMode: 'unsaved_changes',
+            hasExistingSaveFile:
+              desktopLastSaveExistsRef.current || hasConnectedAutoBackupHandle(),
+            missingPath:
+              desktopLastSavePathRef.current ||
+              appStateRef.current.settings.autoBackupDirectoryLabel ||
+              null,
+            reason:
+              'You made changes to your league since your last save. Would you like to save before closing?',
+            isBusy: false,
+          });
+          return;
+        }
+
+        // If Auto-Backup is set to "On Closing Program", verify and save to the linked file before closing
         if (autoSaveOnClose) {
           const result = await verifyAndSaveBeforeClose(appStateRef.current);
           if (result.ok) {
@@ -411,24 +533,7 @@ export default function App() {
           return;
         }
 
-        // 2. If changes were made and Auto-Backup is NOT set to "On Closing Program", prompt to save!
-        if (isDirty) {
-          setCloseModalState({
-            isOpen: true,
-            promptMode: 'unsaved_changes',
-            hasExistingSaveFile: desktopLastSaveExistsRef.current,
-            missingPath:
-              desktopLastSavePathRef.current ||
-              appStateRef.current.settings.autoBackupDirectoryLabel ||
-              null,
-            reason:
-              'You made changes to your league since your last save. Would you like to save before closing?',
-            isBusy: false,
-          });
-          return;
-        }
-
-        // 3. No unsaved changes: close cleanly
+        // No unsaved changes: close cleanly
         closeHandledCleanlyRef.current = true;
         await forceCloseProgramWithoutSaving();
       } catch {
@@ -443,13 +548,16 @@ export default function App() {
       ) {
         return;
       }
-      const payload = serializeMasterSavePayload(appStateRef.current);
+      const current = syncActiveLeagueInRegistry(appStateRef.current);
+      const payload = serializeMasterSavePayload(current);
       const autoSaveOnClose =
-        appStateRef.current.settings.autoBackupEnabled !== false &&
-        appStateRef.current.settings.autoBackupInterval === 'on_close';
+        current.settings.autoBackupEnabled !== false &&
+        current.settings.autoBackupInterval === 'on_close';
       const isDirty = hasUnsavedChangesRef.current;
 
-      // Only silently overwrite save file on unload if "On Closing Program" is enabled
+      // Always keep the port-agnostic Cookie Vault up to date on window unload so nothing is ever lost on reopen!
+      saveStateToCookieVault(current, isDirty && !autoSaveOnClose);
+
       if (
         autoSaveOnClose &&
         desktopLastSaveExistsRef.current &&
@@ -477,7 +585,7 @@ export default function App() {
     };
   }, []);
 
-  // Browser beforeunload guard when unsaved changes exist in standard browser mode
+  // Window beforeunload guard: ALWAYS prompt when unsaved changes exist (both in Edge --app desktop mode and browser mode!)
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (
@@ -486,41 +594,84 @@ export default function App() {
       ) {
         return;
       }
-      if (!getDesktopBridge() && hasUnsavedChangesRef.current) {
+      const current = syncActiveLeagueInRegistry(appStateRef.current);
+      const autoSaveOnClose =
+        current.settings.autoBackupEnabled !== false &&
+        current.settings.autoBackupInterval === 'on_close';
+      const hasSaveTarget =
+        desktopLastSaveExistsRef.current || hasConnectedAutoBackupHandle();
+
+      // Persist immediately to port-agnostic Cookie Vault so even if user clicks "Leave", their data is safe
+      saveStateToCookieVault(current, hasUnsavedChangesRef.current);
+
+      if (hasUnsavedChangesRef.current || (autoSaveOnClose && !hasSaveTarget && hasMeaningfulLeagueData(current))) {
+        setCloseModalState({
+          isOpen: true,
+          promptMode: hasUnsavedChangesRef.current ? 'unsaved_changes' : 'missing_file',
+          hasExistingSaveFile: hasSaveTarget,
+          missingPath:
+            desktopLastSavePathRef.current ||
+            current.settings.autoBackupDirectoryLabel ||
+            null,
+          reason:
+            'You made changes to your league since your last save. Would you like to save before closing?',
+          isBusy: false,
+        });
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = 'You have unsaved changes. Would you like to save before closing?';
+        return 'You have unsaved changes. Would you like to save before closing?';
       }
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, []);
 
-  // Sync to localStorage and stage latest desktop save payload on every state change
+  // Sync to localStorage, port-agnostic Cookie Vault, and desktop host on every state change
   useEffect(() => {
-    if (!initialLoadCompleteRef.current) return;
     try {
       const synced = syncActiveLeagueInRegistry(appState);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
-      localStorage.setItem('bowling_league_helper_state_v4', JSON.stringify(synced));
-      localStorage.setItem('tnr_bowling_tracker_v3', JSON.stringify(synced));
+      const serialized = JSON.stringify(synced);
+      localStorage.setItem(STORAGE_KEY, serialized);
+      localStorage.setItem('bowling_league_helper_state_v4', serialized);
+      localStorage.setItem('tnr_bowling_tracker_v3', serialized);
+      saveStateToCookieVault(synced, hasUnsavedChanges);
+
+      if (!hasUnsavedChanges) {
+        lastSavedSnapshotRef.current = synced;
+      }
+
+      if (!initialLoadCompleteRef.current) return;
 
       const bridge = getDesktopBridge();
-      if (bridge?.stageSavePayload) {
+      if (bridge) {
         const autoSaveOnClose =
           synced.settings.autoBackupEnabled !== false &&
           synced.settings.autoBackupInterval === 'on_close';
+        const masterPayload = serializeMasterSavePayload(synced);
+
         const stageTimer = setTimeout(() => {
           bridge
-            .stageSavePayload?.(serializeMasterSavePayload(synced), {
+            .stageSavePayload?.(masterPayload, {
               dirty: hasUnsavedChanges,
               autoSaveOnClose,
             })
             .catch(() => {});
-        }, 120);
+
+          // If Auto-Backup is set to "On Closing Program" or "On Every Change" and a save file is linked on disk, keep the disk file synced automatically
+          if (
+            synced.settings.autoBackupEnabled !== false &&
+            (synced.settings.autoBackupInterval === 'on_close' ||
+              synced.settings.autoBackupInterval === 'on_change') &&
+            desktopLastSaveExistsRef.current &&
+            typeof bridge.quickSaveToCurrentFile === 'function'
+          ) {
+            bridge.quickSaveToCurrentFile(masterPayload).catch(() => {});
+          }
+        }, 80);
         return () => clearTimeout(stageTimer);
       }
     } catch (e) {
-      console.error('Failed to persist state to localStorage:', e);
+      console.error('Failed to persist state to storage mirrors:', e);
     }
   }, [appState, hasUnsavedChanges]);
 
@@ -914,8 +1065,16 @@ export default function App() {
           String(reader.result),
           appState
         );
+        const synced = syncActiveLeagueInRegistry({
+          ...restoredState,
+          version: CURRENT_APP_VERSION,
+        });
         pushUndoState(appState);
-        setAppState(syncActiveLeagueInRegistry(restoredState));
+        lastSavedSnapshotRef.current = synced;
+        setHasUnsavedChanges(false);
+        hasUnsavedChangesRef.current = false;
+        saveStateToCookieVault(synced, false);
+        setAppState(synced);
         showToast(summary, false, true);
       } catch (err: unknown) {
         showToast(
@@ -1140,6 +1299,7 @@ export default function App() {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('bowling_league_helper_state_v4');
       localStorage.removeItem('tnr_bowling_tracker_v3');
+      clearCookieVault();
     } catch {
       // Ignore storage removal errors
     }
@@ -1149,6 +1309,7 @@ export default function App() {
     hasUnsavedChangesRef.current = false;
     getDesktopBridge()?.clearLastSaveLink?.().catch(() => {});
     const fresh = createFreshInitialState();
+    lastSavedSnapshotRef.current = fresh;
     setUndoStack([]);
     setAppState(fresh);
     setActiveTab('entry');
@@ -1163,16 +1324,19 @@ export default function App() {
       desktopLastSavePathRef.current = locationLabel;
     }
     const nowIso = new Date().toISOString();
-    setAppState((prev) =>
-      syncActiveLeagueInRegistry({
+    setAppState((prev) => {
+      const next = syncActiveLeagueInRegistry({
         ...prev,
         settings: {
           ...prev.settings,
           ...(kind === 'local' ? { lastLocalBackupAt: nowIso } : { lastAutoBackupAt: nowIso }),
           ...(locationLabel ? { autoBackupDirectoryLabel: locationLabel } : {}),
         },
-      })
-    );
+      });
+      lastSavedSnapshotRef.current = next;
+      saveStateToCookieVault(next, false);
+      return next;
+    });
   };
 
   const handleQuickSave = async () => {
@@ -1203,12 +1367,8 @@ export default function App() {
     compareSemverVersions(latestAvailableVersion, CURRENT_APP_VERSION) > 0;
 
   const handleSafeExitProgram = async () => {
-    const autoSaveOnClose =
-      appStateRef.current.settings.autoBackupEnabled !== false &&
-      appStateRef.current.settings.autoBackupInterval === 'on_close';
-
-    // If the user has unsaved changes and Auto-Backup is NOT set to "On Closing Program", prompt them!
-    if (hasUnsavedChangesRef.current && !autoSaveOnClose) {
+    // Always prompt if the user made changes since their last save (whether in Manual Only or On Closing Program mode)
+    if (hasUnsavedChangesRef.current) {
       setCloseModalState({
         isOpen: true,
         promptMode: 'unsaved_changes',
@@ -1222,6 +1382,21 @@ export default function App() {
           'You made changes to your league since your last save. Would you like to save before closing?',
         isBusy: false,
       });
+      return;
+    }
+
+    const autoSaveOnClose =
+      appStateRef.current.settings.autoBackupEnabled !== false &&
+      appStateRef.current.settings.autoBackupInterval === 'on_close';
+
+    if (!autoSaveOnClose && (desktopLastSaveExistsRef.current || !hasMeaningfulLeagueData(appStateRef.current))) {
+      closeHandledCleanlyRef.current = true;
+      await forceCloseProgramWithoutSaving();
+      if (!getDesktopBridge()) {
+        showToast('All changes are already saved. Ready to close safely.');
+      } else {
+        window.close();
+      }
       return;
     }
 
@@ -1329,6 +1504,18 @@ export default function App() {
     closeHandledCleanlyRef.current = true;
     setHasUnsavedChanges(false);
     hasUnsavedChangesRef.current = false;
+    // Revert storage mirrors to the last explicitly saved snapshot so discarded edits do not persist
+    try {
+      const reverted = syncActiveLeagueInRegistry(lastSavedSnapshotRef.current);
+      const raw = JSON.stringify(reverted);
+      localStorage.setItem(STORAGE_KEY, raw);
+      localStorage.setItem('bowling_league_helper_state_v4', raw);
+      localStorage.setItem('tnr_bowling_tracker_v3', raw);
+      saveStateToCookieVault(reverted, false);
+      setAppState(reverted);
+    } catch {
+      // Ignore storage error
+    }
     setCloseModalState((prev) => ({ ...prev, isBusy: true }));
     await forceCloseProgramWithoutSaving();
     closeInFlightRef.current = false;
@@ -1341,7 +1528,7 @@ export default function App() {
       isBusy: false,
     });
     if (!getDesktopBridge()) {
-      showToast('Closed without saving changes to disk.');
+      showToast('Discarded unsaved changes and reverted to last saved state.');
     } else {
       window.close();
     }
@@ -1444,8 +1631,30 @@ export default function App() {
             </button>
           </nav>
 
-          {/* Zone 3: Quick Save & Update Actions */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Zone 3: Open, Quick Save, Update & Exit Actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            <input
+              ref={openFileInputRef}
+              type="file"
+              accept=".json,.html,.htm,.csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleImportBackupJson(file);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => openFileInputRef.current?.click()}
+              title="Open an existing BowlingLeagueTrackerSave.json or backup file"
+              className="px-3 py-2 text-xs font-bold text-slate-100 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span>Open</span>
+            </button>
             <button
               type="button"
               onClick={handleQuickSave}
@@ -1475,6 +1684,15 @@ export default function App() {
               <span>
                 v{appState.version} · {hasAvailableUpdate ? `Update to v${latestAvailableVersion}` : 'Updates & Patch Notes'}
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSafeExitProgram}
+              title="Save & Close Bowling League Helper"
+              className="px-3 py-2 text-xs font-bold text-slate-200 bg-slate-800 hover:bg-red-900/80 hover:text-white border border-slate-700 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Exit</span>
             </button>
           </div>
         </div>
