@@ -11,8 +11,8 @@ import {
   WeeklyDuesRecord,
 } from '../types/bowling';
 
-export const CURRENT_APP_VERSION = '1.0.14';
-export const LATEST_AVAILABLE_VERSION = '1.0.14';
+export const CURRENT_APP_VERSION = '1.0.15';
+export const LATEST_AVAILABLE_VERSION = '1.0.15';
 
 export const DEFAULT_SETTINGS: LeagueSettings = {
   leagueId: 'my-bowling-league',
@@ -67,10 +67,31 @@ export const DEFAULT_SETTINGS: LeagueSettings = {
 
 export const PATCH_NOTES_HISTORY: PatchRelease[] = [
   {
+    version: '1.0.15',
+    date: 'November 14, 2026',
+    title: 'Top-Bar Quick Save Button, Auto-Load Save File on Startup & 1.0.15 Stability',
+    isLatest: true,
+    highlights: [
+      'Top-Bar Quick Save Button: Added a persistent Save button right next to the update button in the top navigation bar for 1-click saving.',
+      'Auto-Load Linked Save File on Startup: Automatically loads and opens your linked BowlingLeagueTrackerSave.json file on launch so you pick up right where you left off.',
+      'Enhanced Desktop & Updater Stability: Automatic safe-saving when applying updates and improved process cleanup across Windows and Linux.',
+    ],
+    changes: [
+      {
+        category: 'New Feature',
+        description: 'Added a top-bar Quick Save button to instantly overwrite your linked save file without opening dialogs.',
+      },
+      {
+        category: 'Improvement',
+        description: 'Automatically detects and loads your previously linked BowlingLeagueTrackerSave.json file on application startup.',
+      },
+    ],
+  },
+  {
     version: '1.0.14',
     date: 'November 14, 2026',
     title: 'Desktop Program (Windows 11 & Linux), Auto-Save on Close, Week Notes & Print to PDF',
-    isLatest: true,
+    isLatest: false,
     highlights: [
       'Desktop Program & Installer (Windows 11 installer.exe + Linux installer): Installs to C:\\BowlingLeagueHelper\\ on Windows 11 or ~/BowlingLeagueHelper/ on Linux with a custom Bowling Ball & Pins desktop icon.',
       'Auto-Save on Closing (BowlingLeagueTrackerSave.json): Launches cleanly as a single window and automatically updates BowlingLeagueTrackerSave.json on close—or pauses with a Save / Don\'t Save prompt if no save file is found.',
